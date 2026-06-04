@@ -1,26 +1,197 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* =============================================
+   CRITICAL: Tell Tailwind v4 that dark: classes
+   should be driven by the .dark CSS class on <html>
+   (not @media prefers-color-scheme).
+   This makes dark: utilities work across ALL browsers
+   regardless of OS theme setting.
+   ============================================= */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-kanit), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* =============================================
+   LIGHT MODE TOKENS
+   ─ 3-tier background system:
+     base (page)   = slate-200  #e2e8f0   ← clearly dark vs white cards
+     surface (card)= white      #ffffff   ← pops out against page bg
+     elevated      = slate-100  #f1f5f9   ← clearly darker than surface,
+                                            used for inset/code/badge areas
+   ─ borders are slate-300/400 so they read on white
+   ─ muted text is slate-600 (not 500) for stronger readability
+   ============================================= */
+:root {
+  /* page background */
+  --bg-base:        #dde3ec;   /* between slate-200–300: clear contrast vs white */
+  --bg-surface:     #ffffff;   /* pure white cards — stands out clearly on base   */
+  --bg-elevated:    #eef2f7;   /* slate-150 approx — inset panels on white cards   */
+
+  /* text — all pass WCAG AA on white surface */
+  --text-primary:   #0f172a;   /* slate-900 — 18:1 on white  */
+  --text-secondary: #1e293b;   /* slate-800 — 14:1 on white  */
+  --text-muted:     #475569;   /* slate-600 — 7.5:1 on white (bumped from 500)    */
+  --text-faint:     #64748b;   /* slate-500 — 4.6:1 on white (only for decorative) */
+
+  /* borders — visible on white surface */
+  --border-base:    #94a3b8;   /* slate-400 — clear, visible divider on white */
+  --border-subtle:  #cbd5e1;   /* slate-300 — lighter but still clearly readable  */
+
+  /* glass (header, mobile menu) */
+  --glass-bg:       rgba(255,255,255,0.88);
+  --glass-border:   rgba(148,163,184,0.55); /* slate-400 @55% — visible header border */
+
+  /* accent colors */
+  --color-accent:      #4f46e5; /* indigo-600 */
+  --color-accent-hover:#4338ca; /* indigo-700 */
+  --color-accent-bg:   rgba(79,70,229,0.1);
 }
 
+/* =============================================
+   DARK MODE TOKENS
+   ─ base = near-black, surface = gray-900, elevated = slate-800
+   ─ all text ≥ slate-300 so it reads on gray-900 background
+   ─ borders bumped to slate-600/700 so they're visible on dark cards
+   ============================================= */
+.dark {
+  /* page background */
+  --bg-base:        #070c18;   /* deeper near-black */
+  --bg-surface:     #111827;   /* gray-900 — cards clearly lighter than base */
+  --bg-elevated:    #1e293b;   /* slate-800 — inset panels, badges, code blocks */
+
+  /* text — all pass WCAG AA on gray-900 (#111827) surface */
+  --text-primary:   #f8fafc;   /* slate-50  — 17:1 on gray-900 */
+  --text-secondary: #e2e8f0;   /* slate-200 — 12:1 on gray-900 */
+  --text-muted:     #cbd5e1;   /* slate-300 —  8:1 on gray-900 (was 400 — too dim) */
+  --text-faint:     #94a3b8;   /* slate-400 —  5:1 on gray-900 (decorative only) */
+
+  /* borders — clearly visible on dark surface */
+  --border-base:    #475569;   /* slate-600 — strong divider, clearly visible */
+  --border-subtle:  #334155;   /* slate-700 — light divider, still readable */
+
+  /* glass (header, mobile menu) */
+  --glass-bg:       rgba(7,12,24,0.90);
+  --glass-border:   rgba(255,255,255,0.12); /* slightly brighter for visible header border */
+
+  /* accent colors */
+  --color-accent:      #818cf8; /* indigo-400 */
+  --color-accent-hover:#a5b4fc; /* indigo-300 */
+  --color-accent-bg:   rgba(129,140,248,0.15);
+}
+
+/* =============================================
+   BASE BODY
+   ============================================= */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
+
+/* =============================================
+   INPUTS & FORM CONTROLS RESET
+   Cross-browser: ensure form elements respect
+   the active theme in ALL browsers (Chrome, Firefox,
+   Safari, Edge). color-scheme tells the browser to
+   render native widgets (date/time pickers, scrollbars,
+   select dropdowns) in the correct mode.
+   ============================================= */
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
+input, select, textarea {
+  color: var(--text-primary);
+  background-color: transparent;
+}
+input::placeholder, textarea::placeholder {
+  color: var(--text-faint);
+}
+/* <option> elements cannot use CSS variables in
+   most browsers — use explicit light text on dark bg */
+select option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+button,
+nav button,
+nav a,
+header button,
+header a,
+[role="button"],
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+
+/* =============================================
+   GLASS PANELS
+   ============================================= */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+}
+
+/* =============================================
+   SURFACE CARDS
+   ============================================= */
+.surface {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+}
+
+.surface-elevated {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-base);
+}
+
+/* =============================================
+   TYPOGRAPHY HELPERS
+   (use these instead of text-slate-400 etc.)
+   ============================================= */
+.text-body   { color: var(--text-primary); }
+.text-sub    { color: var(--text-secondary); }
+.text-meta   { color: var(--text-muted); }
+.text-dim    { color: var(--text-faint); }
+
+/* =============================================
+   CUSTOM PREMIUM SCROLLBAR
+   ============================================= */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-base);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+/* =============================================
+   MICRO-ANIMATIONS
+   ============================================= */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-5px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out both;
+}
+
