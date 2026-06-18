@@ -6,7 +6,7 @@ import {
   Users, BarChart2, BookOpen, Video, LogOut, Moon, Sun,
   Plus, Calendar, Shield, Award, ChevronRight,
   Sparkles, ArrowUpRight, TrendingUp,
-  Clipboard, Menu, X, ArrowLeft, Trash2, FileText
+  Clipboard, Menu, X, ArrowLeft, Trash2, FileText, BookDashed, Inbox
 } from "lucide-react";
 import { useUser, QuizQuestion, Assignment, StudentSubmission, Lesson } from "../context/UserContext";
 
@@ -31,32 +31,74 @@ const card = {
   } as React.CSSProperties,
 };
 
-// Mock data for teacher
-const TEACHER_COURSES = [
-  { id: "calc-101", title: "แคลคูลัส 101 สำหรับ ม.ปลาย", students: 48, rating: 4.9, activeMeetings: 1, gradient: "from-indigo-500 to-purple-600" },
-  { id: "math-m4-t1", title: "สรุปเนื้อหาคณิตศาสตร์ ม.4 เทอม 1 & 2", students: 124, rating: 4.8, activeMeetings: 0, gradient: "from-blue-500 to-indigo-600" },
-  { id: "alevel-math1", title: "ตะลุยโจทย์ A-Level คณิต 1 เข้มข้น", students: 89, rating: 5.0, activeMeetings: 2, gradient: "from-fuchsia-500 to-pink-600" },
-];
+const RECENT_STUDENT_ACTIVITIES: any[] = [];
 
-const RECENT_STUDENT_ACTIVITIES = [
-  { id: 1, name: "สมชาย ใจดี", course: "แคลคูลัส 101", action: "ส่งการบ้านบทที่ 1", time: "10 นาทีที่แล้ว", score: "9/10" },
-  { id: 2, name: "กัญญา รักเรียน", course: "A-Level คณิต 1", action: "ทำควิซลิมิตและความต่อเนื่อง", time: "25 นาทีที่แล้ว", score: "8/10" },
-  { id: 3, name: "วิชัย เพียรพยายาม", course: "คณิตศาสตร์ ม.4", action: "เข้าดูวิดีโอจำลอง", time: "1 ชั่วโมงที่แล้ว", score: null },
-  { id: 4, name: "นภา ลอยฟ้า", course: "แคลคูลัส 101", action: "ทำควิซอนุพันธ์", time: "2 ชั่วโมงที่แล้ว", score: "10/10" },
-];
-
-const CURRENT_STUDENT = {
-  id: "std-current",
-  name: "น้องภูมินทร์ (ม.6)",
-  status: "ส่งงานครบ",
-  avgScore: "9.5/10",
-};
+const CURRENT_STUDENT: any = null;
 
 export default function TeacherDashboard() {
-  const { role, isAuthenticated, displayName, logout, meetings, darkMode, toggleDarkMode, assignments, addAssignment, submissions, lessons, updateLesson } = useUser();
+  const { role, isAuthenticated, displayName, logout, meetings, darkMode, toggleDarkMode, assignments, addAssignment, submissions, lessons, updateLesson, courses, currentUserId, createCourse } = useUser();
   const router = useRouter();
   const [tab, setTab] = useState<"dashboard" | "courses" | "students">("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Course Creation state
+  const [showCourseForm, setShowCourseForm] = useState(false);
+  const [courseTitle, setCourseTitle] = useState("");
+  const [courseDesc, setCourseDesc] = useState("");
+  const [courseLevel, setCourseLevel] = useState<string>("ม.4");
+  const [courseGradient, setCourseGradient] = useState("from-indigo-600 to-purple-600");
+  const [courseSaving, setCourseSaving] = useState(false);
+  const [courseError, setCourseError] = useState("");
+
+  const handleCreateCourse = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!courseTitle.trim()) return;
+    setCourseSaving(true);
+    setCourseError("");
+    
+    const trimmedLevel = courseLevel.trim();
+    let levelValue = "m4";
+    let levelLabel = trimmedLevel;
+
+    if (trimmedLevel === "ม.4" || trimmedLevel.toLowerCase() === "m4") {
+      levelValue = "m4";
+      levelLabel = "ม.4";
+    } else if (trimmedLevel === "ม.5" || trimmedLevel.toLowerCase() === "m5") {
+      levelValue = "m5";
+      levelLabel = "ม.5";
+    } else if (trimmedLevel === "ม.6" || trimmedLevel.toLowerCase() === "m6") {
+      levelValue = "m6";
+      levelLabel = "ม.6";
+    } else if (trimmedLevel === "เตรียมสอบ" || trimmedLevel.toLowerCase() === "exam") {
+      levelValue = "exam";
+      levelLabel = "เตรียมสอบ";
+    } else {
+      levelValue = trimmedLevel;
+      levelLabel = trimmedLevel;
+    }
+
+    if (createCourse) {
+      const { success, error } = await createCourse({
+        title: courseTitle,
+        level: levelValue,
+        levelLabel: levelLabel,
+        gradientClass: courseGradient,
+      });
+
+      if (success) {
+        setShowCourseForm(false);
+        setCourseTitle("");
+        setCourseDesc("");
+        setCourseLevel("ม.4");
+        setCourseGradient("from-indigo-600 to-purple-600");
+      } else {
+        setCourseError(error || "Unknown error occurred");
+      }
+    } else {
+      setCourseError("createCourse is not available");
+    }
+    setCourseSaving(false);
+  };
 
   // Course Detail states
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
@@ -169,12 +211,9 @@ export default function TeacherDashboard() {
 
 
 
-  const MOCK_STUDENTS = [
-    { id: "std-1", name: "สมชาย ใจดี", status: "ส่งงานครบ", avgScore: "8.5/10" },
-    { id: "std-2", name: "กัญญา รักเรียน", status: "ส่งงานครบ", avgScore: "9.0/10" },
-    { id: "std-3", name: "วิชัย เพียรพยายาม", status: "ค้างส่ง 1 งาน", avgScore: "7.0/10" },
-    { id: "std-4", name: "นภา ลอยฟ้า", status: "ส่งงานครบ", avgScore: "9.5/10" }
-  ];
+  const MOCK_STUDENTS: any[] = [];
+
+  const teacherCourses = courses.filter(c => c.instructorId === currentUserId);
 
   if (!isAuthenticated || role !== "teacher") {
     return null;
@@ -280,6 +319,92 @@ export default function TeacherDashboard() {
         )}
       </header>
 
+      {/* COURSE CREATION MODAL */}
+      {showCourseForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-lg rounded-3xl shadow-2xl flex flex-col max-h-[90vh]" style={card.style}>
+            <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: tx.borderS }}>
+              <h2 className="text-xl font-bold">สร้างคอร์สเรียนใหม่</h2>
+              <button onClick={() => setShowCourseForm(false)} className="p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors">
+                <X className="h-5 w-5" style={{ color: tx.secondary }} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 text-left">
+              <form id="createCourseForm" onSubmit={handleCreateCourse} className="space-y-5">
+                {courseError && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20">
+                    {courseError}
+                  </div>
+                )}
+                
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ชื่อคอร์สเรียน <span className="text-rose-500">*</span></label>
+                  <input type="text" value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} required className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }} placeholder="เช่น แคลคูลัส 101 สำหรับ ม.ปลาย" />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>รายละเอียดคอร์ส</label>
+                  <textarea value={courseDesc} onChange={(e) => setCourseDesc(e.target.value)} rows={3} className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }} placeholder="อธิบายเนื้อหาและจุดประสงค์ของคอร์สนี้..." />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ระดับชั้น <span className="text-rose-500">*</span></label>
+                    <input
+                      type="text"
+                      list="course-levels"
+                      value={courseLevel}
+                      onChange={(e) => setCourseLevel(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm"
+                      style={{ borderColor: tx.border, color: tx.primary }}
+                      placeholder="เช่น ม.4, ม.5, ม.6, เตรียมสอบ หรือพิมพ์เอง"
+                    />
+                    <datalist id="course-levels">
+                      <option value="ม.4" />
+                      <option value="ม.5" />
+                      <option value="ม.6" />
+                      <option value="เตรียมสอบ" />
+                    </datalist>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>สไตล์สี (Gradient)</label>
+                    <select value={courseGradient} onChange={(e) => setCourseGradient(e.target.value)} className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }}>
+                      <option value="from-indigo-600 to-purple-600" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Indigo-Purple (ม่วง/น้ำเงิน)</option>
+                      <option value="from-blue-600 to-cyan-500" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Blue-Cyan (ฟ้า/น้ำเงิน)</option>
+                      <option value="from-emerald-500 to-teal-500" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Emerald-Teal (เขียว)</option>
+                      <option value="from-rose-500 to-pink-500" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Rose-Pink (ชมพู/แดง)</option>
+                      <option value="from-amber-500 to-orange-500" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Amber-Orange (ส้ม/เหลือง)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                {/* Preview Card */}
+                <div className="space-y-1 mt-4">
+                  <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ตัวอย่างการ์ดคอร์สเรียน</label>
+                  <div className={`h-24 w-full rounded-2xl bg-gradient-to-tr ${courseGradient} flex flex-col justify-between p-4 relative overflow-hidden shadow-inner`}>
+                    <div className="absolute inset-0 bg-white/5 opacity-50" />
+                    <span className="text-[10px] font-extrabold uppercase px-3 py-1 rounded-full bg-white/20 backdrop-blur-md shadow self-start text-white">
+                      {courseLevel || "ม.4"}
+                    </span>
+                    <h3 className="font-extrabold text-white text-lg drop-shadow-md relative z-10">{courseTitle || "ชื่อคอร์สเรียน"}</h3>
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div className="p-6 border-t flex justify-end gap-3 rounded-b-3xl shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
+              <button type="button" onClick={() => setShowCourseForm(false)} disabled={courseSaving} className="px-5 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-800" style={{ color: tx.secondary }}>
+                ยกเลิก
+              </button>
+              <button type="submit" form="createCourseForm" disabled={courseSaving} className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer">
+                {courseSaving ? "กำลังบันทึก..." : <><Plus className="h-4 w-4" /> ยืนยันการสร้างคอร์ส</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MAIN CONTAINER */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {tab === "dashboard" && (
@@ -308,9 +433,9 @@ export default function TeacherDashboard() {
               <div className="rounded-2xl p-6 flex items-center justify-between shadow-sm transition-all" style={card.style}>
                 <div className="space-y-1">
                   <p className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>นักเรียนทั้งหมด</p>
-                  <p className="text-3xl font-extrabold">261 คน</p>
+                  <p className="text-3xl font-extrabold">0 คน</p>
                   <p className="text-xs text-emerald-500 flex items-center gap-1 font-bold">
-                    <TrendingUp className="h-3 w-3" /> +12% เดือนนี้
+                    <TrendingUp className="h-3 w-3" /> +0% เดือนนี้
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 flex items-center justify-center">
@@ -321,7 +446,7 @@ export default function TeacherDashboard() {
               <div className="rounded-2xl p-6 flex items-center justify-between shadow-sm transition-all" style={card.style}>
                 <div className="space-y-1">
                   <p className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ชั่วโมงสอนสะสม</p>
-                  <p className="text-3xl font-extrabold">95 ชม.</p>
+                  <p className="text-3xl font-extrabold">0 ชม.</p>
                   <p className="text-xs flex items-center gap-1 font-medium" style={{ color: tx.muted }}>
                     จากวิดีโอและไลฟ์
                   </p>
@@ -334,7 +459,7 @@ export default function TeacherDashboard() {
               <div className="rounded-2xl p-6 flex items-center justify-between shadow-sm transition-all" style={card.style}>
                 <div className="space-y-1">
                   <p className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>คอร์สที่เปิดสอน</p>
-                  <p className="text-3xl font-extrabold">3 คอร์ส</p>
+                  <p className="text-3xl font-extrabold">0 คอร์ส</p>
                   <p className="text-xs text-indigo-500 dark:text-indigo-400 font-bold">
                     มีสตรีมไลฟ์สดอยู่
                   </p>
@@ -347,7 +472,7 @@ export default function TeacherDashboard() {
               <div className="rounded-2xl p-6 flex items-center justify-between shadow-sm transition-all" style={card.style}>
                 <div className="space-y-1">
                   <p className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>การส่งการบ้านสะสม</p>
-                  <p className="text-3xl font-extrabold">88.5%</p>
+                  <p className="text-3xl font-extrabold">0%</p>
                   <p className="text-xs text-emerald-500 flex items-center gap-1 font-bold">
                     สูงกว่าเกณฑ์เฉลี่ย
                   </p>
@@ -369,34 +494,45 @@ export default function TeacherDashboard() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {TEACHER_COURSES.map((course) => (
-                    <div key={course.id} className="rounded-2xl p-5 relative overflow-hidden shadow-md group hover:shadow-xl transition-all" style={card.style}>
-                      <div className={`h-2 w-full bg-gradient-to-r ${course.gradient} absolute top-0 left-0`} />
-                      <div className="space-y-4 pt-2">
-                        <h3 className="font-bold text-base leading-snug line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                          {course.title}
-                        </h3>
-                        <div className="flex items-center justify-between text-xs" style={{ color: tx.muted }}>
-                          <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> นักเรียน {course.students} คน</span>
-                          <span className="flex items-center gap-1"><Award className="h-3.5 w-3.5 text-amber-500" /> คะแนนเฉลี่ย {course.rating}</span>
-                        </div>
-                        <div className="pt-2 flex justify-between items-center border-t border-slate-300 dark:border-slate-700">
-                          {course.activeMeetings > 0 ? (
-                            <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 flex items-center gap-1 animate-pulse">
-                              ● Live Active ({course.activeMeetings})
-                            </span>
-                          ) : (
-                            <span className="text-[11px] font-medium" style={{ color: tx.faint }}>ไม่มีไลฟ์ตอนนี้</span>
-                          )}
-                          <button onClick={() => router.push("/teacher/teams")} className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 dark:bg-indigo-950/40 hover:bg-indigo-500 dark:hover:bg-indigo-500 hover:text-white dark:hover:text-white transition-colors" title="สร้างห้องประชุม Teams">
-                            <Plus className="h-4 w-4" />
-                          </button>
+                {teacherCourses.length === 0 ? (
+                  <div className="rounded-3xl p-10 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden border border-dashed" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 pointer-events-none" />
+                    <div className="h-20 w-20 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-5 shadow-inner">
+                      <Inbox className="h-10 w-10" />
+                    </div>
+                    <h3 className="text-xl font-extrabold mb-2 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">ยังไม่มีคอร์สเรียนที่เปิดสอน</h3>
+                    <p className="max-w-md text-sm mb-6" style={{ color: tx.secondary }}>
+                      คุณยังไม่ได้สร้างคอร์สเรียนใดๆ เริ่มต้นสร้างคอร์สแรกเพื่อเชิญนักเรียนเข้ามาเรียนด้วยกันเลยครับ
+                    </p>
+                    <button onClick={() => setShowCourseForm(true)} className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition-transform hover:-translate-y-1 flex items-center gap-2 cursor-pointer">
+                      <Plus className="h-5 w-5" /> สร้างคอร์สใหม่
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {teacherCourses.map((course) => (
+                      <div key={course.id} className="rounded-3xl p-6 relative overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 group flex flex-col justify-between border" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
+                        <div className={`h-2.5 w-full bg-gradient-to-r ${course.gradientClass} absolute top-0 left-0`} />
+                        <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        <div className="space-y-5 pt-2 relative z-10">
+                          <h3 className="font-extrabold text-lg leading-snug line-clamp-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            {course.title}
+                          </h3>
+                          <div className="flex items-center justify-between text-xs font-semibold" style={{ color: tx.secondary }}>
+                            <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-slate-600 dark:text-slate-300"><BookDashed className="h-4 w-4" /> {course.lessonsCount} บทเรียน</span>
+                            <span className="flex items-center gap-1.5"><Award className="h-4 w-4 text-amber-500" /> {course.levelLabel}</span>
+                          </div>
+                          <div className="pt-4 flex justify-between items-center border-t border-slate-200 dark:border-slate-800">
+                            <span className="text-xs font-medium" style={{ color: tx.muted }}>ไม่มีไลฟ์ตอนนี้</span>
+                            <button onClick={() => router.push("/teacher/teams")} className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 dark:hover:bg-indigo-500 hover:text-white dark:hover:text-white transition-all shadow-sm group-hover:scale-105" title="สร้างห้องประชุม Teams">
+                              <Video className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Real-time Student activities feed */}
@@ -474,10 +610,10 @@ export default function TeacherDashboard() {
         )}
 
         {tab === "courses" && (
-          selectedCourseId && TEACHER_COURSES.find(c => c.id === selectedCourseId) ? (
+          selectedCourseId && teacherCourses.find(c => c.id === selectedCourseId) ? (
             // COURSE DETAILS SUBVIEW
             (() => {
-              const selectedCourse = TEACHER_COURSES.find(c => c.id === selectedCourseId)!;
+              const selectedCourse = teacherCourses.find(c => c.id === selectedCourseId)!;
               const courseAssignments = assignments.filter(a => a.courseId === selectedCourseId);
               return (
                 <div className="space-y-6 animate-fadeIn text-left">
@@ -491,11 +627,11 @@ export default function TeacherDashboard() {
                     <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-300 via-purple-900 to-indigo-950" />
                     <div className="relative z-10 space-y-2">
                       <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm self-start">
-                        {selectedCourse.title.includes("ม.4") ? "มัธยมศึกษาปีที่ 4" : selectedCourse.title.includes("ม.5") ? "มัธยมศึกษาปีที่ 5" : "เตรียมสอบเข้ามหาวิทยาลัย"}
+                        {selectedCourse.levelLabel}
                       </span>
                       <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{selectedCourse.title}</h1>
                       <p className="text-indigo-200 text-sm max-w-xl">
-                        ผู้สอน: ครูเซ็ง · ห้องเรียน: {selectedCourse.students} คน
+                        ผู้สอน: {selectedCourse.instructor}
                       </p>
                     </div>
                   </div>
@@ -512,7 +648,7 @@ export default function TeacherDashboard() {
                     </button>
                     <button onClick={() => setDetailTab("students")} className="text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0"
                       style={detailTab === "students" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
-                      รายชื่อนักเรียน ({selectedCourse.students})
+                      รายชื่อนักเรียน
                     </button>
                   </div>
 
@@ -936,7 +1072,7 @@ export default function TeacherDashboard() {
                               {[
                                 ...MOCK_STUDENTS,
                                 CURRENT_STUDENT
-                              ].map((s, idx) => {
+                              ].filter(Boolean).map((s, idx) => {
                                 const studentAssignments = assignments.filter(a => a.courseId === selectedCourseId);
                                 const studentSubs = submissions.filter(sub => sub.studentId === s.id && studentAssignments.some(a => a.id === sub.assignmentId));
                                 const hasPending = studentAssignments.some(a => !studentSubs.some(sub => sub.assignmentId === a.id));
@@ -980,20 +1116,20 @@ export default function TeacherDashboard() {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {TEACHER_COURSES.map((course) => (
+                {teacherCourses.map((course) => (
                   <div key={course.id} className="rounded-2xl p-6 flex flex-col justify-between shadow-md text-left" style={card.style}>
                     <div className="space-y-4">
-                      <div className={`h-12 w-12 rounded-xl bg-gradient-to-tr ${course.gradient} text-white flex items-center justify-center shadow-md`}>
+                      <div className={`h-12 w-12 rounded-xl bg-gradient-to-tr ${course.gradientClass} text-white flex items-center justify-center shadow-md`}>
                         <BookOpen className="h-6 w-6" />
                       </div>
                       <h3 className="font-bold text-lg leading-snug">{course.title}</h3>
                       <p className="text-xs" style={{ color: tx.muted }}>
-                        เป็นอาจารย์ผู้สอนหลัก จัดทำสื่อ สไลด์ วิดีโอ และแบบทดสอบ
+                        {course.levelLabel} · {course.lessonsCount} บทเรียน
                       </p>
                     </div>
                     <div className="mt-6 pt-4 border-t border-slate-300 dark:border-slate-700 flex justify-between items-center">
                       <span className="text-xs font-bold" style={{ color: tx.muted }}>
-                        {course.students} คนที่กำลังเรียน
+                        {course.instructor}
                       </span>
                       <button onClick={() => setSelectedCourseId(course.id)} className="flex items-center gap-1 text-xs text-indigo-500 dark:text-indigo-400 font-bold hover:underline cursor-pointer">
                         แก้ไขเนื้อหาบทเรียน <ChevronRight className="h-3 w-3" />

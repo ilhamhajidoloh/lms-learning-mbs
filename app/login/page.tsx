@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, Shield, User, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import { useUser } from "../context/UserContext";
+import { apiFetch, setToken } from "../../lib/api";
+import type { Role } from "../context/UserContext";
 
 export default function LoginPage() {
-  const { login, credentials } = useUser();
+  const { login, refreshData } = useUser();
   const router = useRouter();
 
   const [username,     setUsername]     = useState("");
@@ -27,20 +29,26 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    await new Promise(r => setTimeout(r, 700));
 
-    const user = credentials.find(
-      c => c.username === username.trim() && c.password === password
-    );
+    const { data, error: apiError } = await apiFetch<{
+      token: string;
+      user: { id: string; username: string; displayName: string; role: Role };
+    }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username: username.trim(), password }),
+    });
 
-    if (!user) {
+    if (apiError || !data) {
       setLoading(false);
-      setError("Username หรือ Password ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
+      setError(apiError || "Username หรือ Password ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
       return;
     }
 
-    login(user.role, user.displayName, user.username);
-    const dest = user.role === "admin" ? "/admin" : user.role === "teacher" ? "/teacher" : "/student";
+    setToken(data.token);
+    login(data.user.role, data.user.displayName, data.user.username, data.user.id);
+    await refreshData();
+
+    const dest = data.user.role === "admin" ? "/admin" : data.user.role === "teacher" ? "/teacher" : "/student";
     router.push(dest);
   };
 
@@ -93,10 +101,10 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-5">
 
-            {/* Username */}
+            {/* Username / Email */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-                Username
+                Username หรือ Email
               </label>
               <div className="relative">
                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--text-faint)" }} />
@@ -107,7 +115,7 @@ export default function LoginPage() {
                   autoComplete="username"
                   className="w-full pl-10 pr-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm"
                   style={{ borderColor: "var(--border-base)", color: "var(--text-primary)" }}
-                  placeholder="กรอก Username ของคุณ"
+                  placeholder="กรอก Username หรือ Email ของคุณ"
                 />
               </div>
             </div>
@@ -174,35 +182,7 @@ export default function LoginPage() {
           {/* Security note */}
           <div className="mt-4 flex items-center gap-2 justify-center" style={{ color: "var(--text-faint)" }}>
             <Shield className="h-3.5 w-3.5 shrink-0" />
-            <span className="text-[11px]">ระบบจำลอง — ในระบบจริงจะใช้ Microsoft Entra ID</span>
-          </div>
-        </div>
-
-        {/* Demo credentials hint */}
-        <div
-          className="w-full max-w-md mt-4 rounded-2xl px-5 py-4 animate-fadeIn"
-          style={{
-            backgroundColor: "var(--bg-elevated)",
-            border: "1px solid var(--border-subtle)",
-            animationDelay: "0.2s",
-          }}
-        >
-          <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
-            บัญชีทดสอบระบบ (Demo Accounts)
-          </p>
-          <div className="space-y-2 text-xs font-mono" style={{ color: "var(--text-secondary)" }}>
-            <div className="flex items-center justify-between gap-4">
-              <span className="font-bold text-rose-500 dark:text-rose-400 shrink-0">🛡️ แอดมิน</span>
-              <span className="truncate">admin / admin@2026</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="font-bold text-indigo-500 dark:text-indigo-400 shrink-0">👨‍🏫 ครูผู้สอน</span>
-              <span className="truncate">kruseng / math@2026</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="font-bold text-purple-500 dark:text-purple-400 shrink-0">👨‍🎓 นักเรียน</span>
-              <span className="truncate">phumin / math@2026</span>
-            </div>
+            <span className="text-[11px]">ข้อมูลของคุณได้รับการปกป้องด้วยการเข้ารหัส JWT</span>
           </div>
         </div>
 

@@ -70,13 +70,13 @@ export default function ProfilePage() {
   const [pwError,  setPwError]  = useState<string | null>(null);
   const [pwOk,     setPwOk]     = useState(false);
 
-  const handleSavePw = (e: React.FormEvent) => {
+  const handleSavePw = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwError(null);
     if (!oldPw || !newPw || !cPw) { setPwError("กรุณากรอกให้ครบทุกช่อง"); return; }
     if (newPw.length < 6)          { setPwError("รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร"); return; }
     if (newPw !== cPw)             { setPwError("รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน"); return; }
-    const result = updatePassword(oldPw, newPw);
+    const result = await updatePassword(oldPw, newPw);
     if (!result.success) { setPwError(result.error ?? "เกิดข้อผิดพลาด"); return; }
     setOldPw(""); setNewPw(""); setCPw("");
     setPwOk(true);

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   BookOpen, Award, CheckCircle, Video, FileText, ChevronRight,
   Play, Trophy, BarChart2, Moon, Sun, Search, Download, Check,
-  Sparkles, Book, Clock, Menu, X, LogOut, ArrowUpRight, ArrowLeft, Upload
+  Sparkles, Book, Clock, Menu, X, LogOut, ArrowUpRight, ArrowLeft, Upload, Inbox, SearchX
 } from "lucide-react";
 import { useUser, StudentSubmission } from "../context/UserContext";
 
@@ -52,7 +52,7 @@ export default function StudentDashboard() {
   const router = useRouter();
   const [tab,          setTab]          = useState<"dashboard"|"courses"|"study"|"profile">("dashboard");
   const [search,       setSearch]       = useState("");
-  const [levelFilter,  setLevelFilter]  = useState<"all"|"m4"|"m5"|"m6"|"exam">("all");
+  const [levelFilter,  setLevelFilter]  = useState<string>("all");
   const [mobileOpen,   setMobileOpen]   = useState(false);
   const [lesson,       setLesson]       = useState("1.3 ความต่อเนื่อง of ฟังก์ชัน");
   const [studyTab,     setStudyTab]     = useState<"overview"|"resources"|"tasks">("overview");
@@ -226,7 +226,7 @@ export default function StudentDashboard() {
                 </div>
                 <h1 className="text-3xl font-extrabold tracking-tight">ยินดีต้อนรับครับ, {displayName} 📖</h1>
                 <p className="text-indigo-200 text-sm max-w-xl">
-                  เป้าหมายคะแนน A-Level คณิต 1 เต็ม 100 อยู่ไม่ไกล! มาร่วมพัฒนาทักษะการทำโจทย์แนวใหม่กันวันนี้
+                  เริ่มต้นการเรียนรู้และพัฒนาทักษะคณิตศาสตร์ไปพร้อมกัน
                 </p>
               </div>
 
@@ -234,7 +234,7 @@ export default function StudentDashboard() {
                 <button onClick={() => setTab("study")}
                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white text-indigo-950 hover:bg-slate-200 font-bold px-5 py-3 rounded-2xl shadow-lg transition-transform hover:-translate-y-0.5">
                   <Play className="h-4 w-4" />
-                  เรียนต่อห้องจำลอง
+                  เริ่มเรียนกันเลย
                 </button>
               </div>
             </div>
@@ -244,9 +244,9 @@ export default function StudentDashboard() {
               <div className="rounded-2xl p-6 flex items-center justify-between shadow-sm" style={card.style}>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ความคืบหน้าภาพรวม</p>
-                  <p className="text-2xl font-extrabold mt-1">4 คอร์สเรียนอยู่</p>
+                  <p className="text-2xl font-extrabold mt-1">0 คอร์สเรียนอยู่</p>
                   <div className="w-32 bg-slate-300 dark:bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
-                    <div className="bg-indigo-600 h-full" style={{ width: "45%" }} />
+                    <div className="bg-indigo-600 h-full" style={{ width: "0%" }} />
                   </div>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 flex items-center justify-center">
@@ -257,8 +257,8 @@ export default function StudentDashboard() {
               <div className="rounded-2xl p-6 flex items-center justify-between shadow-sm" style={card.style}>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>เวลาสะสมที่ศึกษา</p>
-                  <p className="text-2xl font-extrabold mt-1">12 ชั่วโมง 35 นาที</p>
-                  <p className="text-[11px] mt-1" style={{ color: tx.faint }}>เป้าหมายสัปดาห์นี้: 15 ชม.</p>
+                  <p className="text-2xl font-extrabold mt-1">0 ชั่วโมง 0 นาที</p>
+                  <p className="text-[11px] mt-1" style={{ color: tx.faint }}>เป้าหมายสัปดาห์นี้: 0 ชม.</p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-purple-500/10 text-purple-500 dark:text-purple-400 flex items-center justify-center">
                   <Clock className="h-6 w-6" />
@@ -268,9 +268,9 @@ export default function StudentDashboard() {
               <div className="rounded-2xl p-6 flex items-center justify-between shadow-sm" style={card.style}>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ควิซที่ผ่านแล้ว</p>
-                  <p className="text-2xl font-extrabold mt-1">8 ชุดทดสอบ</p>
+                  <p className="text-2xl font-extrabold mt-1">0 ชุดทดสอบ</p>
                   <p className="text-xs text-emerald-500 flex items-center gap-1 font-bold mt-1">
-                    <CheckCircle className="h-3.5 w-3.5" /> ความถูกต้องเฉลี่ย 85%
+                    <CheckCircle className="h-3.5 w-3.5" /> ความถูกต้องเฉลี่ย 0%
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
@@ -324,39 +324,56 @@ export default function StudentDashboard() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {courses.slice(0, 3).map((course) => (
-                  <div key={course.id} className="rounded-2xl overflow-hidden shadow-sm group hover:shadow-xl transition-all duration-300 flex flex-col" style={card.style}>
-                    <div className={`h-24 bg-gradient-to-tr ${course.gradientClass} p-5 text-white flex flex-col justify-between relative`}>
-                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-sm self-start">
-                        {course.levelLabel}
-                      </span>
-                      <h3 className="font-bold text-sm leading-snug line-clamp-1">{course.title}</h3>
-                    </div>
-                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center text-xs" style={{ color: tx.muted }}>
-                          <span>บทเรียน: {course.lessonsCount} ตอน</span>
-                          <span>ผู้สอน: {course.instructor}</span>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] font-bold">
-                            <span style={{ color: tx.muted }}>ความคืบหน้า</span>
-                            <span className="text-indigo-500 dark:text-indigo-400">{course.progress}%</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div className="bg-indigo-500 h-full rounded-full transition-all" style={{ width: `${course.progress}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                      <button onClick={() => setTab("study")}
-                        className="w-full py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-indigo-600 dark:hover:bg-indigo-500 text-slate-700 dark:text-slate-200 hover:text-white dark:hover:text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5">
-                        <Play className="h-3.5 w-3.5" /> เรียนต่อจากที่ค้างไว้
-                      </button>
-                    </div>
+              {courses.length === 0 ? (
+                <div className="rounded-3xl p-10 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden" style={card.style}>
+                  <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 to-purple-500/5 pointer-events-none" />
+                  <div className="h-24 w-24 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-6 shadow-inner animate-float">
+                    <Book className="h-12 w-12" />
                   </div>
-                ))}
-              </div>
+                  <h3 className="text-2xl font-extrabold mb-2 bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">ยังไม่มีวิชาที่กำลังเรียน</h3>
+                  <p className="max-w-md text-sm mb-6" style={{ color: tx.secondary }}>
+                    คุณยังไม่ได้ลงทะเบียนเรียนในรายวิชาใดๆ เริ่มต้นค้นหาและเลือกเรียนคอร์สที่น่าสนใจเพื่อพัฒนาทักษะของคุณได้เลย
+                  </p>
+                  <button onClick={() => setTab("courses")} className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition-transform hover:-translate-y-1 flex items-center gap-2">
+                    <Search className="h-5 w-5" /> สำรวจคอร์สเรียนทั้งหมด
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {courses.slice(0, 3).map((course) => (
+                    <div key={course.id} className="rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col relative group" style={{ backgroundColor: tx.surface, border: `1px solid ${tx.borderS}` }}>
+                      <div className={`h-28 bg-gradient-to-tr ${course.gradientClass} p-5 text-white flex flex-col justify-between relative`}>
+                        <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <span className="text-[10px] font-extrabold uppercase px-3 py-1 rounded-full bg-white/20 backdrop-blur-md shadow-sm self-start">
+                          {course.levelLabel}
+                        </span>
+                        <h3 className="font-extrabold text-base leading-snug line-clamp-2 drop-shadow-md z-10">{course.title}</h3>
+                      </div>
+                      <div className="p-5 flex-1 flex flex-col justify-between space-y-5 bg-white/5 backdrop-blur-xl">
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center text-xs font-medium" style={{ color: tx.secondary }}>
+                            <span className="flex items-center gap-1.5"><Video className="h-3.5 w-3.5" /> {course.lessonsCount} ตอน</span>
+                            <span className="flex items-center gap-1.5"><Award className="h-3.5 w-3.5 text-amber-500" /> {course.instructor}</span>
+                          </div>
+                          <div className="space-y-1.5 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
+                            <div className="flex justify-between text-[11px] font-extrabold uppercase tracking-wide">
+                              <span style={{ color: tx.muted }}>Progress</span>
+                              <span className="text-indigo-600 dark:text-indigo-400">{course.progress}%</span>
+                            </div>
+                            <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
+                              <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-1000" style={{ width: `${course.progress}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                        <button onClick={() => setTab("study")}
+                          className="w-full py-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-600 dark:hover:bg-indigo-500 text-indigo-700 dark:text-indigo-300 hover:text-white dark:hover:text-white font-extrabold text-xs transition-colors flex items-center justify-center gap-2 ring-1 ring-indigo-500/20">
+                          <Play className="h-4 w-4" /> เรียนต่อจากที่ค้างไว้
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -372,20 +389,32 @@ export default function StudentDashboard() {
 
               {/* Filters */}
               <div className="flex flex-wrap items-center gap-2">
-                {(["all", "m4", "m5", "m6", "exam"] as const).map((lvl) => (
-                  <button key={lvl} onClick={() => setLevelFilter(lvl)}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border"
-                    style={levelFilter === lvl
-                      ? { backgroundColor: "#6366f1", borderColor: "#6366f1", color: "#fff" }
-                      : { borderColor: tx.borderS, color: tx.secondary }}
-                  >
-                    {lvl === "all" && "ทั้งหมด"}
-                    {lvl === "m4" && "ม.4"}
-                    {lvl === "m5" && "ม.5"}
-                    {lvl === "m6" && "ม.6"}
-                    {lvl === "exam" && "เตรียมสอบ"}
-                  </button>
-                ))}
+                {(() => {
+                  const uniqueLevelsMap: Record<string, string> = {};
+                  uniqueLevelsMap["m4"] = "ม.4";
+                  uniqueLevelsMap["m5"] = "ม.5";
+                  uniqueLevelsMap["m6"] = "ม.6";
+                  uniqueLevelsMap["exam"] = "เตรียมสอบ";
+                  
+                  courses.forEach(c => {
+                    if (c.level) {
+                      uniqueLevelsMap[c.level] = c.levelLabel || c.level;
+                    }
+                  });
+
+                  const levelsList = [{ code: "all", label: "ทั้งหมด" }, ...Object.entries(uniqueLevelsMap).map(([code, label]) => ({ code, label }))];
+
+                  return levelsList.map(({ code, label }) => (
+                    <button key={code} onClick={() => setLevelFilter(code)}
+                      className="px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border"
+                      style={levelFilter === code
+                        ? { backgroundColor: "#6366f1", borderColor: "#6366f1", color: "#fff" }
+                        : { borderColor: tx.borderS, color: tx.secondary }}
+                    >
+                      {label}
+                    </button>
+                  ));
+                })()}
               </div>
             </div>
 
@@ -397,526 +426,80 @@ export default function StudentDashboard() {
             </div>
 
             {/* Course Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {filtered.map((course) => (
-                <div key={course.id} className="rounded-2xl overflow-hidden shadow-md flex flex-col justify-between" style={card.style}>
-                  <div className={`h-32 bg-gradient-to-tr ${course.gradientClass} p-6 text-white flex flex-col justify-between`}>
-                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm self-start">
-                      {course.levelLabel}
-                    </span>
-                    <h3 className="font-bold text-base leading-snug">{course.title}</h3>
-                  </div>
-                  <div className="p-6 space-y-4">
-                    <div className="flex justify-between items-center text-xs" style={{ color: tx.muted }}>
-                      <span>วิดีโอรวม {course.lessonsCount} ตอน</span>
-                      <span>สอนโดย {course.instructor}</span>
-                    </div>
-                    <button onClick={() => setTab("study")}
-                      className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-colors flex items-center justify-center gap-2">
-                      <BookOpen className="h-4 w-4" /> เริ่มเรียนวิชานี้
-                    </button>
-                  </div>
+            {filtered.length === 0 ? (
+              <div className="rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-sm border border-dashed relative overflow-hidden" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
+                <div className="h-20 w-20 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mb-4">
+                  <SearchX className="h-10 w-10" />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-xl font-extrabold mb-2" style={{ color: tx.primary }}>ไม่พบคอร์สเรียน</h3>
+                <p className="max-w-sm text-sm" style={{ color: tx.secondary }}>
+                  ไม่มีคอร์สเรียนที่ตรงกับคำค้นหาหรือตัวกรองที่คุณเลือก ลองเปลี่ยนคำค้นหาใหม่ดูนะครับ
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {filtered.map((course) => (
+                  <div key={course.id} className="rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group relative" style={{ backgroundColor: tx.surface, border: `1px solid ${tx.borderS}` }}>
+                    <div className={`h-36 bg-gradient-to-tr ${course.gradientClass} p-6 text-white flex flex-col justify-between relative`}>
+                      <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className="text-[10px] font-extrabold uppercase px-3 py-1 rounded-full bg-white/20 backdrop-blur-md shadow self-start">
+                        {course.levelLabel}
+                      </span>
+                      <h3 className="font-extrabold text-lg leading-snug drop-shadow-md z-10">{course.title}</h3>
+                    </div>
+                    <div className="p-6 space-y-5 bg-white/5 backdrop-blur-sm">
+                      <div className="flex justify-between items-center text-xs font-semibold" style={{ color: tx.muted }}>
+                        <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-slate-600 dark:text-slate-300"><Video className="h-4 w-4" /> {course.lessonsCount} ตอน</span>
+                        <span className="flex items-center gap-1.5"><Award className="h-4 w-4 text-amber-500" /> {course.instructor}</span>
+                      </div>
+                      <button onClick={() => setTab("study")}
+                        className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs shadow-lg transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                        <BookOpen className="h-4 w-4" /> เริ่มเรียนวิชานี้เลย
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {/* ─── 3. TAB: STUDY (INTERACTIVE STUDY ROOM) ─── */}
         {tab === "study" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fadeIn text-left">
-            {/* Left side: Main Video Player */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="rounded-3xl overflow-hidden shadow-xl" style={card.style}>
-                {/* YouTube Embedded Video Player */}
-                {(() => {
-                  // Find which parent lesson this sub-lesson belongs to
-                  const calcLessons = lessons.filter(l => l.courseId === "calc-101");
-                  let parentLesson = calcLessons[0]; // default
-                  for (let chIdx = 0; chIdx < calcLessons.length; chIdx++) {
-                    const ch = calcLessons[chIdx];
-                    if (ch.subLessons && ch.subLessons.some(sub => sub.title === lesson)) {
-                      parentLesson = ch;
-                      break;
-                    }
-                  }
-                  const videoId = parentLesson?.videoUrl ? extractYouTubeId(parentLesson.videoUrl) : null;
-                  
-                  return videoId ? (
-                    <div className="relative aspect-video bg-black">
-                      <iframe
-                        key={videoId}
-                        src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
-                        title={parentLesson?.title || "วิดีโอบทเรียน"}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        className="absolute inset-0 w-full h-full"
-                        style={{ border: "none" }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="relative aspect-video bg-slate-950 flex flex-col items-center justify-center text-white">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="h-16 w-16 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-2xl">
-                          <Video className="h-7 w-7" />
-                        </div>
-                        <span className="text-xs font-bold uppercase tracking-widest" style={{ color: tx.faint }}>
-                          ยังไม่มีวิดีโอสำหรับบทเรียนนี้
-                        </span>
-                        <p className="text-[10px] max-w-xs text-center" style={{ color: tx.faint }}>
-                          ครูยังไม่ได้เพิ่มลิงก์ YouTube สำหรับบทเรียนนี้ กรุณาติดต่อครูผู้สอน
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Lesson Details */}
-                <div className="p-6 space-y-2">
-                  <h2 className="text-xl font-bold tracking-tight">{lesson}</h2>
-                  <p className="text-sm" style={{ color: tx.muted }}>
-                    คอร์ส: แคลคูลัส 101 สำหรับ ม.ปลาย (สอนโดยครูเซ็ง)
-                  </p>
-                </div>
-              </div>
-
-              {/* Study Area Sub Tabs */}
-              <div className="rounded-3xl p-6 shadow-sm" style={card.style}>
-                <div className="flex space-x-6 border-b pb-3 mb-4 overflow-x-auto whitespace-nowrap scrollbar-none" style={{ borderColor: tx.borderS }}>
-                  <button onClick={() => setStudyTab("overview")} className="text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0"
-                    style={studyTab === "overview" ? { borderColor: tx.accent, color: tx.accent } : { borderColor: "transparent", color: tx.secondary }}>
-                    รายละเอียดบทเรียน
-                  </button>
-                  <button onClick={() => setStudyTab("resources")} className="text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0"
-                    style={studyTab === "resources" ? { borderColor: tx.accent, color: tx.accent } : { borderColor: "transparent", color: tx.secondary }}>
-                    ชีทเอกสารประกอบ (PDF)
-                  </button>
-                  <button onClick={() => setStudyTab("tasks")} className="text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0"
-                    style={studyTab === "tasks" ? { borderColor: tx.accent, color: tx.accent } : { borderColor: "transparent", color: tx.secondary }}>
-                    งาน & ควิซท้ายบท (Tasks)
-                  </button>
-                </div>
-
-                {studyTab === "overview" && (
-                  <div className="space-y-4 text-sm leading-relaxed" style={{ color: tx.secondary }}>
-                    <p><strong>รายละเอียดการบรรยาย:</strong></p>
-                    <p>
-                      ในหัวข้อนี้เราจะมานิยามเรื่องความต่อเนื่องของฟังก์ชัน (Continuity of Functions) โดยละเอียด โดยฟังก์ชัน f จะต่อเนื่องที่ x = a ก็ต่อเมื่อเงื่อนไข 3 ข้อต่อไปนี้เป็นจริงทั้งหมด:
-                    </p>
-                    <ul className="list-disc list-inside pl-4 space-y-1">
-                      <li>f(a) สามารถหาค่าได้ (มีตัวตนอยู่จริง)</li>
-                      <li>lim(x→a) f(x) สามารถหาค่าได้ (ลิมิตซ้ายเท่ากับลิมิตขวา)</li>
-                      <li>lim(x→a) f(x) = f(a)</li>
-                    </ul>
-                  </div>
-                )}
-
-                {studyTab === "resources" && (
-                  <div className="space-y-3">
-                    <div className="rounded-xl p-4 border flex items-center justify-between" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-6 w-6 text-rose-500" />
-                        <div>
-                          <p className="text-xs font-bold leading-tight">สไลด์บรรยาย ความต่อเนื่องของฟังก์ชัน.pdf</p>
-                          <p className="text-[10px]" style={{ color: tx.faint }}>ขนาดไฟล์: 4.8 MB · อัปเดตโดยครูเซ็ง</p>
-                        </div>
-                      </div>
-                      <button className="p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors" title="ดาวน์โหลด PDF">
-                        <Download className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {studyTab === "tasks" && (
-                  <div className="space-y-6">
-                    {activeTaskTab === "list" && (
-                      <div className="space-y-4 text-left">
-                        <div className="text-left">
-                          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>งานและแบบทดสอบที่ครูมอบหมาย</p>
-                        </div>
-                        {assignments.filter(a => a.courseId === "calc-101").length === 0 ? (
-                          <div className="rounded-2xl p-8 text-center border border-dashed" style={{ borderColor: tx.borderS }}>
-                            <p className="text-sm font-bold">ไม่มีงานที่มอบหมายในขณะนี้</p>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 gap-4">
-                            {assignments.filter(a => a.courseId === "calc-101").map((a) => {
-                              const mySub = submissions.find(s => s.assignmentId === a.id && s.studentId === "std-current");
-                              const isFileSubmitted = mySub?.type === "file";
-                              const isQuizSubmitted = mySub?.type === "quiz";
-                              
-                              return (
-                                <div key={a.id} className="rounded-2xl p-5 border shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-left" style={card.style}>
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center gap-2">
-                                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                                        a.type === "file" 
-                                          ? "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300" 
-                                          : "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300"
-                                      }`}>
-                                        {a.type === "file" ? "ส่งไฟล์" : "Quiz"}
-                                      </span>
-                                      <span className="text-[10px]" style={{ color: tx.faint }}>กำหนดส่ง: {a.dueDate}</span>
-                                    </div>
-                                    <h4 className="font-bold text-sm sm:text-base">{a.title}</h4>
-                                    
-                                    {/* Submission Status */}
-                                    <div className="text-xs">
-                                      {a.type === "file" ? (
-                                        isFileSubmitted ? (
-                                          <span className="text-emerald-500 font-bold flex items-center gap-1">
-                                            <CheckCircle className="h-3.5 w-3.5" /> ส่งแล้ว (ไฟล์: {mySub?.fileName})
-                                          </span>
-                                        ) : (
-                                          <span className="text-amber-500 font-bold">⏳ ยังไม่ส่ง</span>
-                                        )
-                                      ) : (
-                                        isQuizSubmitted ? (
-                                          <span className="text-emerald-500 font-bold flex items-center gap-1">
-                                            <CheckCircle className="h-3.5 w-3.5" /> ทำเสร็จแล้ว (คะแนนที่ได้: {mySub?.score} / {a.questions?.length})
-                                          </span>
-                                        ) : (
-                                          <span className="text-amber-500 font-bold">⏳ ยังไม่ได้ทำ</span>
-                                        )
-                                      )}
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="shrink-0 flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                    <span className="text-xs font-bold text-indigo-500 dark:text-indigo-400">{a.points} คะแนน</span>
-                                    <button
-                                      onClick={() => {
-                                        setSelectedAssignmentId(a.id);
-                                        if (a.type === "file") {
-                                          setActiveTaskTab("file");
-                                        } else {
-                                          setActiveTaskTab("quiz");
-                                          setCurrentQuizQuestionIndex(0);
-                                          setQuizAnswers({});
-                                          setQuizResultSubmitted(false);
-                                          setQuizResultScore(null);
-                                        }
-                                      }}
-                                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow transition-all cursor-pointer"
-                                    >
-                                      {a.type === "file" ? (isFileSubmitted ? "ส่งอีกครั้ง" : "ส่งงาน") : (isQuizSubmitted ? "ดูผลคะแนน" : "เริ่มทำ")}
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {activeTaskTab === "file" && (() => {
-                      const activeAssignment = assignments.find(a => a.id === selectedAssignmentId)!;
-                      const mySub = submissions.find(s => s.assignmentId === activeAssignment.id && s.studentId === "std-current" && s.type === "file");
-                      const hasSubmitted = !!mySub;
-                      return (
-                        <div className="space-y-6 text-left">
-                          <button onClick={() => setActiveTaskTab("list")} className="flex items-center gap-2 text-xs font-bold hover:text-indigo-500 transition-colors">
-                            <ArrowLeft className="h-4 w-4" /> กลับรายการงาน
-                          </button>
-                          
-                          <div className="space-y-2 border-b pb-4" style={{ borderColor: tx.borderS }}>
-                            <h3 className="text-lg font-bold">{activeAssignment.title}</h3>
-                            <div className="flex justify-between text-xs" style={{ color: tx.muted }}>
-                              <span>คะแนนเต็ม: {activeAssignment.points} คะแนน</span>
-                              <span>กำหนดส่ง: {activeAssignment.dueDate}</span>
-                            </div>
-                          </div>
-
-                          <div className="rounded-2xl p-5 border" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
-                            <h4 className="font-bold text-xs uppercase tracking-wider mb-2" style={{ color: tx.muted }}>โจทย์ / คำสั่งงาน</h4>
-                            <p className="text-xs sm:text-sm leading-relaxed" style={{ color: tx.secondary }}>{activeAssignment.instructions}</p>
-                          </div>
-
-                          <div className="space-y-4">
-                            <h4 className="font-bold text-xs uppercase tracking-wider" style={{ color: tx.muted }}>ส่งการบ้านของคุณ</h4>
-                            {hasSubmitted && (
-                              <div className="rounded-xl p-4 border text-xs" style={{ borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.05)" }}>
-                                <p className="font-bold text-emerald-600 flex items-center gap-1">
-                                  <Check className="h-4 w-4" /> ส่งการบ้านเรียบร้อยแล้ว
-                                </p>
-                                <p className="mt-1" style={{ color: tx.secondary }}>
-                                  ไฟล์ที่ส่ง: <strong>{mySub?.fileName}</strong> (ส่งเมื่อ {new Date(mySub?.submittedAt || 0).toLocaleTimeString("th-TH") + " " + new Date(mySub?.submittedAt || 0).toLocaleDateString("th-TH")})
-                                </p>
-                              </div>
-                            )}
-
-                            <div className="p-8 rounded-2xl border border-dashed flex flex-col items-center justify-center space-y-4" style={{ borderColor: tx.borderS }}>
-                              <Upload className="h-10 w-10" style={{ color: tx.faint }} />
-                              <div className="w-full max-w-xs space-y-2 text-center">
-                                <label className="text-xs font-bold" style={{ color: tx.muted }}>ชื่อไฟล์เพื่อจำลองการส่ง (เช่น calculus-hw1.pdf)</label>
-                                <input 
-                                  type="text" 
-                                  value={fileNameInput} 
-                                  onChange={(e) => setFileNameInput(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-xl border bg-transparent text-xs text-center focus:outline-none" 
-                                  style={{ borderColor: tx.border, color: tx.primary }} 
-                                  placeholder="พิมพ์ชื่อไฟล์การบ้าน..." 
-                                />
-                              </div>
-                              <button
-                                disabled={!fileNameInput.trim()}
-                                onClick={() => {
-                                  const newSub: StudentSubmission = {
-                                    id: "sub-" + Math.random().toString(36).substring(2, 9),
-                                    assignmentId: activeAssignment.id,
-                                    studentId: "std-current",
-                                    studentName: displayName,
-                                    submittedAt: Date.now(),
-                                    type: "file",
-                                    fileName: fileNameInput
-                                  };
-                                  addSubmission(newSub);
-                                  setFileNameInput("");
-                                  setActiveTaskTab("list");
-                                }}
-                                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md disabled:opacity-50 cursor-pointer"
-                              >
-                                กดส่งไฟล์การบ้าน
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {activeTaskTab === "quiz" && (() => {
-                      const activeAssignment = assignments.find(a => a.id === selectedAssignmentId)!;
-                      const totalQuestions = activeAssignment.questions?.length || 0;
-                      
-                      // Check if already submitted in global state
-                      const mySub = submissions.find(s => s.assignmentId === activeAssignment.id && s.studentId === "std-current" && s.type === "quiz");
-                      const hasSubmitted = !!mySub || quizResultSubmitted;
-                      const displayScore = mySub ? mySub.score : quizResultScore;
-                      const displayAnswers = mySub ? (mySub.answers || {}) : quizAnswers;
-
-                      return (
-                        <div className="space-y-6 text-left">
-                          <button onClick={() => setActiveTaskTab("list")} className="flex items-center gap-2 text-xs font-bold hover:text-indigo-500 transition-colors">
-                            <ArrowLeft className="h-4 w-4" /> กลับรายการควิซ
-                          </button>
-
-                          <div className="space-y-2 border-b pb-4" style={{ borderColor: tx.borderS }}>
-                            <h3 className="text-lg font-bold">{activeAssignment.title}</h3>
-                            <div className="flex justify-between text-xs" style={{ color: tx.muted }}>
-                              <span>เวลาจำกัด: {activeAssignment.timeLimit} นาที</span>
-                              <span>คะแนนเต็ม: {activeAssignment.points} คะแนน</span>
-                            </div>
-                          </div>
-
-                          {!hasSubmitted ? (
-                            // QUIZ TAKING INTERFACE
-                            (() => {
-                              const q = activeAssignment.questions![currentQuizQuestionIndex];
-                              const selectedAnswerIndex = quizAnswers[currentQuizQuestionIndex];
-
-                              return (
-                                <div className="space-y-6">
-                                  <div className="flex justify-between items-center text-xs font-bold" style={{ color: tx.muted }}>
-                                    <span>คำถามข้อที่ {currentQuizQuestionIndex + 1} จาก {totalQuestions} ข้อ</span>
-                                    <span>เวลาทำโจทย์สะสม: {activeAssignment.timeLimit} นาที</span>
-                                  </div>
-
-                                  <div className="rounded-2xl p-5 border" style={{ borderColor: tx.borderS }}>
-                                    <h4 className="font-bold text-sm sm:text-base leading-snug">{q.question}</h4>
-                                  </div>
-
-                                  <div className="grid grid-cols-1 gap-3">
-                                    {q.options.map((opt, oIdx) => {
-                                      const isSelected = selectedAnswerIndex === oIdx;
-                                      return (
-                                        <button 
-                                          key={oIdx} 
-                                          onClick={() => setQuizAnswers(prev => ({ ...prev, [currentQuizQuestionIndex]: oIdx }))}
-                                          className="w-full text-left p-3.5 rounded-xl border text-xs font-semibold hover:border-indigo-500 transition-all bg-transparent cursor-pointer"
-                                          style={isSelected ? { borderColor: tx.accent, color: tx.accent, backgroundColor: tx.accentBg } : { borderColor: tx.border, color: tx.secondary }}
-                                        >
-                                          {opt}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-
-                                  <div className="flex justify-between items-center pt-4 border-t" style={{ borderColor: tx.borderS }}>
-                                    <button
-                                      disabled={currentQuizQuestionIndex === 0}
-                                      onClick={() => setCurrentQuizQuestionIndex(prev => prev - 1)}
-                                      className="py-2 px-4 rounded-xl border font-bold text-xs disabled:opacity-40 cursor-pointer"
-                                      style={{ borderColor: tx.borderS, color: tx.secondary }}
-                                    >
-                                      ข้อก่อนหน้า
-                                    </button>
-
-                                    {currentQuizQuestionIndex < totalQuestions - 1 ? (
-                                      <button
-                                        disabled={selectedAnswerIndex === undefined}
-                                        onClick={() => setCurrentQuizQuestionIndex(prev => prev + 1)}
-                                        className="py-2 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs disabled:opacity-50 cursor-pointer"
-                                      >
-                                        ข้อถัดไป
-                                      </button>
-                                    ) : (
-                                      <button
-                                        disabled={Object.keys(quizAnswers).length < totalQuestions}
-                                        onClick={() => {
-                                          // Calculate score
-                                          let score = 0;
-                                          activeAssignment.questions!.forEach((q, idx) => {
-                                            if (quizAnswers[idx] === q.correctIndex) {
-                                              score++;
-                                            }
-                                          });
-                                          const newSub: StudentSubmission = {
-                                            id: "sub-" + Math.random().toString(36).substring(2, 9),
-                                            assignmentId: activeAssignment.id,
-                                            studentId: "std-current",
-                                            studentName: displayName,
-                                            submittedAt: Date.now(),
-                                            type: "quiz",
-                                            score: score,
-                                            answers: quizAnswers
-                                          };
-                                          addSubmission(newSub);
-                                          setQuizResultScore(score);
-                                          setQuizResultSubmitted(true);
-                                        }}
-                                        className="py-2.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md disabled:opacity-50 cursor-pointer"
-                                      >
-                                        ส่งคำตอบแบบทดสอบ
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })()
-                          ) : (
-                            // QUIZ RESULTS INTERFACE
-                            <div className="space-y-6">
-                              <div className="rounded-2xl p-6 text-center space-y-2 border" style={{ borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.04)" }}>
-                                <p className="font-extrabold text-lg text-emerald-600">🎉 ทำแบบทดสอบเสร็จสมบูรณ์!</p>
-                                <p className="text-3xl font-extrabold">{displayScore} / {totalQuestions} คะแนน</p>
-                                <p className="text-xs" style={{ color: tx.muted }}>คิดเป็น {(((displayScore || 0) / totalQuestions) * 100).toFixed(0)}% ของคะแนนทั้งหมด</p>
-                              </div>
-
-                              <div className="space-y-4">
-                                <h4 className="font-bold text-xs uppercase tracking-wider" style={{ color: tx.muted }}>ตรวจสอบคำเฉลยแต่ละข้อ</h4>
-                                {activeAssignment.questions!.map((q, idx) => {
-                                  const studentAns = displayAnswers[idx];
-                                  const isCorrect = studentAns === q.correctIndex;
-                                  return (
-                                    <div key={idx} className="p-5 rounded-2xl border space-y-3 text-left" style={{ borderColor: isCorrect ? "#10b981" : "#f43f5e" }}>
-                                      <h5 className="font-bold text-sm flex items-center gap-1.5">
-                                        <span>ข้อที่ {idx + 1}: {q.question}</span>
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                                          isCorrect ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50" : "bg-rose-100 text-rose-700 dark:bg-rose-950/50"
-                                        }`}>
-                                          {isCorrect ? "ถูกต้อง" : "ตอบผิด"}
-                                        </span>
-                                      </h5>
-                                      <p className="text-xs" style={{ color: tx.muted }}>
-                                        คุณตอบ: <span className={isCorrect ? "text-emerald-500 font-semibold" : "text-rose-500 font-semibold"}>{q.options[studentAns]}</span>
-                                      </p>
-                                      <p className="text-xs" style={{ color: tx.muted }}>
-                                        คำตอบที่ถูก: <span className="text-emerald-500 font-semibold">{q.options[q.correctIndex]}</span>
-                                      </p>
-                                      <div className="p-3 rounded-lg border text-xs" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
-                                        <strong>คำอธิบายเฉลย:</strong> {q.explanation}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
+          <div className="flex flex-col items-center justify-center py-20 text-center animate-fadeIn border border-dashed rounded-3xl mt-6" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
+            <div className="h-24 w-24 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-6 shadow-inner">
+              <BookOpen className="h-12 w-12" />
             </div>
-
-            {/* Right side: Course Chapter List */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-bold tracking-tight">เนื้อหารายวิชา</h2>
-              <div className="rounded-3xl p-6 shadow-sm space-y-6" style={card.style}>
-                {lessons.filter(l => l.courseId === "calc-101").map((l) => {
-                  const staticChapter = l.subLessons || [];
-                  return (
-                    <div key={l.id} className="space-y-3">
-                      <h3 className="font-bold text-xs uppercase tracking-wider" style={{ color: tx.muted }}>
-                        {l.title}
-                      </h3>
-                      <p className="text-[10px] leading-relaxed -mt-2.5" style={{ color: tx.faint }}>
-                        {l.description}
-                      </p>
-                      <div className="space-y-1">
-                        {staticChapter.map((subL) => {
-                          const active = lesson === subL.title;
-                          return (
-                            <button key={subL.id} onClick={() => setLesson(subL.title)}
-                              className="w-full text-left p-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer"
-                              style={active
-                                ? { backgroundColor: tx.accentBg, color: tx.accent }
-                                : { color: tx.secondary }}
-                            >
-                              <span className="line-clamp-1">{subL.title}</span>
-                              <span className="text-[10px]" style={{ color: tx.faint }}>{subL.duration}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <h3 className="text-2xl font-extrabold mb-2" style={{ color: tx.primary }}>ยังไม่ได้เลือกคอร์สเรียน</h3>
+            <p className="max-w-md text-sm mb-6" style={{ color: tx.secondary }}>
+              กรุณากลับไปที่หน้า "คอร์สเรียนทั้งหมด" หรือ "แดชบอร์ด" แล้วเลือกคอร์สที่คุณต้องการเข้าเรียน เพื่อเริ่มต้นบทเรียนครับ
+            </p>
+            <button onClick={() => setTab("courses")} className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition-transform hover:-translate-y-1 flex items-center gap-2">
+              <Search className="h-5 w-5" /> กลับไปเลือกคอร์สเรียน
+            </button>
           </div>
         )}
 
         {/* ─── 4. TAB: PROFILE (ACHIEVEMENT DASHBOARD) ─── */}
         {tab === "profile" && (
-          <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn text-left">
+          <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn text-left mt-6">
             <h1 className="text-2xl font-extrabold tracking-tight">สรุปความสำเร็จของนักเรียน (My Achievements)</h1>
-            <div className="rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl" style={card.style}>
+            <div className="rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl" style={{ backgroundColor: tx.surface, border: `1px solid ${tx.borderS}` }}>
               <div className="flex items-center gap-4 border-b pb-6" style={{ borderColor: tx.borderS }}>
-                <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-extrabold shadow-lg">
-                  S
+                <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-extrabold shadow-lg uppercase">
+                  {displayName ? displayName.charAt(0) : "S"}
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">{displayName}</h3>
-                  <p className="text-xs" style={{ color: tx.muted }}>สมาชิกระดับ Premium · สมัครเมื่อ มกราคม 2026</p>
+                  <p className="text-xs" style={{ color: tx.muted }}>สมาชิกระดับทั่วไป</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <h4 className="font-bold text-sm tracking-wide uppercase" style={{ color: tx.muted }}>ความสำเร็จและเหรียญรางวัล</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="rounded-2xl p-4 border flex items-center gap-3" style={{ borderColor: tx.borderS }}>
-                    <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                      <Trophy className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold">แชมป์แก้โจทย์ลิมิต</p>
-                      <p className="text-[10px]" style={{ color: tx.faint }}>ทำแบบฝึกหัดลิมิตถูกต้อง 100% ในครั้งแรก</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl p-4 border flex items-center gap-3" style={{ borderColor: tx.borderS }}>
-                    <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
-                      <Award className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold">ผู้ใฝ่รู้อย่างต่อเนื่อง</p>
-                      <p className="text-[10px]" style={{ color: tx.faint }}>ล็อกอินเข้าเรียนต่อเนื่องกัน 7 วัน</p>
-                    </div>
-                  </div>
+                <div className="rounded-2xl p-8 text-center border border-dashed" style={{ borderColor: tx.borderS }}>
+                  <p className="text-sm font-bold" style={{ color: tx.secondary }}>ยังไม่มีเหรียญรางวัล</p>
+                  <p className="text-xs mt-1" style={{ color: tx.faint }}>เข้าเรียนและทำแบบทดสอบเพื่อปลดล็อกเหรียญรางวัล!</p>
                 </div>
               </div>
             </div>

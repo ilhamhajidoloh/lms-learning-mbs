@@ -34,7 +34,7 @@ export default function TeacherTeamsPage() {
   const [activeTab, setActiveTab] = useState<"demo" | "tutorial" | "code">("demo");
   
   // Form State
-  const [subject, setSubject] = useState("แคลคูลัส 101: การหาลิมิตและอนุพันธ์เบื้องต้น");
+  const [subject, setSubject] = useState("");
   const [date, setDate] = useState("2026-06-05");
   const [startTime, setStartTime] = useState("13:00");
   const [endTime, setEndTime] = useState("15:00");
@@ -67,43 +67,11 @@ export default function TeacherTeamsPage() {
 
     setStatus("authenticating");
     setLogMessages([]);
-    addLog("🔑 เริ่มต้นกระบวนการร้องขอสิทธิ์ Microsoft Entra ID...");
-    
-    // Step 1: Auth simulation
-    await new Promise(resolve => setTimeout(resolve, 1200));
-    addLog("✅ ได้รับ OAuth Access Token: token_type='Bearer', scope='OnlineMeetings.ReadWrite'");
-    
-    // Step 2: Request simulation
-    setStatus("requesting");
-    addLog("📡 กำลังส่งข้อมูลไปยัง Microsoft Graph API: POST https://graph.microsoft.com/v1.0/me/onlineMeetings");
-    addLog(JSON.stringify({
-      subject,
-      startDateTime: `${date}T${startTime}:00+07:00`,
-      endDateTime: `${date}T${endTime}:00+07:00`,
-      lobbyBypassSettings: { scope: "everyone" }
-    }, null, 2));
+    addLog("เตรียมเชื่อมต่อกับระบบเพื่อสร้างห้องเรียน...");
 
-    await new Promise(resolve => setTimeout(resolve, 1800));
-
-    // Step 3: Success simulation
-    const simulatedMeetingId = "MStms-" + Math.random().toString(36).substring(2, 10).toUpperCase();
-    const joinUrl = `https://teams.microsoft.com/l/meetup-join/19%3ameeting_${Math.random().toString(36).substring(2, 15)}%40thread.v2/0?context=%7b%22Tid%22%3a%2272f988bf-86f1-41af-91ab-2d7cd011db47%22%2c%22Oid%22%3a%225f187a55-8db5-4b0c-99f5-ff753ef4931a%22%7d`;
-    
-    const newMeeting = {
-      id: simulatedMeetingId,
-      subject,
-      joinUrl,
-      startDateTime: `${date} ${startTime}`,
-      endDateTime: `${date} ${endTime}`,
-      passcode: Math.floor(100000 + Math.random() * 900000).toString(),
-      createdAt: Date.now()
-    };
-
-    setMeetingResult(newMeeting);
-    addMeeting(newMeeting);
-    setStatus("success");
-    addLog("🎉 สำเร็จ! Microsoft Graph API ส่งข้อมูล 201 Created กลับมาเรียบร้อย");
-    addLog(`🔗 ลิงก์ห้องเรียนจำลอง: ${joinUrl.substring(0, 70)}...`);
+    // TODO: Hook up to actual backend endpoint later
+    setStatus("error");
+    addLog("ยังไม่ได้เชื่อมต่อระบบ Backend (Mock ถูกลบออกแล้ว)");
   };
 
   const copyToClipboard = () => {

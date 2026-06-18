@@ -8,6 +8,7 @@ import {
   Sparkles, ChevronDown
 } from "lucide-react";
 import { useUser, type AppUser, type Role } from "../context/UserContext";
+import { apiFetch } from "../../lib/api";
 
 const tx = {
   primary:   "var(--text-primary)",
@@ -44,8 +45,7 @@ function RoleBadge({ role }: { role: Role }) {
 const EMPTY_FORM = { username: "", displayName: "", role: "student" as Role };
 
 export default function AdminPage() {
-  const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode,
-          appUsers, addAppUser, updateAppUser, deleteAppUser } = useUser();
+  const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode } = useUser();
   const router = useRouter();
 
   const [search,      setSearch]      = useState("");
@@ -56,6 +56,24 @@ export default function AdminPage() {
   const [formData,    setFormData]    = useState(EMPTY_FORM);
   const [formError,   setFormError]   = useState<string | null>(null);
 
+  const [dbUsers, setDbUsers] = useState<AppUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    const { data } = await apiFetch<AppUser[]>("/api/profiles");
+    if (data) {
+      setDbUsers(data);
+    }
+    setLoadingUsers(false);
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && role === "admin") {
+      fetchUsers();
+    }
+  }, [isAuthenticated, role]);
+
   useEffect(() => {
     if (!isAuthenticated) router.push("/login");
     else if (role !== "admin") router.push("/");
@@ -64,7 +82,7 @@ export default function AdminPage() {
   if (!isAuthenticated || role !== "admin") return null;
 
   // ── Derived data ─────────────────────────────────────────────
-  const filtered = appUsers.filter(u => {
+  const filtered = dbUsers.filter(u => {
     const matchSearch =
       u.username.toLowerCase().includes(search.toLowerCase()) ||
       u.displayName.toLowerCase().includes(search.toLowerCase());
@@ -73,10 +91,10 @@ export default function AdminPage() {
   });
 
   const counts = {
-    total:   appUsers.length,
-    admin:   appUsers.filter(u => u.role === "admin").length,
-    teacher: appUsers.filter(u => u.role === "teacher").length,
-    student: appUsers.filter(u => u.role === "student").length,
+    total:   dbUsers.length,
+    admin:   dbUsers.filter(u => u.role === "admin").length,
+    teacher: dbUsers.filter(u => u.role === "teacher").length,
+    student: dbUsers.filter(u => u.role === "student").length,
   };
 
   // ── Form handlers ─────────────────────────────────────────────
@@ -96,33 +114,53 @@ export default function AdminPage() {
 
   const closeForm = () => { setShowForm(false); setEditingUser(null); setFormData(EMPTY_FORM); setFormError(null); };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.username.trim() || !formData.displayName.trim()) {
       setFormError("กรุณากรอก Username และชื่อแสดงผลให้ครบ");
       return;
     }
-    const duplicate = appUsers.find(
+    const duplicate = dbUsers.find(
       u => u.username === formData.username.trim() && u.id !== editingUser?.id
     );
     if (duplicate) { setFormError("Username นี้มีในระบบแล้ว"); return; }
 
     if (editingUser) {
-      updateAppUser({ ...editingUser, ...formData, username: formData.username.trim(), displayName: formData.displayName.trim() });
-    } else {
-      addAppUser({
-        id:          "usr-" + Math.random().toString(36).substring(2, 9),
-        username:    formData.username.trim(),
-        displayName: formData.displayName.trim(),
-        role:        formData.role,
-        createdAt:   Date.now(),
+      const { error } = await apiFetch("/api/profiles", {
+        method: "PUT",
+        body: JSON.stringify({
+          id: editingUser.id,
+          username: formData.username.trim(),
+          displayName: formData.displayName.trim(),
+          role: formData.role,
+        }),
       });
+
+      if (error) {
+        setFormError("อัปเดตข้อมูลไม่สำเร็จ: " + error);
+        return;
+      }
+      fetchUsers();
+    } else {
+      alert("การเพิ่มผู้ใช้งานใหม่จากหน้า Admin จะต้องให้ผู้ใช้งานสมัครสมาชิกด้วยตัวเอง");
+      return;
     }
     closeForm();
   };
 
-  const handleDelete = () => {
-    if (deleteId) { deleteAppUser(deleteId); setDeleteId(null); }
+  const handleDelete = async () => {
+    if (deleteId) {
+      const { error } = await apiFetch("/api/profiles", {
+        method: "DELETE",
+        body: JSON.stringify({ id: deleteId }),
+      });
+      if (!error) {
+        fetchUsers();
+      } else {
+        alert("ลบข้อมูลไม่สำเร็จ: " + error);
+      }
+      setDeleteId(null);
+    }
   };
 
   return (
@@ -220,7 +258,7 @@ export default function AdminPage() {
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <Users className="h-5 w-5 text-rose-500" /> จัดการผู้ใช้งาน
               </h2>
-              <p className="text-xs mt-0.5" style={{ color: tx.muted }}>ทั้งหมด {appUsers.length} บัญชี</p>
+              <p className="text-xs mt-0.5" style={{ color: tx.muted }}>ทั้งหมด {dbUsers.length} บัญชี</p>
             </div>
             <button
               onClick={openCreate}
@@ -275,7 +313,16 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {loadingUsers ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-sm" style={{ color: tx.muted }}>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="h-4 w-4 rounded-full border-2 border-rose-500 border-t-transparent animate-spin" />
+                        กำลังโหลดข้อมูลผู้ใช้...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-sm" style={{ color: tx.muted }}>
                       ไม่พบผู้ใช้งานที่ตรงกับเงื่อนไข
@@ -320,7 +367,7 @@ export default function AdminPage() {
 
           {/* Table Footer */}
           <div className="px-6 py-3 text-xs" style={{ borderTop: `1px solid ${tx.borderS}`, color: tx.faint }}>
-            แสดง {filtered.length} จาก {appUsers.length} บัญชี
+            แสดง {filtered.length} จาก {dbUsers.length} บัญชี
           </div>
         </div>
       </main>
@@ -377,17 +424,25 @@ export default function AdminPage() {
 
             {/* Role */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>บทบาท (Role)</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>บทบาท (Role)</label>
+                {editingUser?.role === "admin" && (
+                  <span className="text-[10px] text-rose-500 font-medium">ไม่สามารถเปลี่ยนสิทธิ์ Admin ได้</span>
+                )}
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 {(["admin", "teacher", "student"] as Role[]).map(r => {
                   const cfg = ROLE_CONFIG[r];
                   const active = formData.role === r;
+                  const disabled = editingUser?.role === "admin";
+
                   return (
                     <button
                       key={r}
                       type="button"
+                      disabled={disabled}
                       onClick={() => setFormData(p => ({ ...p, role: r }))}
-                      className="py-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer"
+                      className={`py-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all ${disabled ? (active ? '' : 'opacity-40 cursor-not-allowed') : 'cursor-pointer'}`}
                       style={active
                         ? { borderColor: cfg.color, color: cfg.color, backgroundColor: cfg.bg }
                         : { borderColor: tx.borderS, color: tx.secondary }}
@@ -430,7 +485,7 @@ export default function AdminPage() {
 
       {/* ── DELETE CONFIRM MODAL ─────────────────────────────── */}
       {deleteId && (() => {
-        const target = appUsers.find(u => u.id === deleteId);
+        const target = dbUsers.find(u => u.id === deleteId);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div

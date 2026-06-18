@@ -4,15 +4,16 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Sparkles, User, Lock, Eye, EyeOff, ArrowRight,
-  AlertCircle
+  AlertCircle, Mail
 } from "lucide-react";
 import { useUser } from "../context/UserContext";
 
 export default function SignupPage() {
-  const { register, login } = useUser();
+  const { register } = useUser();
   const router = useRouter();
 
   const [username,    setUsername]    = useState("");
+  const [email,       setEmail]       = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password,    setPassword]    = useState("");
   const [confirmPw,   setConfirmPw]   = useState("");
@@ -44,10 +45,10 @@ export default function SignupPage() {
     }
 
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
 
-    const result = register({
+    const result = await register({
       username:    username.trim(),
+      email:       email.trim() || undefined,
       password,
       role: "student",
       displayName: displayName.trim(),
@@ -59,8 +60,6 @@ export default function SignupPage() {
       return;
     }
 
-    // auto-login as student - admin จะเปลี่ยน role ได้
-    login("student", displayName.trim(), username.trim());
     router.push("/student");
   };
 
@@ -126,6 +125,25 @@ export default function SignupPage() {
                   className="w-full pl-10 pr-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm"
                   style={{ borderColor: "var(--border-base)", color: "var(--text-primary)" }}
                   placeholder="อย่างน้อย 3 ตัวอักษร ไม่มีช่องว่าง"
+                />
+              </div>
+            </div>
+
+            {/* Email (Optional) */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                Email <span className="text-[10px] font-normal lowercase opacity-70">(ไม่บังคับ)</span>
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--text-faint)" }} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); clearError(); }}
+                  autoComplete="email"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm"
+                  style={{ borderColor: "var(--border-base)", color: "var(--text-primary)" }}
+                  placeholder="name@example.com"
                 />
               </div>
             </div>
