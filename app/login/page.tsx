@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Sparkles, Shield, User, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import { useUser } from "../context/UserContext";
 import { apiFetch, setToken } from "../../lib/api";
+import { toast } from "../../lib/swal";
 import type { Role } from "../context/UserContext";
 
 export default function LoginPage() {
@@ -29,6 +30,7 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+    const loadingToast = toast.loading("กำลังเข้าสู่ระบบ...");
 
     const { data, error: apiError } = await apiFetch<{
       token: string;
@@ -39,14 +41,19 @@ export default function LoginPage() {
     });
 
     if (apiError || !data) {
+      loadingToast.close();
       setLoading(false);
-      setError(apiError || "Username หรือ Password ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
+      const msg = apiError || "Username หรือ Password ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
     setToken(data.token);
     login(data.user.role, data.user.displayName, data.user.username, data.user.id);
     await refreshData();
+    loadingToast.close();
+    toast.success("เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ " + data.user.displayName);
 
     const dest = data.user.role === "admin" ? "/admin" : data.user.role === "teacher" ? "/teacher" : "/student";
     router.push(dest);

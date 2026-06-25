@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useUser, type AppUser, type Role } from "../context/UserContext";
 import { apiFetch } from "../../lib/api";
+import { toast, alert as swalAlert } from "../../lib/swal";
 
 const tx = {
   primary:   "var(--text-primary)",
@@ -140,9 +141,10 @@ export default function AdminPage() {
         setFormError("อัปเดตข้อมูลไม่สำเร็จ: " + error);
         return;
       }
+      toast.success("อัปเดตข้อมูลสำเร็จ!");
       fetchUsers();
     } else {
-      alert("การเพิ่มผู้ใช้งานใหม่จากหน้า Admin จะต้องให้ผู้ใช้งานสมัครสมาชิกด้วยตัวเอง");
+      swalAlert.warning("ไม่สามารถเพิ่มผู้ใช้งาน", "การเพิ่มผู้ใช้งานใหม่จากหน้า Admin จะต้องให้ผู้ใช้งานสมัครสมาชิกด้วยตัวเอง");
       return;
     }
     closeForm();
@@ -150,14 +152,17 @@ export default function AdminPage() {
 
   const handleDelete = async () => {
     if (deleteId) {
+      const loadingToast = toast.loading("กำลังลบผู้ใช้งาน...");
       const { error } = await apiFetch("/api/profiles", {
         method: "DELETE",
         body: JSON.stringify({ id: deleteId }),
       });
+      loadingToast.close();
       if (!error) {
+        toast.success("ลบผู้ใช้งานสำเร็จ!");
         fetchUsers();
       } else {
-        alert("ลบข้อมูลไม่สำเร็จ: " + error);
+        swalAlert.error("ลบข้อมูลไม่สำเร็จ", error);
       }
       setDeleteId(null);
     }

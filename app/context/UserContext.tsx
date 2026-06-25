@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { apiFetch, setToken, removeToken, getToken } from "../../lib/api";
+import { toast } from "../../lib/swal";
 
 export type Role = "teacher" | "student" | "admin";
 
@@ -172,6 +173,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const createCourse = async (data: Partial<Course>): Promise<{success: boolean; error?: string}> => {
     if (!userId) return { success: false, error: "Not logged in" };
+    const loadingToast = toast.loading("กำลังบันทึกข้อมูลหลักสูตร...");
     try {
       const { error } = await apiFetch("/api/courses", {
         method: "POST",
@@ -182,11 +184,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
           gradientClass: data.gradientClass,
         }),
       });
-      if (error) return { success: false, error };
+      loadingToast.close();
+      if (error) {
+        toast.error("สร้างหลักสูตรไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
       await fetchAllData();
+      toast.success("สร้างหลักสูตรสำเร็จ!");
       return { success: true };
     } catch (err: unknown) {
+      loadingToast.close();
       const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("สร้างหลักสูตรไม่สำเร็จ: " + message);
       return { success: false, error: message };
     }
   };
@@ -215,18 +224,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const addMeeting = async (meeting: Meeting) => {
-    setMeetings((prev) => [meeting, ...prev]);
-    await apiFetch("/api/meetings", {
-      method: "POST",
-      body: JSON.stringify({
-        id: meeting.id,
-        subject: meeting.subject,
-        joinUrl: meeting.joinUrl,
-        startDateTime: meeting.startDateTime,
-        endDateTime: meeting.endDateTime,
-        passcode: meeting.passcode,
-      }),
-    });
+    const loadingToast = toast.loading("กำลังสร้างคลาสเรียนสด...");
+    try {
+      const { error } = await apiFetch("/api/meetings", {
+        method: "POST",
+        body: JSON.stringify({
+          id: meeting.id,
+          subject: meeting.subject,
+          joinUrl: meeting.joinUrl,
+          startDateTime: meeting.startDateTime,
+          endDateTime: meeting.endDateTime,
+          passcode: meeting.passcode,
+        }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("สร้างคลาสเรียนสดไม่สำเร็จ: " + error);
+      } else {
+        setMeetings((prev) => [meeting, ...prev]);
+        toast.success("สร้างคลาสเรียนสดสำเร็จ!");
+      }
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("สร้างคลาสเรียนสดไม่สำเร็จ: " + message);
+    }
   };
 
   const toggleDarkMode = () => {
@@ -234,49 +256,88 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const addAssignment = async (assignment: Assignment) => {
-    setAssignments((prev) => [assignment, ...prev]);
-    await apiFetch("/api/assignments", {
-      method: "POST",
-      body: JSON.stringify({
-        id: assignment.id,
-        courseId: assignment.courseId,
-        type: assignment.type,
-        title: assignment.title,
-        dueDate: assignment.dueDate,
-        points: assignment.points,
-        instructions: assignment.instructions,
-        timeLimit: assignment.timeLimit,
-        questions: assignment.questions,
-      }),
-    });
+    const loadingToast = toast.loading("กำลังสร้างงาน/แบบทดสอบ...");
+    try {
+      const { error } = await apiFetch("/api/assignments", {
+        method: "POST",
+        body: JSON.stringify({
+          id: assignment.id,
+          courseId: assignment.courseId,
+          type: assignment.type,
+          title: assignment.title,
+          dueDate: assignment.dueDate,
+          points: assignment.points,
+          instructions: assignment.instructions,
+          timeLimit: assignment.timeLimit,
+          questions: assignment.questions,
+        }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("สร้างงาน/แบบทดสอบไม่สำเร็จ: " + error);
+      } else {
+        setAssignments((prev) => [assignment, ...prev]);
+        toast.success("สร้างงาน/แบบทดสอบสำเร็จ!");
+      }
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("สร้างงาน/แบบทดสอบไม่สำเร็จ: " + message);
+    }
   };
 
   const addSubmission = async (submission: StudentSubmission) => {
-    setSubmissions((prev) => [submission, ...prev]);
-    await apiFetch("/api/submissions", {
-      method: "POST",
-      body: JSON.stringify({
-        assignmentId: submission.assignmentId,
-        type: submission.type,
-        fileName: submission.fileName,
-        score: submission.score,
-        answers: submission.answers,
-        submittedAt: submission.submittedAt,
-      }),
-    });
+    const loadingToast = toast.loading("กำลังส่งงาน/คำตอบ...");
+    try {
+      const { error } = await apiFetch("/api/submissions", {
+        method: "POST",
+        body: JSON.stringify({
+          assignmentId: submission.assignmentId,
+          type: submission.type,
+          fileName: submission.fileName,
+          score: submission.score,
+          answers: submission.answers,
+          submittedAt: submission.submittedAt,
+        }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("ส่งงานไม่สำเร็จ: " + error);
+      } else {
+        setSubmissions((prev) => [submission, ...prev]);
+        toast.success("ส่งงานสำเร็จเรียบร้อย!");
+      }
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ส่งงานไม่สำเร็จ: " + message);
+    }
   };
 
   const updateLesson = async (updatedLesson: Lesson) => {
-    setLessons((prev) => prev.map((l) => (l.id === updatedLesson.id ? updatedLesson : l)));
-    await apiFetch("/api/lessons", {
-      method: "PUT",
-      body: JSON.stringify({
-        id: updatedLesson.id,
-        title: updatedLesson.title,
-        description: updatedLesson.description,
-        videoUrl: updatedLesson.videoUrl,
-      }),
-    });
+    const loadingToast = toast.loading("กำลังบันทึกข้อมูลบทเรียน...");
+    try {
+      const { error } = await apiFetch("/api/lessons", {
+        method: "PUT",
+        body: JSON.stringify({
+          id: updatedLesson.id,
+          title: updatedLesson.title,
+          description: updatedLesson.description,
+          videoUrl: updatedLesson.videoUrl,
+        }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("บันทึกบทเรียนไม่สำเร็จ: " + error);
+      } else {
+        setLessons((prev) => prev.map((l) => (l.id === updatedLesson.id ? updatedLesson : l)));
+        toast.success("บันทึกบทเรียนสำเร็จ!");
+      }
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("บันทึกบทเรียนไม่สำเร็จ: " + message);
+    }
   };
 
   const addAppUser = (user: AppUser) => {
@@ -292,54 +353,91 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const updateDisplayName = async (name: string) => {
-    setDisplayName(name);
-    setAppUsers((prev) =>
-      prev.map((u) => (u.username === currentUsername ? { ...u, displayName: name } : u))
-    );
-    await apiFetch("/api/profiles", {
-      method: "PUT",
-      body: JSON.stringify({ displayName: name }),
-    });
+    const loadingToast = toast.loading("กำลังบันทึกชื่อแสดงผล...");
+    try {
+      const { error } = await apiFetch("/api/profiles", {
+        method: "PUT",
+        body: JSON.stringify({ displayName: name }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("บันทึกชื่อไม่สำเร็จ: " + error);
+      } else {
+        setDisplayName(name);
+        setAppUsers((prev) =>
+          prev.map((u) => (u.username === currentUsername ? { ...u, displayName: name } : u))
+        );
+        toast.success("บันทึกชื่อแสดงผลใหม่สำเร็จ!");
+      }
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("บันทึกชื่อไม่สำเร็จ: " + message);
+    }
   };
 
   const updatePassword = async (
     oldPw: string,
     newPw: string
   ): Promise<{ success: boolean; error?: string }> => {
-    const { error } = await apiFetch("/api/auth/password", {
-      method: "PUT",
-      body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw }),
-    });
-    if (error) return { success: false, error };
-    return { success: true };
+    const loadingToast = toast.loading("กำลังเปลี่ยนรหัสผ่าน...");
+    try {
+      const { error } = await apiFetch("/api/auth/password", {
+        method: "PUT",
+        body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("เปลี่ยนรหัสผ่านไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      toast.success("เปลี่ยนรหัสผ่านสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("เปลี่ยนรหัสผ่านไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
   };
 
   const register = async (data: Credential): Promise<{ success: boolean; error?: string }> => {
-    const { data: result, error } = await apiFetch<{
-      token: string;
-      user: { id: string; username: string; displayName: string; role: Role };
-    }>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify({
-        username: data.username,
-        password: data.password,
-        displayName: data.displayName,
-        email: data.email,
-        role: data.role,
-      }),
-    });
+    const loadingToast = toast.loading("กำลังสมัครสมาชิก...");
+    try {
+      const { data: result, error } = await apiFetch<{
+        token: string;
+        user: { id: string; username: string; displayName: string; role: Role };
+      }>("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          username: data.username,
+          password: data.password,
+          displayName: data.displayName,
+          email: data.email,
+          role: data.role,
+        }),
+      });
+      loadingToast.close();
+      if (error || !result) {
+        const msg = error ?? "เกิดข้อผิดพลาด";
+        toast.error("สมัครสมาชิกไม่สำเร็จ: " + msg);
+        return { success: false, error: msg };
+      }
 
-    if (error || !result) {
-      return { success: false, error: error ?? "เกิดข้อผิดพลาด" };
+      setToken(result.token);
+      setRole(result.user.role as Role);
+      setDisplayName(result.user.displayName);
+      setCurrentUsername(result.user.username);
+      setUserId(result.user.id);
+      setIsAuthenticated(true);
+      toast.success("สมัครสมาชิกสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("สมัครสมาชิกไม่สำเร็จ: " + message);
+      return { success: false, error: message };
     }
-
-    setToken(result.token);
-    setRole(result.user.role as Role);
-    setDisplayName(result.user.displayName);
-    setCurrentUsername(result.user.username);
-    setUserId(result.user.id);
-    setIsAuthenticated(true);
-    return { success: true };
   };
 
   useEffect(() => {

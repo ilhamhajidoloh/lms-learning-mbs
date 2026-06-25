@@ -195,3 +195,93 @@ header a,
   animation: fadeIn 0.25s ease-out both;
 }
 
+/* =============================================
+   SWEETALERT2 CUSTOM STYLING
+   ============================================= */
+.swal2-popup {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-radius: 1.5rem !important; /* 24px */
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  font-family: var(--font-sans) !important;
+  padding: 2rem 1.5rem !important;
+}
+
+.swal2-title {
+  color: var(--text-primary) !important;
+  font-weight: 700 !important;
+  font-size: 1.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.swal2-html-container {
+  color: var(--text-secondary) !important;
+  font-size: 0.875rem !important;
+  margin: 1rem 0 !important;
+}
+
+.swal2-actions {
+  margin-top: 1.5rem !important;
+  gap: 0.75rem !important;
+}
+
+.swal2-confirm {
+  background: linear-gradient(to right, #4f46e5, #7c3aed) !important; /* indigo-600 to violet-600 */
+  border-radius: 0.75rem !important;
+  font-weight: 700 !important;
+  font-size: 0.875rem !important;
+  padding: 0.625rem 1.5rem !important;
+  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2), 0 2px 4px -1px rgba(79, 70, 229, 0.1) !important;
+  transition: all 0.2s !important;
+  border: none !important;
+}
+
+.swal2-confirm:hover {
+  background: linear-gradient(to right, #4338ca, #6d28d9) !important; /* darker hover */
+  transform: translateY(-1px) !important;
+}
+
+.swal2-cancel {
+  border-radius: 0.75rem !important;
+  font-weight: 700 !important;
+  font-size: 0.875rem !important;
+  padding: 0.625rem 1.5rem !important;
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-subtle) !important;
+  transition: all 0.2s !important;
+}
+
+.swal2-cancel:hover {
+  background-color: var(--border-subtle) !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal2-icon {
+  margin: 1.5rem auto 1rem auto !important;
+}
+
+/* SweetAlert2 Toast customization */
+.swal2-toast {
+  padding: 0.75rem 1rem !important;
+  border-radius: 1rem !important;
+  border: 1px solid var(--border-subtle) !important;
+  background-color: var(--bg-surface) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.swal2-toast .swal2-title {
+  font-size: 0.875rem !important;
+  margin: 0 !important;
+  padding: 0 0.5rem !important;
+  font-weight: 600 !important;
+}
+
+.swal2-toast .swal2-html-container {
+  font-size: 0.75rem !important;
+  margin: 0 !important;
+  padding: 0 0.5rem !important;
+}
+
+
