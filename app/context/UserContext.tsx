@@ -28,6 +28,10 @@ export interface Course {
   instructor: string;
   instructorId: string;
   progress: number;
+  isOpen?: boolean;
+  enrollCode?: string;
+  enrollCodeRequired?: boolean;
+  isEnrolled?: boolean;
 }
 
 export interface QuizQuestion {
@@ -59,7 +63,7 @@ export interface StudentSubmission {
   type: "file" | "quiz";
   fileName?: string;
   score?: number;
-  answers?: Record<number, number>;
+  answers?: Record<number, number> | number[];
 }
 
 export interface LessonSegment {
@@ -93,6 +97,14 @@ export interface Credential {
   email?: string;
 }
 
+export interface Enrollment {
+  courseId: string;
+  studentId?: string;
+  progress: number;
+  studentName?: string;
+  studentUsername?: string;
+}
+
 interface UserContextProps {
   role: Role;
   isAuthenticated: boolean;
@@ -116,12 +128,18 @@ interface UserContextProps {
   submissions: StudentSubmission[];
   addSubmission: (submission: StudentSubmission) => void;
   lessons: Lesson[];
+  addLesson: (lesson: Omit<Lesson, "id">) => Promise<{ success: boolean; error?: string }>;
   updateLesson: (lesson: Lesson) => void;
   appUsers: AppUser[];
   addAppUser: (user: AppUser) => void;
   updateAppUser: (user: AppUser) => void;
   deleteAppUser: (userId: string) => void;
   refreshData: () => Promise<void>;
+  enrollments: Enrollment[];
+  enrollInCourse: (courseId: string, enrollCode?: string) => Promise<{ success: boolean; error?: string }>;
+  teacherAddStudent: (courseId: string, studentId: string) => Promise<{ success: boolean; error?: string }>;
+  teacherRemoveStudent: (courseId: string, studentId: string) => Promise<{ success: boolean; error?: string }>;
+  updateCourseSettings: (courseId: string, isOpen: boolean, enrollCode: string | null) => Promise<{ success: boolean; error?: string }>;
 }
 
 const UserContext = createContext<UserContextProps | undefined>(undefined);
@@ -133,6 +151,7 @@ interface AllDataResponse {
   submissions: StudentSubmission[];
   meetings: Meeting[];
   appUsers: AppUser[];
+  enrollments?: Enrollment[];
 }
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -147,6 +166,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [submissions, setSubmissions] = useState<StudentSubmission[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [displayName, setDisplayName] = useState("ผู้ใช้");
   const [currentUsername, setCurrentUsername] = useState("");
 
@@ -164,6 +184,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setSubmissions(data.submissions);
       setMeetings(data.meetings);
       setAppUsers(data.appUsers);
+      setEnrollments(data.enrollments || []);
     } catch (err) {
       console.error("fetchAllData error:", err);
     } finally {
@@ -221,6 +242,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setLessons([]);
     setMeetings([]);
     setAppUsers([]);
+    setEnrollments([]);
   };
 
   const addMeeting = async (meeting: Meeting) => {
@@ -314,6 +336,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addLesson = async (lesson: Omit<Lesson, "id">): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังเพิ่มบทเรียน...");
+    try {
+      const id = "lesson-" + Math.random().toString(36).substring(2, 9);
+      const { error } = await apiFetch("/api/lessons", {
+        method: "POST",
+        body: JSON.stringify({
+          id,
+          courseId: lesson.courseId,
+          title: lesson.title,
+          description: lesson.description,
+          videoUrl: lesson.videoUrl,
+        }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("เพิ่มบทเรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("เพิ่มบทเรียนสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("เพิ่มบทเรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
   const updateLesson = async (updatedLesson: Lesson) => {
     const loadingToast = toast.loading("กำลังบันทึกข้อมูลบทเรียน...");
     try {
@@ -397,6 +449,98 @@ export function UserProvider({ children }: { children: ReactNode }) {
       loadingToast.close();
       const message = err instanceof Error ? err.message : "Unknown error";
       toast.error("เปลี่ยนรหัสผ่านไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const enrollInCourse = async (courseId: string, enrollCode?: string): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังลงทะเบียนเรียน...");
+    try {
+      const { error } = await apiFetch("/api/courses/enroll", {
+        method: "POST",
+        body: JSON.stringify({ courseId, enrollCode }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("ลงทะเบียนเรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("ลงทะเบียนเรียนสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ลงทะเบียนเรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const teacherAddStudent = async (courseId: string, studentId: string): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังเพิ่มผู้เรียนเข้าคอร์ส...");
+    try {
+      const { error } = await apiFetch("/api/courses/enroll", {
+        method: "POST",
+        body: JSON.stringify({ courseId, studentId }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("เพิ่มผู้เรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("เพิ่มผู้เรียนสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("เพิ่มผู้เรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const teacherRemoveStudent = async (courseId: string, studentId: string): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังลบผู้เรียนออกจากคอร์ส...");
+    try {
+      const { error } = await apiFetch("/api/courses/enroll", {
+        method: "DELETE",
+        body: JSON.stringify({ courseId, studentId }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("ลบผู้เรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("ลบผู้เรียนออกจากคอร์สสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ลบผู้เรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const updateCourseSettings = async (courseId: string, isOpen: boolean, enrollCode: string | null): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังอัปเดตการตั้งค่าคอร์ส...");
+    try {
+      const { error } = await apiFetch("/api/courses", {
+        method: "PUT",
+        body: JSON.stringify({ id: courseId, isOpen, enrollCode }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("อัปเดตการตั้งค่าไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("อัปเดตการตั้งค่าสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("อัปเดตการตั้งค่าไม่สำเร็จ: " + message);
       return { success: false, error: message };
     }
   };
@@ -500,6 +644,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         submissions,
         addSubmission,
         lessons,
+        addLesson,
         updateLesson,
         appUsers,
         addAppUser,
@@ -509,6 +654,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
         updateDisplayName,
         updatePassword,
         refreshData: fetchAllData,
+        enrollments,
+        enrollInCourse,
+        teacherAddStudent,
+        teacherRemoveStudent,
+        updateCourseSettings,
       }}
     >
       {children}

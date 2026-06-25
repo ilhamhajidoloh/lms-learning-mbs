@@ -7,6 +7,7 @@ import {
   ExternalLink, LogOut, ShieldAlert
 } from "lucide-react";
 import { useUser } from "../../context/UserContext";
+import LoadingScreen from "../../components/LoadingScreen";
 
 const tx = {
   primary:   "var(--text-primary)",
@@ -28,16 +29,21 @@ const cardStyle = {
 };
 
 export default function StudentTeamsPage() {
-  const { role, isAuthenticated, logout, meetings, darkMode, toggleDarkMode } = useUser();
+  const { role, isAuthenticated, logout, meetings, darkMode, toggleDarkMode, loadingData } = useUser();
   const router = useRouter();
 
   useEffect(() => {
+    if (loadingData) return;
     if (!isAuthenticated) {
       router.push("/login");
     } else if (role !== "student") {
-      router.push("/teacher");
+      router.push(role === "admin" ? "/admin" : "/teacher");
     }
-  }, [isAuthenticated, role, router]);
+  }, [isAuthenticated, role, router, loadingData]);
+
+  if (loadingData) {
+    return <LoadingScreen />;
+  }
 
   if (!isAuthenticated || role !== "student") {
     return null;

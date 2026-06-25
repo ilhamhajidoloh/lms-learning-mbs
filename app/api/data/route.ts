@@ -12,6 +12,7 @@ export async function GET(request: Request) {
 
   const coursesQuery = pool.query(`
     SELECT c.id, c.title, c.level, c.level_label, c.gradient_class, c.instructor_id,
+           c.is_open, c.enroll_code,
            u.display_name AS instructor_name,
            (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id) AS lessons_count
     FROM courses c
@@ -69,13 +70,23 @@ export async function GET(request: Request) {
     ORDER BY m.created_at DESC
   `);
 
-  const enrollmentsQuery = role === "student"
-    ? pool.query("SELECT course_id, progress FROM course_enrollments WHERE student_id = $1", [userId])
-    : Promise.resolve({ rows: [] });
+  const enrollmentsQuery = role === "teacher"
+    ? pool.query(`
+        SELECT ce.course_id, ce.student_id, ce.progress, u.display_name AS student_name, u.username AS student_username
+        FROM course_enrollments ce
+        JOIN users u ON u.id = ce.student_id
+        JOIN courses c ON c.id = ce.course_id
+        WHERE c.instructor_id = $1
+      `, [userId])
+    : (role === "student"
+       ? pool.query("SELECT course_id, progress FROM course_enrollments WHERE student_id = $1", [userId])
+       : Promise.resolve({ rows: [] }));
 
   const profilesQuery = role === "admin"
     ? pool.query("SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC")
-    : Promise.resolve({ rows: [] });
+    : (role === "teacher"
+       ? pool.query("SELECT id, username, display_name, role, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC")
+       : Promise.resolve({ rows: [] }));
 
   const [
     coursesRes, lessonsRes, segmentsRes, assignmentsRes,
@@ -100,17 +111,25 @@ export async function GET(request: Request) {
     (questionsByAssignment[q.assignment_id] ??= []).push(q);
   }
 
-  const courses = coursesRes.rows.map((c) => ({
-    id: c.id,
-    title: c.title,
-    level: c.level,
-    levelLabel: c.level_label,
-    gradientClass: c.gradient_class,
-    lessonsCount: Number(c.lessons_count),
-    instructor: c.instructor_name,
-    instructorId: c.instructor_id,
-    progress: progressMap[c.id] ?? 0,
-  }));
+  const courses = coursesRes.rows.map((c) => {
+    const isEnrolled = c.id in progressMap;
+    const showCode = role === "admin" || role === "teacher" || c.instructor_id === userId;
+    return {
+      id: c.id,
+      title: c.title,
+      level: c.level,
+      levelLabel: c.level_label,
+      gradientClass: c.gradient_class,
+      lessonsCount: Number(c.lessons_count),
+      instructor: c.instructor_name,
+      instructorId: c.instructor_id,
+      progress: progressMap[c.id] ?? 0,
+      isOpen: !!c.is_open,
+      enrollCode: showCode ? c.enroll_code : undefined,
+      enrollCodeRequired: !c.is_open && (c.enroll_code !== null && c.enroll_code !== ""),
+      isEnrolled: isEnrolled || role === "teacher", // Teachers implicitly enrolled in their own courses or seen as enrolled
+    };
+  });
 
   const lessons = lessonsRes.rows.map((l) => ({
     id: l.id,
@@ -175,6 +194,14 @@ export async function GET(request: Request) {
     createdAt: new Date(p.created_at).getTime(),
   }));
 
+  const enrollments = enrollmentsRes.rows.map((e) => ({
+    courseId: e.course_id,
+    studentId: e.student_id,
+    progress: e.progress,
+    studentName: e.student_name,
+    studentUsername: e.student_username,
+  }));
+
   return Response.json({
     courses,
     lessons,
@@ -182,5 +209,6 @@ export async function GET(request: Request) {
     submissions,
     meetings,
     appUsers,
+    enrollments,
   });
 }

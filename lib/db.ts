@@ -52,6 +52,18 @@ export async function ensureTables() {
     console.error("Failed to drop level check constraint:", err);
   }
 
+  // Add columns for course enrollment settings if not exist
+  try {
+    await pool.query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT FALSE`);
+  } catch (err) {
+    console.error("Failed to add column is_open:", err);
+  }
+  try {
+    await pool.query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS enroll_code TEXT`);
+  } catch (err) {
+    console.error("Failed to add column enroll_code:", err);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS course_enrollments (
       id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),

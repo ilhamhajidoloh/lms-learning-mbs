@@ -9,11 +9,43 @@ export async function POST(request: Request) {
   const { id, title, level, levelLabel, gradientClass } = await request.json();
 
   const { rows } = await pool.query(
-    `INSERT INTO courses (id, title, level, level_label, gradient_class, instructor_id)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO courses (id, title, level, level_label, gradient_class, instructor_id, is_open, enroll_code)
+     VALUES ($1, $2, $3, $4, $5, $6, FALSE, NULL)
      RETURNING id`,
     [id || `course-${Date.now()}`, title, level, levelLabel, gradientClass, auth.userId]
   );
 
   return Response.json({ id: rows[0].id });
+}
+
+export async function PUT(request: Request) {
+  await ensureTables();
+  const auth = authenticate(request);
+  if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id, isOpen, enrollCode } = await request.json();
+  if (!id) return Response.json({ error: "Missing course id" }, { status: 400 });
+
+  if (auth.role !== "admin") {
+    // Verify requester is instructor
+    const courseQuery = await pool.query(
+      "SELECT instructor_id FROM courses WHERE id = $1",
+      [id]
+    );
+    if (courseQuery.rows.length === 0) {
+      return Response.json({ error: "Course not found" }, { status: 404 });
+    }
+    if (courseQuery.rows[0].instructor_id !== auth.userId) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  await pool.query(
+    `UPDATE courses
+     SET is_open = $1, enroll_code = $2, updated_at = now()
+     WHERE id = $3`,
+    [isOpen, enrollCode || null, id]
+  );
+
+  return Response.json({ success: true });
 }

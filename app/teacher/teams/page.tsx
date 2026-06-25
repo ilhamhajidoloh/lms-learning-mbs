@@ -8,6 +8,7 @@ import {
   Terminal, LogOut
 } from "lucide-react";
 import { Meeting, useUser } from "../../context/UserContext";
+import LoadingScreen from "../../components/LoadingScreen";
 
 const tx = {
   primary:   "var(--text-primary)",
@@ -29,7 +30,7 @@ const cardStyle = {
 };
 
 export default function TeacherTeamsPage() {
-  const { role, isAuthenticated, logout, addMeeting, darkMode, toggleDarkMode } = useUser();
+  const { role, isAuthenticated, logout, addMeeting, darkMode, toggleDarkMode, loadingData } = useUser();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"demo" | "tutorial" | "code">("demo");
   
@@ -46,12 +47,17 @@ export default function TeacherTeamsPage() {
   const [logMessages, setLogMessages] = useState<string[]>([]);
 
   useEffect(() => {
+    if (loadingData) return;
     if (!isAuthenticated) {
       router.push("/login");
     } else if (role !== "teacher") {
-      router.push("/student");
+      router.push(role === "admin" ? "/admin" : "/student");
     }
-  }, [isAuthenticated, role, router]);
+  }, [isAuthenticated, role, router, loadingData]);
+
+  if (loadingData) {
+    return <LoadingScreen />;
+  }
 
   if (!isAuthenticated || role !== "teacher") {
     return null;

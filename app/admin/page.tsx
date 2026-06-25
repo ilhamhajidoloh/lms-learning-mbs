@@ -10,6 +10,7 @@ import {
 import { useUser, type AppUser, type Role } from "../context/UserContext";
 import { apiFetch } from "../../lib/api";
 import { toast, alert as swalAlert } from "../../lib/swal";
+import LoadingScreen from "../components/LoadingScreen";
 
 const tx = {
   primary:   "var(--text-primary)",
@@ -46,7 +47,7 @@ function RoleBadge({ role }: { role: Role }) {
 const EMPTY_FORM = { username: "", displayName: "", role: "student" as Role };
 
 export default function AdminPage() {
-  const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode } = useUser();
+  const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, loadingData } = useUser();
   const router = useRouter();
 
   const [search,      setSearch]      = useState("");
@@ -76,9 +77,12 @@ export default function AdminPage() {
   }, [isAuthenticated, role]);
 
   useEffect(() => {
+    if (loadingData) return;
     if (!isAuthenticated) router.push("/login");
     else if (role !== "admin") router.push("/");
-  }, [isAuthenticated, role, router]);
+  }, [isAuthenticated, role, router, loadingData]);
+
+  if (loadingData) return <LoadingScreen />;
 
   if (!isAuthenticated || role !== "admin") return null;
 
