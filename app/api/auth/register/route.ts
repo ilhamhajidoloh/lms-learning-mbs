@@ -20,6 +20,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "Username นี้มีในระบบแล้ว" }, { status: 409 });
   }
 
+  if (userRole === "admin") {
+    const { rows: existingAdmins } = await pool.query(
+      "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
+    );
+    if (existingAdmins.length > 0) {
+      return Response.json({ error: "ระบบมีผู้ดูแลระบบอยู่แล้ว ไม่สามารถสมัครเป็น Admin คนที่สองได้" }, { status: 409 });
+    }
+  }
+
   const passwordHash = await hashPassword(password);
 
   const { rows } = await pool.query(

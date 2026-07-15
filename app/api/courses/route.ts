@@ -23,8 +23,27 @@ export async function PUT(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, isOpen, enrollCode } = await request.json();
+  const { id, isOpen, enrollCode, level, levelLabel } = await request.json();
   if (!id) return Response.json({ error: "Missing course id" }, { status: 400 });
+
+  const hasMetadataUpdate = level !== undefined || levelLabel !== undefined;
+
+  if (hasMetadataUpdate) {
+    if (auth.role !== "admin") {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    await pool.query(
+      `UPDATE courses
+       SET level = COALESCE($1, level),
+           level_label = COALESCE($2, level_label),
+           updated_at = now()
+       WHERE id = $3`,
+      [level ?? null, levelLabel ?? null, id]
+    );
+
+    return Response.json({ success: true });
+  }
 
   if (auth.role !== "admin") {
     // Verify requester is instructor

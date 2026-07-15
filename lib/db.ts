@@ -65,6 +65,16 @@ export async function ensureTables() {
   }
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS course_levels (
+      id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      value      TEXT        NOT NULL UNIQUE,
+      label      TEXT        NOT NULL,
+      sort_order INT         NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS course_enrollments (
       id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
       course_id   TEXT        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -158,6 +168,7 @@ export async function ensureTables() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_lessons_course         ON lessons (course_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_segments_lesson        ON lesson_segments (lesson_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_assignments_course     ON assignments (course_id)`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS lesson_id TEXT REFERENCES lessons(id) ON DELETE CASCADE`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_quiz_questions_assign  ON quiz_questions (assignment_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON submissions (assignment_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_student    ON submissions (student_id)`);

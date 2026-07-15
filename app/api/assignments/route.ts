@@ -6,13 +6,26 @@ export async function POST(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, courseId, type, title, dueDate, points, instructions, timeLimit, questions } =
+  const { id, courseId, lessonId, type, title, dueDate, points, instructions, timeLimit, questions } =
     await request.json();
 
+  let resolvedLessonId = lessonId || null;
+  if (!resolvedLessonId) {
+    const lessonQuery = await pool.query(
+      `SELECT id
+       FROM lessons
+       WHERE course_id = $1
+       ORDER BY sort_order, created_at
+       LIMIT 1`,
+      [courseId]
+    );
+    resolvedLessonId = lessonQuery.rows[0]?.id ?? null;
+  }
+
   await pool.query(
-    `INSERT INTO assignments (id, course_id, created_by, type, title, due_date, points, instructions, time_limit)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-    [id, courseId, auth.userId, type, title, dueDate, points, instructions ?? null, timeLimit ?? null]
+    `INSERT INTO assignments (id, course_id, lesson_id, created_by, type, title, due_date, points, instructions, time_limit)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [id, courseId, resolvedLessonId, auth.userId, type, title, dueDate, points, instructions ?? null, timeLimit ?? null]
   );
 
   if (type === "quiz" && questions?.length) {

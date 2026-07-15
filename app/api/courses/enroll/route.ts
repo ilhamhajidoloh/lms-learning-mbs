@@ -1,6 +1,10 @@
 import pool, { ensureTables } from "@/lib/db";
 import { authenticate } from "@/lib/auth";
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "An unexpected error occurred";
+}
+
 export async function POST(request: Request) {
   await ensureTables();
   const auth = authenticate(request);
@@ -33,8 +37,8 @@ export async function POST(request: Request) {
         [courseId, studentId]
       );
       return Response.json({ success: true });
-    } catch (err: any) {
-      return Response.json({ error: err.message }, { status: 500 });
+    } catch (error: unknown) {
+      return Response.json({ error: errorMessage(error) }, { status: 500 });
     }
   }
 
@@ -62,8 +66,8 @@ export async function POST(request: Request) {
         [courseId, auth.userId]
       );
       return Response.json({ success: true });
-    } catch (err: any) {
-      return Response.json({ error: err.message }, { status: 500 });
+    } catch (error: unknown) {
+      return Response.json({ error: errorMessage(error) }, { status: 500 });
     }
   }
 
@@ -82,8 +86,8 @@ export async function POST(request: Request) {
         [courseId, auth.userId]
       );
       return Response.json({ success: true });
-    } catch (err: any) {
-      return Response.json({ error: err.message }, { status: 500 });
+    } catch (error: unknown) {
+      return Response.json({ error: errorMessage(error) }, { status: 500 });
     }
   }
 
@@ -123,7 +127,7 @@ export async function DELETE(request: Request) {
       [courseId, studentId]
     );
     return Response.json({ success: true });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (error: unknown) {
+    return Response.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

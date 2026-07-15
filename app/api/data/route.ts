@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   `);
 
   const assignmentsQuery = pool.query(`
-    SELECT a.id, a.course_id, a.type, a.title, a.due_date, a.points,
+    SELECT a.id, a.course_id, a.lesson_id, a.type, a.title, a.due_date, a.points,
            a.instructions, a.time_limit, a.created_at
     FROM assignments a
     ORDER BY a.created_at DESC
@@ -147,6 +147,7 @@ export async function GET(request: Request) {
   const assignments = assignmentsRes.rows.map((a) => ({
     id: a.id,
     courseId: a.course_id,
+    lessonId: a.lesson_id || undefined,
     type: a.type,
     title: a.title,
     dueDate: a.due_date,

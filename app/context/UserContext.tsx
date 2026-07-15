@@ -44,6 +44,7 @@ export interface QuizQuestion {
 export interface Assignment {
   id: string;
   courseId: string;
+  lessonId?: string;
   type: "file" | "quiz";
   title: string;
   dueDate: string;
@@ -97,6 +98,12 @@ export interface Credential {
   email?: string;
 }
 
+export interface CourseLevelOption {
+  id: string;
+  value: string;
+  label: string;
+}
+
 export interface Enrollment {
   courseId: string;
   studentId?: string;
@@ -140,6 +147,9 @@ interface UserContextProps {
   teacherAddStudent: (courseId: string, studentId: string) => Promise<{ success: boolean; error?: string }>;
   teacherRemoveStudent: (courseId: string, studentId: string) => Promise<{ success: boolean; error?: string }>;
   updateCourseSettings: (courseId: string, isOpen: boolean, enrollCode: string | null) => Promise<{ success: boolean; error?: string }>;
+  levels: CourseLevelOption[];
+  addLevel: (value: string, label: string) => Promise<{ success: boolean; error?: string }>;
+  deleteLevel: (id: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const UserContext = createContext<UserContextProps | undefined>(undefined);
@@ -152,6 +162,10 @@ interface AllDataResponse {
   meetings: Meeting[];
   appUsers: AppUser[];
   enrollments?: Enrollment[];
+}
+
+interface LevelsResponse {
+  levels: CourseLevelOption[];
 }
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -167,13 +181,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [levels, setLevels] = useState<CourseLevelOption[]>([]);
   const [displayName, setDisplayName] = useState("ผู้ใช้");
   const [currentUsername, setCurrentUsername] = useState("");
 
   const fetchAllData = async () => {
     setLoadingData(true);
     try {
-      const { data, error } = await apiFetch<AllDataResponse>("/api/data");
+      const [{ data, error }, { data: levelsData, error: levelsError }] = await Promise.all([
+        apiFetch<AllDataResponse>("/api/data"),
+        apiFetch<LevelsResponse>("/api/levels"),
+      ]);
       if (error || !data) {
         console.error("fetchAllData error:", error);
         return;
@@ -185,10 +203,61 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setMeetings(data.meetings);
       setAppUsers(data.appUsers);
       setEnrollments(data.enrollments || []);
+      if (levelsError || !levelsData) {
+        console.error("fetchAllData levels error:", levelsError);
+      } else {
+        setLevels(levelsData.levels);
+      }
     } catch (err) {
       console.error("fetchAllData error:", err);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const addLevel = async (value: string, label: string): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังเพิ่มระดับชั้นเรียน...");
+    try {
+      const { error } = await apiFetch("/api/levels", {
+        method: "POST",
+        body: JSON.stringify({ value, label }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("เพิ่มระดับชั้นเรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("เพิ่มระดับชั้นเรียนสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("เพิ่มระดับชั้นเรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const deleteLevel = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังลบระดับชั้นเรียน...");
+    try {
+      const { error } = await apiFetch("/api/levels", {
+        method: "DELETE",
+        body: JSON.stringify({ id }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("ลบระดับชั้นเรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("ลบระดับชั้นเรียนสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ลบระดับชั้นเรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
     }
   };
 
@@ -243,6 +312,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setMeetings([]);
     setAppUsers([]);
     setEnrollments([]);
+    setLevels([]);
   };
 
   const addMeeting = async (meeting: Meeting) => {
@@ -285,6 +355,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           id: assignment.id,
           courseId: assignment.courseId,
+          lessonId: assignment.lessonId,
           type: assignment.type,
           title: assignment.title,
           dueDate: assignment.dueDate,
@@ -659,6 +730,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         teacherAddStudent,
         teacherRemoveStudent,
         updateCourseSettings,
+        levels,
+        addLevel,
+        deleteLevel,
       }}
     >
       {children}

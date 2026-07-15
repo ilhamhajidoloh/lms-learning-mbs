@@ -46,6 +46,15 @@ export async function PUT(request: Request) {
     values.push(displayName.trim());
   }
   if (role !== undefined && auth.role === "admin") {
+    if (role === "admin") {
+      const { rows: existingAdmins } = await pool.query(
+        "SELECT id FROM users WHERE role = 'admin'"
+      );
+      const hasOtherAdmin = existingAdmins.some((a) => a.id !== targetId);
+      if (hasOtherAdmin) {
+        return Response.json({ error: "ระบบมีผู้ดูแลระบบอยู่แล้ว ไม่สามารถกำหนด Admin คนที่สองได้" }, { status: 409 });
+      }
+    }
     fields.push(`role = $${idx++}`);
     values.push(role);
   }
@@ -69,6 +78,10 @@ export async function DELETE(request: Request) {
 
   const { id } = await request.json();
   if (!id) return Response.json({ error: "Missing user id" }, { status: 400 });
+
+  if (id === auth.userId) {
+    return Response.json({ error: "ไม่สามารถลบบัญชีของตัวเองได้" }, { status: 400 });
+  }
 
   await pool.query("DELETE FROM users WHERE id = $1", [id]);
   return Response.json({ success: true });
