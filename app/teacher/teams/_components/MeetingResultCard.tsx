@@ -14,7 +14,7 @@ export default function MeetingResultCard({ meetingResult, copied, copyToClipboa
         <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
           MS GRAPH API RESPONSE (201)
         </span>
-        <button onClick={copyToClipboard} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all text-white flex items-center gap-1.5 text-xs font-semibold">
+        <button onClick={copyToClipboard} className="btn-icon p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all text-white flex items-center gap-1.5 text-xs font-semibold">
           {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
           {copied ? "คัดลอกแล้ว!" : "คัดลอกข้อมูลแชร์"}
         </button>
@@ -31,7 +31,7 @@ export default function MeetingResultCard({ meetingResult, copied, copyToClipboa
       </div>
 
       <div className="pt-2">
-        <a href={meetingResult.joinUrl} target="_blank" rel="noopener noreferrer" className="w-full py-3 rounded-xl bg-white text-indigo-950 font-extrabold hover:bg-slate-200 flex items-center justify-center gap-2 shadow-md">
+        <a href={meetingResult.joinUrl} target="_blank" rel="noopener noreferrer" className="w-full py-3 rounded-xl bg-white text-indigo-950 font-extrabold hover:bg-slate-200 flex items-center justify-center gap-2 shadow-md btn-press">
           เข้าร่วมทีมในฐานะครู <ExternalLink className="h-4 w-4" />
         </a>
       </div>

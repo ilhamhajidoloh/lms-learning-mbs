@@ -37,14 +37,11 @@ export default function ProfilePage() {
   // ── Edit display name ──────────────────────────────────────
   const [editingName, setEditingName]   = useState(false);
   const [nameInput,   setNameInput]     = useState(displayName);
-  const [nameSuccess, setNameSuccess]   = useState(false);
 
   const handleSaveName = () => {
     if (!nameInput.trim()) return;
     updateDisplayName(nameInput.trim());
     setEditingName(false);
-    setNameSuccess(true);
-    setTimeout(() => setNameSuccess(false), 3000);
   };
 
   // ── Change password ────────────────────────────────────────
@@ -54,7 +51,6 @@ export default function ProfilePage() {
   const [showOld,  setShowOld]  = useState(false);
   const [showNew,  setShowNew]  = useState(false);
   const [pwError,  setPwError]  = useState<string | null>(null);
-  const [pwOk,     setPwOk]     = useState(false);
 
   if (!isAuthenticated) return null;
 
@@ -69,23 +65,21 @@ export default function ProfilePage() {
     const result = await updatePassword(oldPw, newPw);
     if (!result.success) { setPwError(result.error ?? "เกิดข้อผิดพลาด"); return; }
     setOldPw(""); setNewPw(""); setCPw("");
-    setPwOk(true);
-    setTimeout(() => setPwOk(false), 3000);
   };
 
   // ── Role-specific stats ────────────────────────────────────
   const stats = role === "student" ? [
-    { label: "คอร์สที่ลงทะเบียน",  value: courses.length,                                              icon: <BookOpen className="h-5 w-5" />,  color: "#6366f1" },
-    { label: "งานที่ส่งแล้ว",       value: submissions.filter(s => s.studentId === "std-current").length, icon: <FileText className="h-5 w-5" />,  color: "#a855f7" },
-    { label: "ควิซที่ทำเสร็จ",      value: submissions.filter(s => s.studentId === "std-current" && s.type === "quiz").length, icon: <Trophy className="h-5 w-5" />, color: "#10b981" },
+    { label: "คอร์สที่ลงทะเบียน",  value: courses.length,                                              icon: <BookOpen className="h-5 w-5" />,  accent: "indigo" },
+    { label: "งานที่ส่งแล้ว",       value: submissions.filter(s => s.studentId === "std-current").length, icon: <FileText className="h-5 w-5" />,  accent: "purple" },
+    { label: "ควิซที่ทำเสร็จ",      value: submissions.filter(s => s.studentId === "std-current" && s.type === "quiz").length, icon: <Trophy className="h-5 w-5" />, accent: "emerald" },
   ] : role === "teacher" ? [
-    { label: "คอร์สที่สอน",         value: 3,                 icon: <BookOpen className="h-5 w-5" />,  color: "#6366f1" },
-    { label: "งานที่มอบหมาย",       value: assignments.length, icon: <FileText className="h-5 w-5" />,  color: "#a855f7" },
-    { label: "นักเรียนทั้งหมด",     value: 261,               icon: <Users className="h-5 w-5" />,     color: "#f59e0b" },
+    { label: "คอร์สที่สอน",         value: 3,                 icon: <BookOpen className="h-5 w-5" />,  accent: "indigo" },
+    { label: "งานที่มอบหมาย",       value: assignments.length, icon: <FileText className="h-5 w-5" />,  accent: "purple" },
+    { label: "นักเรียนทั้งหมด",     value: 261,               icon: <Users className="h-5 w-5" />,     accent: "amber" },
   ] : [
-    { label: "ผู้ใช้ทั้งหมด",       value: appUsers.length,                                    icon: <Users className="h-5 w-5" />,    color: "#6366f1" },
-    { label: "ครูผู้สอน",           value: appUsers.filter(u => u.role === "teacher").length,  icon: <BookOpen className="h-5 w-5" />,  color: "#a855f7" },
-    { label: "นักเรียน",             value: appUsers.filter(u => u.role === "student").length,  icon: <GraduationCap className="h-5 w-5" />, color: "#10b981" },
+    { label: "ผู้ใช้ทั้งหมด",       value: appUsers.length,                                    icon: <Users className="h-5 w-5" />,    accent: "indigo" },
+    { label: "ครูผู้สอน",           value: appUsers.filter(u => u.role === "teacher").length,  icon: <BookOpen className="h-5 w-5" />,  accent: "purple" },
+    { label: "นักเรียน",             value: appUsers.filter(u => u.role === "student").length,  icon: <GraduationCap className="h-5 w-5" />, accent: "emerald" },
   ];
 
   return (
@@ -108,7 +102,6 @@ export default function ProfilePage() {
           setEditingName={setEditingName}
           nameInput={nameInput}
           setNameInput={setNameInput}
-          nameSuccess={nameSuccess}
           handleSaveName={handleSaveName}
         />
 
@@ -122,7 +115,6 @@ export default function ProfilePage() {
             setNameInput={setNameInput}
             setEditingName={setEditingName}
             handleSaveName={handleSaveName}
-            nameSuccess={nameSuccess}
           />
 
           <ChangePasswordForm
@@ -138,7 +130,6 @@ export default function ProfilePage() {
             setShowNew={setShowNew}
             pwError={pwError}
             setPwError={setPwError}
-            pwOk={pwOk}
             handleSavePw={handleSavePw}
           />
         </div>

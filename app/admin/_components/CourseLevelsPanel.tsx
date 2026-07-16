@@ -4,6 +4,7 @@ import { apiFetch } from "../../../lib/api";
 import { alert as swalAlert, toast } from "../../../lib/swal";
 import { tx } from "../../lib/theme";
 import type { Course, CourseLevelOption } from "../../context/UserContext";
+import { EmptyState } from "../../components/EmptyState";
 
 interface CourseLevelsPanelProps {
   courses: Course[];
@@ -178,7 +179,7 @@ export function CourseLevelsPanel({ courses, levels, addLevel, deleteLevel, refr
                 <button
                   type="button"
                   onClick={() => handleDeleteLevel(lvl.id)}
-                  className="hover:text-rose-500 transition-colors cursor-pointer"
+                  className="hover:text-rose-500 transition-colors cursor-pointer btn-icon"
                   aria-label={`ลบระดับ ${lvl.label}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -208,7 +209,7 @@ export function CourseLevelsPanel({ courses, levels, addLevel, deleteLevel, refr
           <button
             type="submit"
             disabled={addingLevel || !newLevelValue.trim() || !newLevelLabel.trim()}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 transition-colors disabled:opacity-50 cursor-pointer"
+            className="btn-primary inline-flex items-center justify-center gap-1.5 text-xs px-4 py-2 disabled:opacity-50 cursor-pointer"
           >
             <Plus className="h-4 w-4" /> เพิ่มระดับ
           </button>
@@ -217,7 +218,12 @@ export function CourseLevelsPanel({ courses, levels, addLevel, deleteLevel, refr
 
       <div className="p-6">
         {filteredCourses.length === 0 ? (
-          <p className="text-sm text-center py-10" style={{ color: tx.muted }}>ไม่พบคอร์สที่ตรงกับเงื่อนไข</p>
+          <EmptyState
+            illustration="search"
+            variant="compact"
+            accent="slate"
+            title="ไม่พบคอร์สที่ตรงกับเงื่อนไข"
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredCourses.map((course) => (
@@ -245,7 +251,7 @@ export function CourseLevelsPanel({ courses, levels, addLevel, deleteLevel, refr
                 <button
                   type="button"
                   onClick={() => openEditor(course)}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2.5 transition-colors"
+                  className="btn-primary inline-flex items-center justify-center gap-1.5 text-xs px-4 py-2.5"
                 >
                   <Pencil className="h-4 w-4" /> แก้ไขระดับ
                 </button>
@@ -322,15 +328,14 @@ export function CourseLevelsPanel({ courses, levels, addLevel, deleteLevel, refr
                 <button
                   type="button"
                   onClick={closeEditor}
-                  className="px-4 py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-                  style={{ color: tx.secondary }}
+                  className="btn-cancel px-4 py-2.5 rounded-xl text-sm font-bold"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                  className="btn-primary px-5 py-2.5 rounded-xl text-sm disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                 >
                   <Check className="h-4 w-4" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>

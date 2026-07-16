@@ -39,7 +39,7 @@ export function CourseCreationModal({
       <div className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
         <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
           <h2 className="text-xl font-bold">สร้างคอร์สเรียนใหม่</h2>
-          <button onClick={() => setShowCourseForm(false)} className="p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer">
+          <button onClick={() => setShowCourseForm(false)} className="btn-icon p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer">
             <X className="h-5 w-5" style={{ color: tx.secondary }} />
           </button>
         </div>
@@ -101,10 +101,10 @@ export function CourseCreationModal({
           </form>
         </div>
         <div className="p-6 border-t flex justify-end gap-3 shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
-          <button type="button" onClick={() => setShowCourseForm(false)} disabled={courseSaving} className="px-5 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-800" style={{ color: tx.secondary }}>
+          <button type="button" onClick={() => setShowCourseForm(false)} disabled={courseSaving} className="btn-cancel px-5 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50">
             ยกเลิก
           </button>
-          <button type="submit" form="createCourseForm" disabled={courseSaving || levels.length === 0} className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer">
+          <button type="submit" form="createCourseForm" disabled={courseSaving || levels.length === 0} className="btn-primary px-6 py-2.5 rounded-xl text-sm shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer">
             {courseSaving ? "กำลังบันทึก..." : <><Plus className="h-4 w-4" /> ยืนยันการสร้างคอร์ส</>}
           </button>
         </div>

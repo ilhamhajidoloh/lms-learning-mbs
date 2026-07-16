@@ -2,6 +2,7 @@ import { Users, Search, UserPlus, Pencil, Trash2, ChevronDown } from "lucide-rea
 import { tx } from "../../lib/theme";
 import type { AppUser, Role } from "../../context/UserContext";
 import { RoleBadge } from "./RoleBadge";
+import { EmptyState } from "../../components/EmptyState";
 
 interface UserTableProps {
   dbUsers: AppUser[];
@@ -44,7 +45,7 @@ export function UserTable({
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all"
+          className="btn-danger flex items-center gap-1.5 text-xs px-4 py-2.5 rounded-xl shadow-md"
         >
           <UserPlus className="h-4 w-4" /> เพิ่มผู้ใช้ใหม่
         </button>
@@ -106,8 +107,13 @@ export function UserTable({
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-sm" style={{ color: tx.muted }}>
-                  ไม่พบผู้ใช้งานที่ตรงกับเงื่อนไข
+                <td colSpan={6}>
+                  <EmptyState
+                    illustration="users"
+                    variant="compact"
+                    accent="slate"
+                    title="ไม่พบผู้ใช้งานที่ตรงกับเงื่อนไข"
+                  />
                 </td>
               </tr>
             ) : filtered.map((u, idx) => (
@@ -127,7 +133,7 @@ export function UserTable({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => openEdit(u)}
-                      className="p-1.5 rounded-lg transition-colors text-indigo-500 hover:bg-indigo-500/10"
+                      className="btn-icon p-1.5 rounded-lg transition-colors text-indigo-500 hover:bg-indigo-500/10"
                       title="แก้ไข"
                     >
                       <Pencil className="h-4 w-4" />
@@ -135,7 +141,7 @@ export function UserTable({
                     {u.id !== currentUserId && (
                       <button
                         onClick={() => setDeleteId(u.id)}
-                        className="p-1.5 rounded-lg transition-colors text-rose-500 hover:bg-rose-500/10"
+                        className="btn-icon p-1.5 rounded-lg transition-colors text-rose-500 hover:bg-rose-500/10"
                         title="ลบ"
                       >
                         <Trash2 className="h-4 w-4" />

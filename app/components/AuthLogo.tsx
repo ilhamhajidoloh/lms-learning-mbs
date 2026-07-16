@@ -12,7 +12,7 @@ export default function AuthLogo() {
           Math by Seng
         </span>
         <span className="block text-[11px] font-bold tracking-[0.2em] uppercase" style={{ color: "var(--text-muted)" }}>
-          Premium Learning Management System
+          Learning Management System
         </span>
       </div>
     </div>

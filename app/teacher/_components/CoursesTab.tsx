@@ -101,7 +101,7 @@ export function CoursesTab({
           <h2 className="text-2xl font-bold tracking-tight">การจัดการคอร์สเรียน (Course Dashboard)</h2>
           <p className="text-sm mt-1" style={{ color: tx.muted }}>เลือกจัดการหลักสูตร เนื้อหา วิดีโอ และแบบทดสอบสำหรับแต่ละรายวิชาที่รับผิดชอบ</p>
         </div>
-        <button onClick={() => setShowCourseForm(true)} className="flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow transition-transform hover:-translate-y-0.5 shrink-0 self-start sm:self-center cursor-pointer">
+        <button onClick={() => setShowCourseForm(true)} className="btn-primary flex items-center justify-center gap-1.5 text-sm px-4 py-2.5 rounded-xl shadow transition-transform hover:-translate-y-0.5 shrink-0 self-start sm:self-center cursor-pointer">
           <Plus className="h-5 w-5" /> สร้างคอร์สใหม่
         </button>
       </div>
@@ -123,7 +123,7 @@ export function CoursesTab({
               <span className="text-xs font-bold" style={{ color: tx.muted }}>
                 {course.instructor}
               </span>
-              <button onClick={() => setSelectedCourseId(course.id)} className="flex items-center gap-1 text-xs text-indigo-500 dark:text-indigo-400 font-bold hover:underline cursor-pointer">
+              <button onClick={() => setSelectedCourseId(course.id)} className="flex items-center gap-1 text-xs text-indigo-500 dark:text-indigo-400 font-bold hover:underline cursor-pointer btn-press">
                 แก้ไขเนื้อหาบทเรียน <ChevronRight className="h-3 w-3" />
               </button>
             </div>

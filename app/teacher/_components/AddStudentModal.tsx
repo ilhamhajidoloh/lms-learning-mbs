@@ -27,7 +27,7 @@ export function AddStudentModal({
       <div className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
         <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
           <h2 className="text-xl font-bold">ดึงนักเรียนเข้าคอร์สเรียน</h2>
-          <button onClick={() => { setShowAddStudentModal(false); setChosenStudentId(""); }} className="p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer">
+          <button onClick={() => { setShowAddStudentModal(false); setChosenStudentId(""); }} className="btn-icon p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer">
             <X className="h-5 w-5" style={{ color: tx.secondary }} />
           </button>
         </div>
@@ -53,7 +53,7 @@ export function AddStudentModal({
           </div>
         </div>
         <div className="p-6 border-t flex justify-end gap-3 shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
-          <button type="button" onClick={() => { setShowAddStudentModal(false); setChosenStudentId(""); }} className="px-5 py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-slate-100 dark:hover:bg-slate-800" style={{ color: tx.secondary }}>
+          <button type="button" onClick={() => { setShowAddStudentModal(false); setChosenStudentId(""); }} className="btn-cancel px-5 py-2.5 rounded-xl text-sm font-bold">
             ยกเลิก
           </button>
           <button
@@ -68,7 +68,7 @@ export function AddStudentModal({
                   }
               }
             }}
-            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+            className="btn-primary px-6 py-2.5 rounded-xl text-sm shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer"
           >
             ยืนยันการดึงเข้าวิชา
           </button>

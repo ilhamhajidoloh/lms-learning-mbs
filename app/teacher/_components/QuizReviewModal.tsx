@@ -21,7 +21,7 @@ export function QuizReviewModal({ viewingQuizSub, assignments, setViewingQuizSub
               แบบทดสอบ: {activeAssignment.title} · ได้คะแนน {viewingQuizSub.score} / {activeAssignment.questions?.length}
             </p>
           </div>
-          <button onClick={() => setViewingQuizSub(null)} className="p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer">
+          <button onClick={() => setViewingQuizSub(null)} className="btn-icon p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer">
             <X className="h-5 w-5" style={{ color: tx.secondary }} />
           </button>
         </div>
@@ -59,7 +59,7 @@ export function QuizReviewModal({ viewingQuizSub, assignments, setViewingQuizSub
         </div>
 
         <div className="p-6 border-t flex justify-end gap-3 shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
-          <button type="button" onClick={() => setViewingQuizSub(null)} className="py-2.5 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-md cursor-pointer">
+          <button type="button" onClick={() => setViewingQuizSub(null)} className="btn-primary py-2.5 px-6 rounded-xl text-sm shadow-md cursor-pointer">
             ปิดหน้าต่างนี้
           </button>
         </div>

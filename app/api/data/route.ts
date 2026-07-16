@@ -88,12 +88,18 @@ export async function GET(request: Request) {
        ? pool.query("SELECT id, username, display_name, role, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC")
        : Promise.resolve({ rows: [] }));
 
+  const completedLessonsQuery = role === "student"
+    ? pool.query("SELECT lesson_id FROM student_lesson_completions WHERE student_id = $1", [userId])
+    : Promise.resolve({ rows: [] });
+
   const [
     coursesRes, lessonsRes, segmentsRes, assignmentsRes,
     quizQuestionsRes, submissionsRes, meetingsRes, enrollmentsRes, profilesRes,
+    completedLessonsRes,
   ] = await Promise.all([
     coursesQuery, lessonsQuery, segmentsQuery, assignmentsQuery,
     quizQuestionsQuery, submissionsQuery, meetingsQuery, enrollmentsQuery, profilesQuery,
+    completedLessonsQuery,
   ]);
 
   const progressMap: Record<string, number> = {};
@@ -211,5 +217,6 @@ export async function GET(request: Request) {
     meetings,
     appUsers,
     enrollments,
+    completedLessonIds: completedLessonsRes.rows.map((r: any) => r.lesson_id),
   });
 }

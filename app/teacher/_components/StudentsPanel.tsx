@@ -3,6 +3,9 @@ import { Plus, Trash2, ArrowLeft } from "lucide-react";
 import { tx, card } from "../../lib/theme";
 import type { Assignment, Enrollment, StudentSubmission } from "../../context/UserContext";
 import { alert as swalAlert } from "../../../lib/swal";
+import { Avatar } from "../../components/Avatar";
+import { EmptyState } from "../../components/EmptyState";
+import Swal from "sweetalert2";
 
 interface StudentsPanelProps {
   enrollments: Enrollment[];
@@ -36,15 +39,13 @@ export function StudentsPanel({
 
       return (
         <div className="space-y-6 text-left animate-fadeIn">
-          <button onClick={() => setViewingStudentId(null)} className="flex items-center gap-2 text-xs font-bold hover:text-indigo-500 transition-colors">
+          <button onClick={() => setViewingStudentId(null)} className="flex items-center gap-2 text-xs font-bold hover:text-indigo-500 transition-all duration-200 active:scale-95">
             <ArrowLeft className="h-4 w-4" /> กลับรายชื่อนักเรียนทั้งหมด
           </button>
 
           <div className="rounded-3xl p-6 shadow-sm border space-y-6" style={card.style}>
             <div className="flex items-center gap-4 border-b pb-4" style={{ borderColor: tx.borderS }}>
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold shadow-md">
-                {studentName.charAt(0)}
-              </div>
+              <Avatar name={studentName} size="md" />
               <div>
                 <h3 className="font-extrabold text-base sm:text-lg">{studentName}</h3>
                 <p className="text-xs" style={{ color: tx.muted }}>รหัสนักเรียน: {viewingStudentId}</p>
@@ -54,7 +55,12 @@ export function StudentsPanel({
             <div className="space-y-4">
               <h4 className="font-bold text-sm">รายการงานและประวัติการส่ง</h4>
               {courseAssignments.length === 0 ? (
-                <p className="text-xs" style={{ color: tx.muted }}>ยังไม่มีงานมอบหมายในระบบ</p>
+                <EmptyState
+                  illustration="clipboard"
+                  variant="compact"
+                  accent="slate"
+                  title="ยังไม่มีงานมอบหมายในระบบ"
+                />
               ) : (
                 <div className="grid grid-cols-1 gap-3">
                   {courseAssignments.map((a) => {
@@ -73,7 +79,7 @@ export function StudentsPanel({
                           </span>
                           {sub && (
                             sub.type === "file" ? (
-                              <button type="button" onClick={() => alert(`จำลองการเปิดไฟล์: ${sub.fileName}`)} className="text-[10px] text-indigo-500 hover:underline cursor-pointer">ดูไฟล์ที่ส่ง</button>
+                              <button type="button" onClick={() => Swal.fire({ icon: "info", title: "จำลองการเปิดไฟล์", text: sub.fileName, confirmButtonText: "ตกลง" })} className="text-[10px] text-indigo-500 hover:underline cursor-pointer">ดูไฟล์ที่ส่ง</button>
                             ) : (
                               <button type="button" onClick={() => setViewingQuizSub(sub)} className="text-[10px] text-indigo-500 hover:underline cursor-pointer">ตรวจคำตอบ ({sub.score} คะแนน)</button>
                             )
@@ -102,7 +108,7 @@ export function StudentsPanel({
             <button
               type="button"
               onClick={() => setShowAddStudentModal(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5 self-start sm:self-center"
+              className="btn-primary px-4 py-2 text-xs rounded-xl shadow cursor-pointer flex items-center gap-1.5 self-start sm:self-center"
             >
               <Plus className="h-4 w-4" /> ดึงนักเรียนเข้าคอร์ส
             </button>
@@ -163,7 +169,7 @@ export function StudentsPanel({
                               }
                             }
                           }}
-                          className="px-2.5 py-1.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-[10px] rounded-lg shadow transition-all cursor-pointer flex items-center gap-1"
+                          className="btn-danger px-2.5 py-1.5 text-[10px] rounded-lg shadow cursor-pointer flex items-center gap-1"
                         >
                           <Trash2 className="h-3.5 w-3.5" /> ลบออก
                         </button>
@@ -173,8 +179,13 @@ export function StudentsPanel({
                 })}
                 {courseEnrollments.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400 font-bold border border-dashed rounded-2xl" style={{ borderColor: tx.borderS }}>
-                      ยังไม่มีนักเรียนลงทะเบียนในคอร์สนี้
+                    <td colSpan={5}>
+                      <EmptyState
+                        illustration="users"
+                        variant="compact"
+                        accent="slate"
+                        title="ยังไม่มีนักเรียนลงทะเบียนในคอร์สนี้"
+                      />
                     </td>
                   </tr>
                 )}

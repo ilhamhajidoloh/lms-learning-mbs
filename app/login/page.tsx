@@ -48,7 +48,6 @@ export default function LoginPage() {
       setLoading(false);
       const msg = apiError || "Username หรือ Password ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง";
       setError(msg);
-      toast.error(msg);
       return;
     }
 

@@ -1,8 +1,9 @@
 import React from "react";
-import { Check } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import Swal from "sweetalert2";
 import { tx } from "../../lib/theme";
 import type { Assignment, StudentSubmission } from "../../context/UserContext";
+import { EmptyState } from "../../components/EmptyState";
 
 interface QuizPlayerProps {
   activeTask: Assignment;
@@ -24,13 +25,13 @@ export function QuizPlayer({
   if (sub) {
     // QUIZ REVIEW (SUBMITTED)
     return (
-      <div className="p-4 rounded-xl border space-y-4 animate-fadeIn" style={{ borderColor: tx.borderS }}>
+      <div className="p-4 rounded-xl border space-y-4 animate-scaleIn" style={{ borderColor: tx.borderS }}>
         <div className="flex justify-between items-center">
           <div>
             <h5 className="font-bold text-sm">ผลลัพธ์คำตอบควิซ: {activeTask.title}</h5>
             <p className="text-[10px]" style={{ color: tx.muted }}>ได้คะแนน {sub.score} / {activeTask.questions?.length} ข้อ</p>
           </div>
-          <button onClick={() => setSelectedAssignmentId(null)} className="text-xs text-rose-500 hover:underline font-bold">ย้อนกลับ</button>
+          <button onClick={() => setSelectedAssignmentId(null)} className="text-xs text-rose-500 hover:underline font-bold active:scale-95 transition-transform">ย้อนกลับ</button>
         </div>
 
         <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1 text-left">
@@ -38,7 +39,8 @@ export function QuizPlayer({
             const studentAns = sub.answers?.[idx];
             const isCorrect = studentAns === q.correctIndex;
             return (
-              <div key={idx} className="p-3.5 rounded-xl border text-xs space-y-2" style={{ borderColor: isCorrect ? "#10b981" : "#f43f5e" }}>
+              <div key={idx} className={`p-3.5 rounded-xl border text-xs space-y-2 animate-slideInUp stagger-${Math.min(idx + 1, 6)}`}
+                style={{ borderColor: isCorrect ? "#10b981" : "#f43f5e" }}>
                 <h6 className="font-bold">ข้อที่ {idx + 1}: {q.question}</h6>
                 <p className={isCorrect ? "text-emerald-500 font-semibold" : "text-rose-500 font-semibold"}>
                   คุณตอบ: {studentAns !== undefined ? q.options[studentAns] : "ไม่ได้ตอบ"}
@@ -59,17 +61,41 @@ export function QuizPlayer({
 
   // ACTIVE INTERACTIVE QUIZ
   const q = activeTask.questions?.[currentQuizQuestionIndex];
-  if (!q) return <p className="text-xs text-slate-400">ไม่มีคำถามในชุดแบบทดสอบนี้</p>;
+  if (!q) return <EmptyState illustration="quiz" variant="compact" accent="purple" title="ไม่มีคำถามในชุดแบบทดสอบนี้" />;
   const chosenIndex = quizAnswers[currentQuizQuestionIndex];
+  const totalQuestions = activeTask.questions!.length;
+  const answeredCount = Object.keys(quizAnswers).length;
+  const allAnswered = answeredCount === totalQuestions;
 
   return (
     <div className="p-5 rounded-2xl border space-y-5 animate-fadeIn" style={{ borderColor: tx.borderS }}>
+      {/* Header with progress dots */}
       <div className="flex justify-between items-center border-b pb-2" style={{ borderColor: tx.borderS }}>
         <span className="text-xs font-bold text-indigo-500">แบบทดสอบ: {activeTask.title}</span>
-        <span className="text-xs font-extrabold" style={{ color: tx.muted }}>ข้อที่ {currentQuizQuestionIndex + 1} / {activeTask.questions?.length}</span>
+        <span className="text-xs font-extrabold" style={{ color: tx.muted }}>ข้อที่ {currentQuizQuestionIndex + 1} / {totalQuestions}</span>
       </div>
 
-      <div className="space-y-4">
+      {/* Progress dots */}
+      <div className="flex items-center justify-center gap-1.5">
+        {activeTask.questions!.map((_, idx) => {
+          const isCurrent = idx === currentQuizQuestionIndex;
+          const isAnswered = quizAnswers[idx] !== undefined;
+          return (
+            <button key={idx} onClick={() => setCurrentQuizQuestionIndex(idx)}
+              className={`rounded-full transition-all duration-300 ${
+                isCurrent
+                  ? "w-6 h-2 bg-indigo-500"
+                  : isAnswered
+                    ? "w-2 h-2 bg-indigo-400 dark:bg-indigo-500"
+                    : "w-2 h-2 bg-slate-300 dark:bg-slate-600"
+              }`}
+              title={`ข้อที่ ${idx + 1}${isAnswered ? " (ตอบแล้ว)" : ""}`}
+            />
+          );
+        })}
+      </div>
+
+      <div className="space-y-4 animate-scaleIn" key={currentQuizQuestionIndex}>
         <h5 className="font-bold text-sm">{q.question}</h5>
 
         <div className="grid grid-cols-1 gap-2.5">
@@ -84,13 +110,18 @@ export function QuizPlayer({
                     [currentQuizQuestionIndex]: oIdx
                   }));
                 }}
-                className="w-full text-left p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-between"
-                style={isSelected
-                  ? { borderColor: tx.accent, backgroundColor: tx.accentBg, color: tx.accent }
-                  : { borderColor: tx.borderS, color: tx.secondary }}
+                className={`w-full text-left p-3 rounded-xl border text-xs font-bold flex items-center justify-between active:scale-[0.98] ${
+                  isSelected
+                    ? "border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 animate-borderGlow shadow-sm"
+                    : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                } transition-all duration-200`}
               >
                 <span>{String.fromCharCode(65 + oIdx)}. {opt}</span>
-                {isSelected && <Check className="h-4 w-4 shrink-0" />}
+                {isSelected && (
+                  <div className="h-5 w-5 rounded-full bg-indigo-500 flex items-center justify-center shrink-0 animate-scaleIn">
+                    <Check className="h-3 w-3 text-white" />
+                  </div>
+                )}
               </button>
             );
           })}
@@ -101,18 +132,18 @@ export function QuizPlayer({
         <button
           disabled={currentQuizQuestionIndex === 0}
           onClick={() => setCurrentQuizQuestionIndex(prev => prev - 1)}
-          className="px-4 py-2 border rounded-xl font-bold text-xs transition-colors disabled:opacity-30 cursor-pointer"
+          className="flex items-center gap-1 px-4 py-2 border rounded-xl font-bold text-xs transition-all disabled:opacity-30 cursor-pointer active:scale-95 hover:bg-slate-50 dark:hover:bg-slate-800"
           style={{ borderColor: tx.borderS, color: tx.secondary }}
         >
-          ข้อก่อนหน้า
+          <ChevronLeft className="h-3.5 w-3.5" /> ข้อก่อนหน้า
         </button>
 
-        {currentQuizQuestionIndex < activeTask.questions!.length - 1 ? (
+        {currentQuizQuestionIndex < totalQuestions - 1 ? (
           <button
             onClick={() => setCurrentQuizQuestionIndex(prev => prev + 1)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-transform"
+            className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all hover:shadow-lg active:scale-95"
           >
-            ข้อถัดไป
+            ข้อถัดไป <ChevronRight className="h-3.5 w-3.5" />
           </button>
         ) : (
           <button
@@ -126,7 +157,6 @@ export function QuizPlayer({
                 cancelButtonText: "ตรวจสอบอีกครั้ง"
               });
               if (confirmed.isConfirmed) {
-                // Calculate score
                 let finalScore = 0;
                 activeTask.questions!.forEach((question, idx) => {
                   if (quizAnswers[idx] === question.correctIndex) {
@@ -151,9 +181,9 @@ export function QuizPlayer({
                 setSelectedAssignmentId(null);
               }
             }}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-transform"
+            className={`px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all hover:shadow-lg active:scale-95 ${!allAnswered ? "animate-pulseGlow" : ""}`}
           >
-            ส่งข้อสอบ
+            ส่งข้อสอบ {allAnswered ? "" : `(${answeredCount}/${totalQuestions})`}
           </button>
         )}
       </div>

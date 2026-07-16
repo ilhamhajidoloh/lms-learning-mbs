@@ -150,6 +150,8 @@ interface UserContextProps {
   levels: CourseLevelOption[];
   addLevel: (value: string, label: string) => Promise<{ success: boolean; error?: string }>;
   deleteLevel: (id: string) => Promise<{ success: boolean; error?: string }>;
+  completedLessonIds: string[];
+  toggleLessonComplete: (lessonId: string, completed: boolean) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextProps | undefined>(undefined);
@@ -162,6 +164,7 @@ interface AllDataResponse {
   meetings: Meeting[];
   appUsers: AppUser[];
   enrollments?: Enrollment[];
+  completedLessonIds?: string[];
 }
 
 interface LevelsResponse {
@@ -182,6 +185,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [levels, setLevels] = useState<CourseLevelOption[]>([]);
+  const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
   const [displayName, setDisplayName] = useState("ผู้ใช้");
   const [currentUsername, setCurrentUsername] = useState("");
 
@@ -203,6 +207,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setMeetings(data.meetings);
       setAppUsers(data.appUsers);
       setEnrollments(data.enrollments || []);
+      setCompletedLessonIds(data.completedLessonIds || []);
       if (levelsError || !levelsData) {
         console.error("fetchAllData levels error:", levelsError);
       } else {
@@ -312,6 +317,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setMeetings([]);
     setAppUsers([]);
     setEnrollments([]);
+    setCompletedLessonIds([]);
     setLevels([]);
   };
 
@@ -616,6 +622,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const toggleLessonComplete = async (lessonId: string, completed: boolean) => {
+    try {
+      const { data, error } = await apiFetch<{ progress: number }>("/api/lessons/complete", {
+        method: "POST",
+        body: JSON.stringify({ lessonId, completed }),
+      });
+      if (error) {
+        toast.error("บันทึกสถานะการเรียนไม่สำเร็จ: " + error);
+        return;
+      }
+      setCompletedLessonIds((prev) =>
+        completed ? [...prev, lessonId] : prev.filter((id) => id !== lessonId)
+      );
+
+      const lesson = lessons.find((l) => l.id === lessonId);
+      if (lesson && data) {
+        setCourses((prev) =>
+          prev.map((c) => (c.id === lesson.courseId ? { ...c, progress: data.progress } : c))
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ";
+      toast.error("บันทึกสถานะการเรียนไม่สำเร็จ: " + message);
+    }
+  };
+
   const register = async (data: Credential): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังสมัครสมาชิก...");
     try {
@@ -733,6 +765,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         levels,
         addLevel,
         deleteLevel,
+        completedLessonIds,
+        toggleLessonComplete,
       }}
     >
       {children}

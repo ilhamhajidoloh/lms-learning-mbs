@@ -61,7 +61,7 @@ export function AssignmentFormModal({
       <div className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
         <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
           <h2 className="text-xl font-bold">สร้างงาน / ควิซใหม่</h2>
-          <button type="button" onClick={() => setShowForm(false)} className="p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer">
+          <button type="button" onClick={() => setShowForm(false)} className="btn-icon p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer">
             <X className="h-5 w-5" style={{ color: tx.secondary }} />
           </button>
         </div>
@@ -92,11 +92,11 @@ export function AssignmentFormModal({
 
             {/* Type Select */}
             <div className="grid grid-cols-2 gap-4">
-              <button type="button" onClick={() => setAssignType("file")} className="py-3 px-4 rounded-xl border text-center font-bold text-sm transition-all cursor-pointer animate-fadeIn"
+              <button type="button" onClick={() => setAssignType("file")} className="py-3 px-4 rounded-xl border text-center font-bold text-sm transition-all cursor-pointer animate-fadeIn btn-press"
                 style={assignType === "file" ? { borderColor: tx.accent, color: tx.accent, backgroundColor: tx.accentBg } : { borderColor: tx.borderS, color: tx.secondary }}>
                 แบบส่งไฟล์ (File Submission)
               </button>
-              <button type="button" onClick={() => setAssignType("quiz")} className="py-3 px-4 rounded-xl border text-center font-bold text-sm transition-all cursor-pointer animate-fadeIn"
+              <button type="button" onClick={() => setAssignType("quiz")} className="py-3 px-4 rounded-xl border text-center font-bold text-sm transition-all cursor-pointer animate-fadeIn btn-press"
                 style={assignType === "quiz" ? { borderColor: tx.accent, color: tx.accent, backgroundColor: tx.accentBg } : { borderColor: tx.borderS, color: tx.secondary }}>
                 แบบทดสอบตอบคำถาม (Quiz)
               </button>
@@ -189,10 +189,10 @@ export function AssignmentFormModal({
         </div>
 
         <div className="p-6 border-t flex justify-end gap-3 shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
-          <button type="button" onClick={() => setShowForm(false)} className="py-2.5 px-4 rounded-xl border font-bold text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800" style={{ borderColor: tx.borderS, color: tx.secondary }}>
+          <button type="button" onClick={() => setShowForm(false)} className="btn-cancel py-2.5 px-4 rounded-xl font-bold text-xs cursor-pointer">
             ยกเลิก
           </button>
-          <button type="submit" form="createAssignmentForm" disabled={lessons.length === 0} className="py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md cursor-pointer disabled:opacity-50">
+          <button type="submit" form="createAssignmentForm" disabled={lessons.length === 0} className="btn-primary py-2.5 px-5 rounded-xl text-xs shadow-md cursor-pointer disabled:opacity-50">
             เผยแพร่งานสู่คอร์สเรียน
           </button>
         </div>

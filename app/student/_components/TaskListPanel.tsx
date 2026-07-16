@@ -1,6 +1,7 @@
 import React from "react";
 import { tx } from "../../lib/theme";
 import type { Assignment, StudentSubmission } from "../../context/UserContext";
+import { EmptyState } from "../../components/EmptyState";
 
 interface TaskListPanelProps {
   courseAssignments: Assignment[];
@@ -19,7 +20,12 @@ export function TaskListPanel({
     <div className="space-y-3">
       <h4 className="font-bold text-xs uppercase tracking-wide" style={{ color: tx.muted }}>งานและข้อสอบสำหรับวิชานี้</h4>
       {courseAssignments.length === 0 ? (
-        <p className="text-xs text-slate-400 py-4 font-bold text-center">ไม่มีภาระงานหรือข้อสอบให้ดำเนินการส่งในบทเรียนนี้</p>
+        <EmptyState
+          illustration="clipboard"
+          variant="compact"
+          accent="slate"
+          title="ไม่มีภาระงานหรือข้อสอบให้ดำเนินการส่งในบทเรียนนี้"
+        />
       ) : (
         courseAssignments.map((a) => {
           const sub = submissions.find(s => s.assignmentId === a.id && s.studentId === currentUserId);
@@ -46,7 +52,7 @@ export function TaskListPanel({
 
                 {a.type === "quiz" ? (
                   sub ? (
-                    <button onClick={() => { setSelectedAssignmentId(a.id); }} className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-indigo-500 font-bold transition-all text-[11px] cursor-pointer">
+                    <button onClick={() => { setSelectedAssignmentId(a.id); }} className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-indigo-500 font-bold transition-all text-[11px] cursor-pointer btn-press">
                       ดูผลคะแนน & เฉลย
                     </button>
                   ) : (
@@ -54,7 +60,7 @@ export function TaskListPanel({
                       setSelectedAssignmentId(a.id);
                       setCurrentQuizQuestionIndex(0);
                       setQuizAnswers({});
-                    }} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-[11px] cursor-pointer shadow-md">
+                    }} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-[11px] cursor-pointer shadow-md btn-press">
                       เริ่มทำข้อสอบ
                     </button>
                   )
@@ -62,7 +68,7 @@ export function TaskListPanel({
                   sub ? (
                     <span className="text-[10px]" style={{ color: tx.muted }}>ส่งไฟล์: <span className="font-mono">{sub.fileName}</span></span>
                   ) : (
-                    <button onClick={() => { setSelectedAssignmentId(a.id); setFileNameInput(""); }} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-[11px] cursor-pointer shadow-md">
+                    <button onClick={() => { setSelectedAssignmentId(a.id); setFileNameInput(""); }} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-[11px] cursor-pointer shadow-md btn-press">
                       อัพโหลดส่งการบ้าน
                     </button>
                   )

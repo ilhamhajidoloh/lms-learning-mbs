@@ -31,7 +31,7 @@ export function AddLessonModal({
           <button
             type="button"
             onClick={() => setShowAddLessonModal(false)}
-            className="p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer"
+            className="btn-icon p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -86,15 +86,14 @@ export function AddLessonModal({
           <button
             type="button"
             onClick={() => setShowAddLessonModal(false)}
-            className="py-2.5 px-5 rounded-xl border font-bold text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
-            style={{ borderColor: tx.borderS, color: tx.secondary }}
+            className="btn-cancel py-2.5 px-5 rounded-xl font-bold text-sm cursor-pointer"
           >
             ยกเลิก
           </button>
           <button
             type="submit"
             form="addLessonForm"
-            className="py-2.5 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-md cursor-pointer"
+            className="btn-primary py-2.5 px-6 rounded-xl text-sm shadow-md cursor-pointer"
           >
             เพิ่มบทเรียน
           </button>

@@ -30,24 +30,9 @@ export const toast = {
       title: message,
     });
   },
-  warning: (message: string) => {
-    if (!ToastMixin) return;
-    ToastMixin.fire({
-      icon: "warning",
-      title: message,
-    });
-  },
-  info: (message: string) => {
-    if (!ToastMixin) return;
-    ToastMixin.fire({
-      icon: "info",
-      title: message,
-    });
-  },
-  // Custom loading toast that doesn't auto-close and displays a spinner
   loading: (message: string) => {
     if (typeof window === "undefined") return { close: () => {} };
-    
+
     Swal.fire({
       title: message,
       allowOutsideClick: false,
@@ -68,15 +53,6 @@ export const toast = {
 };
 
 export const alert = {
-  success: (title: string, text?: string) => {
-    if (typeof window === "undefined") return Promise.resolve();
-    return Swal.fire({
-      icon: "success",
-      title,
-      text,
-      confirmButtonText: "ตกลง",
-    });
-  },
   error: (title: string, text?: string) => {
     if (typeof window === "undefined") return Promise.resolve();
     return Swal.fire({
@@ -104,7 +80,7 @@ export const alert = {
       showCancelButton: true,
       confirmButtonText,
       cancelButtonText: "ยกเลิก",
-      reverseButtons: true, // cancel on left, confirm on right
+      reverseButtons: true,
     });
     return result.isConfirmed;
   },

@@ -34,7 +34,7 @@ export function LessonsPanel({
         <button
           type="button"
           onClick={() => setShowAddLessonModal(true)}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition-all flex items-center gap-1.5 cursor-pointer"
+          className="btn-primary px-4 py-2 text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer"
         >
           <Plus className="h-4 w-4" /> เพิ่มบทเรียนใหม่
         </button>
@@ -62,7 +62,7 @@ export function LessonsPanel({
                 setEditLessonDescription(l.description);
                 setEditLessonVideoUrl(l.videoUrl || "");
               }}
-              className="py-1.5 px-3 rounded-lg border border-indigo-500/30 text-indigo-500 hover:bg-indigo-500/10 font-bold text-xs transition-all shrink-0 cursor-pointer self-start sm:self-center"
+              className="py-1.5 px-3 rounded-lg border border-indigo-500/30 text-indigo-500 hover:bg-indigo-500/10 font-bold text-xs transition-all shrink-0 cursor-pointer self-start sm:self-center btn-press"
             >
               แก้ไขรายละเอียด
             </button>

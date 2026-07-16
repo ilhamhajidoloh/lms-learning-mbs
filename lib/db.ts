@@ -163,6 +163,16 @@ export async function ensureTables() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS student_lesson_completions (
+      id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      student_id   UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      lesson_id    TEXT        NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+      completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (student_id, lesson_id)
+    )
+  `);
+
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_enrollments_student    ON course_enrollments (student_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_enrollments_course     ON course_enrollments (course_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_lessons_course         ON lessons (course_id, sort_order)`);
@@ -174,6 +184,8 @@ export async function ensureTables() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_student    ON submissions (student_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_created_by    ON meetings (created_by)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_start         ON meetings (start_datetime DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_completions_student    ON student_lesson_completions (student_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_completions_lesson     ON student_lesson_completions (lesson_id)`);
 }
 
 export default pool;

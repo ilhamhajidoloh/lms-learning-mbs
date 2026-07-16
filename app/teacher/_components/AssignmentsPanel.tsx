@@ -1,7 +1,9 @@
 import React from "react";
-import { Plus, ArrowLeft, Users, FileText } from "lucide-react";
+import { Plus, ArrowLeft, Users } from "lucide-react";
 import { tx, card } from "../../lib/theme";
 import type { Assignment, StudentSubmission } from "../../context/UserContext";
+import { EmptyState } from "../../components/EmptyState";
+import Swal from "sweetalert2";
 
 interface SubmissionRow {
   id: string;
@@ -32,7 +34,7 @@ export function AssignmentsPanel({
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-bold">งานที่มอบหมายทั้งหมดในวิชานี้</h3>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-md transition-all cursor-pointer">
+        <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl shadow-md cursor-pointer">
           <Plus className="h-4 w-4" /> สร้างงาน / ควิซใหม่
         </button>
       </div>
@@ -67,7 +69,7 @@ export function AssignmentsPanel({
 
           return (
             <div className="space-y-6 text-left animate-fadeIn">
-              <button onClick={() => setViewingAssignmentId(null)} className="flex items-center gap-2 text-xs font-bold hover:text-indigo-500 transition-colors">
+              <button onClick={() => setViewingAssignmentId(null)} className="flex items-center gap-2 text-xs font-bold hover:text-indigo-500 transition-all duration-200 active:scale-95">
                 <ArrowLeft className="h-4 w-4" /> กลับรายการงานทั้งหมด
               </button>
 
@@ -138,7 +140,7 @@ export function AssignmentsPanel({
                                 {sub.type === "file" ? (
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs line-clamp-1 max-w-[150px] font-mono" style={{ color: tx.muted }}>{sub.fileName}</span>
-                                    <button type="button" onClick={() => alert(`จำลองการเปิดไฟล์: ${sub.fileName}`)} className="text-[10px] text-indigo-500 hover:underline cursor-pointer">เปิดดูไฟล์</button>
+                                    <button type="button" onClick={() => Swal.fire({ icon: "info", title: "จำลองการเปิดไฟล์", text: sub.fileName, confirmButtonText: "ตกลง" })} className="text-[10px] text-indigo-500 hover:underline cursor-pointer">เปิดดูไฟล์</button>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-3">
@@ -152,8 +154,13 @@ export function AssignmentsPanel({
                         })
                       ) : (
                         <tr>
-                          <td colSpan={4} className="py-8 text-center text-sm" style={{ color: tx.faint }}>
-                            ยังไม่มีการส่งงานสำหรับรายการนี้
+                          <td colSpan={4}>
+                            <EmptyState
+                              illustration="file"
+                              variant="compact"
+                              accent="slate"
+                              title="ยังไม่มีการส่งงานสำหรับรายการนี้"
+                            />
                           </td>
                         </tr>
                       )}
@@ -166,11 +173,13 @@ export function AssignmentsPanel({
         })()
       ) : (
         courseAssignments.length === 0 ? (
-          <div className="rounded-3xl p-12 text-center border border-dashed flex flex-col items-center justify-center" style={{ borderColor: tx.borderS }}>
-            <FileText className="h-10 w-10 mb-2" style={{ color: tx.faint }} />
-            <p className="font-bold text-sm">ยังไม่มีงานหรือควิซการทดสอบ</p>
-            <p className="text-xs mt-1" style={{ color: tx.muted }}>คุณครูสามารถกดสร้างงานใหม่ เพื่อมอบหมายโจทย์ต่างๆ หรือทำชุดคำถามให้เรียนรู้ได้</p>
-          </div>
+          <EmptyState
+            illustration="file"
+            variant="hero"
+            accent="indigo"
+            title="ยังไม่มีงานหรือควิซการทดสอบ"
+            description="คุณครูสามารถกดสร้างงานใหม่ เพื่อมอบหมายโจทย์ต่างๆ หรือทำชุดคำถามให้เรียนรู้ได้"
+          />
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {courseAssignments.map((a) => (
@@ -206,7 +215,7 @@ export function AssignmentsPanel({
                   <button
                     type="button"
                     onClick={() => setViewingAssignmentId(a.id)}
-                    className="py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] shadow transition-all cursor-pointer flex items-center gap-1"
+                    className="py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] shadow transition-all cursor-pointer flex items-center gap-1 btn-press"
                   >
                     <Users className="h-3 w-3" /> ดูการส่งงาน
                   </button>

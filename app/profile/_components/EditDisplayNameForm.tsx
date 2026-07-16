@@ -1,5 +1,5 @@
 import React from "react";
-import { Pencil, CheckCircle2 } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { tx } from "../../lib/theme";
 
 interface EditDisplayNameFormProps {
@@ -8,11 +8,10 @@ interface EditDisplayNameFormProps {
   setNameInput: (v: string) => void;
   setEditingName: (v: boolean) => void;
   handleSaveName: () => void;
-  nameSuccess: boolean;
 }
 
 export default function EditDisplayNameForm({
-  displayName, nameInput, setNameInput, setEditingName, handleSaveName, nameSuccess,
+  displayName, nameInput, setNameInput, setEditingName, handleSaveName,
 }: EditDisplayNameFormProps) {
   return (
     <div className="rounded-3xl p-6 shadow-sm space-y-4" style={{ backgroundColor: tx.surface, border: `1px solid ${tx.borderS}` }}>
@@ -36,17 +35,12 @@ export default function EditDisplayNameForm({
           <button
             onClick={handleSaveName}
             disabled={!nameInput.trim() || nameInput.trim() === displayName}
-            className="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm disabled:opacity-40 transition-all"
+            className="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm disabled:opacity-40 transition-all btn-press"
           >
             บันทึก
           </button>
         </div>
       </div>
-      {nameSuccess && (
-        <p className="text-xs text-emerald-500 font-semibold flex items-center gap-1">
-          <CheckCircle2 className="h-4 w-4" /> อัปเดตชื่อเรียบร้อยแล้ว
-        </p>
-      )}
     </div>
   );
 }

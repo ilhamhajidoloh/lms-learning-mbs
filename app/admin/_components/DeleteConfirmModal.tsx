@@ -30,14 +30,13 @@ export function DeleteConfirmModal({ target, onCancel, onConfirm }: DeleteConfir
         <div className="flex gap-3 justify-center pt-2">
           <button
             onClick={onCancel}
-            className="py-2.5 px-5 rounded-xl border font-bold text-sm cursor-pointer"
-            style={{ borderColor: tx.borderS, color: tx.secondary }}
+            className="btn-cancel py-2.5 px-5 rounded-xl font-bold text-sm cursor-pointer"
           >
             ยกเลิก
           </button>
           <button
             onClick={onConfirm}
-            className="py-2.5 px-6 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-sm shadow-md cursor-pointer flex items-center gap-1.5"
+            className="btn-danger py-2.5 px-6 rounded-xl text-sm shadow-md cursor-pointer flex items-center gap-1.5"
           >
             <Trash2 className="h-4 w-4" /> ลบบัญชี
           </button>

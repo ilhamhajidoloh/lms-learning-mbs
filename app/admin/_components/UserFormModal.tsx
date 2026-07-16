@@ -37,7 +37,7 @@ export function UserFormModal({
           <h3 className="text-lg font-bold flex items-center gap-2">
             {editingUser ? <><Pencil className="h-5 w-5 text-indigo-500" /> แก้ไขผู้ใช้</> : <><UserPlus className="h-5 w-5 text-rose-500" /> เพิ่มผู้ใช้ใหม่</>}
           </h3>
-          <button type="button" onClick={closeForm} className="p-1 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors">
+           <button type="button" onClick={closeForm} className="btn-icon p-1 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -93,7 +93,7 @@ export function UserFormModal({
                   type="button"
                   disabled={disabled}
                   onClick={() => setFormData(p => ({ ...p, role: r }))}
-                  className={`py-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all ${disabled ? (active ? '' : 'opacity-40 cursor-not-allowed') : 'cursor-pointer'}`}
+                  className={`py-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all btn-press ${disabled ? (active ? '' : 'opacity-40 cursor-not-allowed') : 'cursor-pointer'}`}
                   style={active
                     ? { borderColor: cfg.color, color: cfg.color, backgroundColor: cfg.bg }
                     : { borderColor: tx.borderS, color: tx.secondary }}
@@ -117,14 +117,13 @@ export function UserFormModal({
           <button
             type="button"
             onClick={closeForm}
-            className="py-2.5 px-5 rounded-xl border font-bold text-sm cursor-pointer"
-            style={{ borderColor: tx.borderS, color: tx.secondary }}
+            className="btn-cancel py-2.5 px-5 rounded-xl font-bold text-sm cursor-pointer"
           >
             ยกเลิก
           </button>
           <button
             type="submit"
-            className="py-2.5 px-6 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-sm shadow-md cursor-pointer flex items-center gap-1.5"
+            className="btn-danger py-2.5 px-6 rounded-xl text-sm shadow-md cursor-pointer flex items-center gap-1.5"
           >
             <Check className="h-4 w-4" />
             {editingUser ? "บันทึกการแก้ไข" : "สร้างผู้ใช้"}

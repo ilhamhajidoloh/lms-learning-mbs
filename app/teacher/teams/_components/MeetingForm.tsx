@@ -52,7 +52,7 @@ export default function MeetingForm({
           </div>
         </div>
 
-        <button type="submit" disabled={status === "authenticating" || status === "requesting"} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2">
+        <button type="submit" disabled={status === "authenticating" || status === "requesting"} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 btn-press">
           {(status === "authenticating" || status === "requesting") ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />

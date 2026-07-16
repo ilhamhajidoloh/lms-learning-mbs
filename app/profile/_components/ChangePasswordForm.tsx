@@ -1,5 +1,5 @@
 import React from "react";
-import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { tx } from "../../lib/theme";
 
 interface ChangePasswordFormProps {
@@ -15,14 +15,13 @@ interface ChangePasswordFormProps {
   setShowNew: React.Dispatch<React.SetStateAction<boolean>>;
   pwError: string | null;
   setPwError: (v: string | null) => void;
-  pwOk: boolean;
   handleSavePw: (e: React.FormEvent) => void;
 }
 
 export default function ChangePasswordForm({
   oldPw, setOldPw, newPw, setNewPw, cPw, setCPw,
   showOld, setShowOld, showNew, setShowNew,
-  pwError, setPwError, pwOk, handleSavePw,
+  pwError, setPwError, handleSavePw,
 }: ChangePasswordFormProps) {
   return (
     <div className="rounded-3xl p-6 shadow-sm space-y-4" style={{ backgroundColor: tx.surface, border: `1px solid ${tx.borderS}` }}>
@@ -42,7 +41,7 @@ export default function ChangePasswordForm({
             style={{ borderColor: tx.border, color: tx.primary }}
           />
           <button type="button" tabIndex={-1} onClick={() => setShowOld(p => !p)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70 transition-opacity"
+            className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon hover:opacity-70 transition-opacity"
             style={{ color: tx.faint }}>
             {showOld ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
           </button>
@@ -60,7 +59,7 @@ export default function ChangePasswordForm({
             style={{ borderColor: tx.border, color: tx.primary }}
           />
           <button type="button" tabIndex={-1} onClick={() => setShowNew(p => !p)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70 transition-opacity"
+            className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon hover:opacity-70 transition-opacity"
             style={{ color: tx.faint }}>
             {showNew ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
           </button>
@@ -84,14 +83,9 @@ export default function ChangePasswordForm({
             <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {pwError}
           </p>
         )}
-        {pwOk && (
-          <p className="text-xs text-emerald-500 font-semibold flex items-center gap-1">
-            <CheckCircle2 className="h-3.5 w-3.5" /> เปลี่ยนรหัสผ่านเรียบร้อยแล้ว
-          </p>
-        )}
 
         <button type="submit"
-          className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-md transition-all">
+          className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-md transition-all btn-press">
           เปลี่ยนรหัสผ่าน
         </button>
       </form>
