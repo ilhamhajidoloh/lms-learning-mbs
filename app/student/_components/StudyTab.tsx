@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, BookOpen, ChevronRight, Search, CheckCircle2, Lock, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, BookOpen, ChevronRight, Search, CheckCircle2, Lock, RefreshCw, Radio, Video } from "lucide-react";
 import { tx } from "../../lib/theme";
 import { toast } from "@/lib/swal";
+import { apiFetch } from "@/lib/api";
 import { useUser } from "../../context/UserContext";
 import type { Assignment, Chapter, Course, Lesson, StudentSubmission, Topic } from "../../context/UserContext";
 import { LessonOverviewPanel } from "./LessonOverviewPanel";
@@ -9,6 +11,7 @@ import { TaskListPanel } from "./TaskListPanel";
 import { FileSubmissionPanel } from "./FileSubmissionPanel";
 import { QuizPlayer } from "./QuizPlayer";
 import { EmptyState } from "../../components/EmptyState";
+import { JoinLiveClassButton } from "../../components/JoinLiveClassButton";
 
 type StudentTab = "dashboard" | "courses" | "study" | "profile";
 type StudyTabId = "overview" | "resources" | "tasks";
@@ -55,10 +58,38 @@ export function StudyTab({
 }: StudyTabProps) {
   const { completedLessonIds, toggleLessonComplete, refreshData } = useUser();
   const [refreshing, setRefreshing] = useState(false);
+  const [activeLiveClass, setActiveLiveClass] = useState<any>(null);
+  const [courseLiveClasses, setCourseLiveClasses] = useState<any[]>([]);
+
+  const fetchLiveClassesForCourse = async (courseId: string) => {
+    try {
+      const [{ data: activeData }, { data: listData }] = await Promise.all([
+        apiFetch<{ activeLiveClass: any }>(`/api/live-classes/active?course_id=${courseId}`),
+        apiFetch<{ liveClasses: any[] }>(`/api/live-classes?course_id=${courseId}`),
+      ]);
+      setActiveLiveClass(activeData?.activeLiveClass || null);
+      setCourseLiveClasses(listData?.liveClasses || []);
+    } catch {
+      setActiveLiveClass(null);
+      setCourseLiveClasses([]);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedCourseId) {
+      fetchLiveClassesForCourse(selectedCourseId);
+    } else {
+      setActiveLiveClass(null);
+      setCourseLiveClasses([]);
+    }
+  }, [selectedCourseId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await refreshData();
+    if (selectedCourseId) {
+      await fetchLiveClassesForCourse(selectedCourseId);
+    }
     setTimeout(() => setRefreshing(false), 500);
     toast.success("อัปเดตบทเรียนและคะแนนล่าสุดเรียบร้อยแล้ว!");
   };
@@ -217,6 +248,42 @@ export function StudyTab({
         </button>
       </div>
 
+      {/* Active Live Class Banner */}
+      {activeLiveClass && (
+        <div className="rounded-3xl p-6 sm:p-7 border-2 border-red-500/60 bg-gradient-to-r from-red-950/50 via-slate-900/80 to-red-950/50 shadow-xl shadow-red-500/10 animate-slideInUp relative overflow-hidden text-white">
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-36 h-36 bg-red-500/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative z-10">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-xs font-black animate-pulse">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                  🔴 กำลังสอนสดอยู่ตอนนี้
+                </span>
+                {activeLiveClass.host_name && (
+                  <span className="text-xs text-slate-300">
+                    ผู้สอน: ครู{activeLiveClass.host_name}
+                  </span>
+                )}
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white">{activeLiveClass.title}</h2>
+              {activeLiveClass.description && (
+                <p className="text-xs sm:text-sm text-slate-300 line-clamp-2">{activeLiveClass.description}</p>
+              )}
+            </div>
+
+            <JoinLiveClassButton
+              liveClassId={activeLiveClass.id}
+              roomName={activeLiveClass.room_name}
+              displayName={displayName}
+              isActive={true}
+              size="lg"
+            >
+              เข้าห้องเรียนสดทันที →
+            </JoinLiveClassButton>
+          </div>
+        </div>
+      )}
+
       {/* Course Banner */}
       <div className="rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden shadow-xl text-white bg-gradient-to-r from-indigo-900 via-purple-950 to-slate-950 animate-slideInUp">
         <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-300 via-purple-900 to-indigo-950" />
@@ -234,6 +301,73 @@ export function StudyTab({
           <p className="text-lg font-black mt-0.5">{realTimeProgress}%</p>
         </div>
       </div>
+
+      {/* Course Live Classes List (Active & Upcoming) */}
+      {courseLiveClasses.length > 0 && (
+        <div className="rounded-3xl p-5 border space-y-3 animate-slideInUp" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center">
+                <Video className="h-4 w-4" />
+              </div>
+              <h3 className="font-extrabold text-sm tracking-tight" style={{ color: tx.primary }}>
+                ห้องเรียนสดประจำวิชานี้ (Live Classroom Sessions)
+              </h3>
+            </div>
+            <span className="text-xs font-bold" style={{ color: tx.muted }}>
+              {courseLiveClasses.length} คาบเรียน
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            {courseLiveClasses.map((lc) => (
+              <div
+                key={lc.id}
+                className={`p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
+                  lc.is_active
+                    ? "border-red-500/50 bg-red-500/5 dark:bg-red-950/20 shadow-md shadow-red-500/10"
+                    : "bg-slate-50/50 dark:bg-slate-900/30"
+                }`}
+                style={{ borderColor: lc.is_active ? undefined : tx.borderS }}
+              >
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2">
+                    {lc.is_active ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-red-500 animate-pulse">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-ping" />
+                        🔴 กำลังสอนสด
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        🕒 {lc.scheduled_at ? new Date(lc.scheduled_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "กำหนดการ"}
+                      </span>
+                    )}
+                    <span className="text-[10px]" style={{ color: tx.muted }}>
+                      ({lc.duration_minutes} นาที)
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-xs truncate" style={{ color: tx.primary }}>
+                    {lc.title}
+                  </h4>
+                  {lc.host_name && (
+                    <p className="text-[10px]" style={{ color: tx.muted }}>
+                      ผู้สอน: ครู{lc.host_name}
+                    </p>
+                  )}
+                </div>
+
+                <JoinLiveClassButton
+                  liveClassId={lc.id}
+                  roomName={lc.room_name}
+                  displayName={displayName}
+                  isActive={lc.is_active}
+                  size="sm"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

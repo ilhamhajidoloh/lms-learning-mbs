@@ -238,6 +238,35 @@ export async function ensureTables() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS live_classes (
+      id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      course_id        TEXT        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      lesson_id        TEXT        REFERENCES lessons(id) ON DELETE SET NULL,
+      room_name        TEXT        UNIQUE NOT NULL,
+      title            TEXT        NOT NULL,
+      description      TEXT,
+      scheduled_at     TIMESTAMPTZ,
+      duration_minutes INT         DEFAULT 60,
+      host_id          UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      is_active        BOOLEAN     DEFAULT false,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS live_class_participants (
+      id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      live_class_id    UUID        NOT NULL REFERENCES live_classes(id) ON DELETE CASCADE,
+      user_id          UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      joined_at        TIMESTAMPTZ DEFAULT now(),
+      left_at          TIMESTAMPTZ,
+      duration_seconds INT,
+      UNIQUE(live_class_id, user_id)
+    )
+  `);
+
   const lessonMigrations = [
     `ALTER TABLE lessons ADD COLUMN IF NOT EXISTS topic_id TEXT REFERENCES topics(id) ON DELETE CASCADE`,
     `ALTER TABLE lessons ADD COLUMN IF NOT EXISTS course_id TEXT REFERENCES courses(id) ON DELETE CASCADE`,
@@ -278,6 +307,11 @@ export async function ensureTables() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_start         ON meetings (start_datetime DESC)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_completions_student    ON student_lesson_completions (student_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_completions_lesson     ON student_lesson_completions (lesson_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_live_classes_active    ON live_classes (is_active, course_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_live_classes_course    ON live_classes (course_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_live_classes_scheduled ON live_classes (scheduled_at)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_participants_live_class ON live_class_participants (live_class_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_participants_user       ON live_class_participants (user_id)`);
 
   // ตรวจสอบว่าตารางทั้งหมดถูกสร้างแล้ว
   const requiredTables = [
@@ -293,7 +327,9 @@ export async function ensureTables() {
     "quiz_questions",
     "submissions",
     "meetings",
-    "student_lesson_completions"
+    "student_lesson_completions",
+    "live_classes",
+    "live_class_participants"
   ];
 
   console.log("Verifying database tables...");

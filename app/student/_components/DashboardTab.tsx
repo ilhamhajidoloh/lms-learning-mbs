@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
-  Sparkles, Play, Book, Clock, CheckCircle, Trophy, ArrowUpRight, ChevronRight, Search, Award,
+  Sparkles, Play, Book, Clock, CheckCircle, Trophy, ArrowUpRight, ChevronRight, Search, Award, Video, Radio,
 } from "lucide-react";
 import { tx, card } from "../../lib/theme";
 import type { Course } from "../../context/UserContext";
 import { StatCard } from "../../components/StatCard";
 import { HeroBanner } from "../../components/HeroBanner";
 import { EmptyState } from "../../components/EmptyState";
+import { JoinLiveClassButton } from "../../components/JoinLiveClassButton";
+import { apiFetch } from "@/lib/api";
 
 type StudentTab = "dashboard" | "courses" | "study" | "profile";
 
@@ -42,9 +45,66 @@ function useAnimatedCounter(target: number, duration = 800) {
 
 export function DashboardTab({ displayName, enrolledCourses, setTab, setSelectedCourseId }: DashboardTabProps) {
   const courseCount = useAnimatedCounter(enrolledCourses.length, 600);
+  const [activeLiveClasses, setActiveLiveClasses] = useState<any[]>([]);
+  const [allLiveClasses, setAllLiveClasses] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchLiveData = async () => {
+      try {
+        const [{ data: activeData }, { data: listData }] = await Promise.all([
+          apiFetch<{ activeLiveClasses: any[] }>("/api/live-classes/active"),
+          apiFetch<{ liveClasses: any[] }>("/api/live-classes"),
+        ]);
+        if (activeData?.activeLiveClasses) {
+          setActiveLiveClasses(activeData.activeLiveClasses);
+        }
+        if (listData?.liveClasses) {
+          setAllLiveClasses(listData.liveClasses);
+        }
+      } catch (e) {
+        console.warn("Failed to check live classes:", e);
+      }
+    };
+    fetchLiveData();
+  }, []);
 
   return (
     <div className="space-y-8 animate-fadeIn">
+      {/* Active Live Class Alert Banner */}
+      {activeLiveClasses.length > 0 && (
+        <div className="rounded-3xl p-6 border-2 border-red-500/70 bg-gradient-to-r from-red-950/60 via-slate-900/90 to-red-950/60 shadow-xl shadow-red-500/10 text-white relative overflow-hidden animate-slideInUp">
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-36 h-36 bg-red-500/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative z-10">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-xs font-black animate-pulse">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                  🔴 กำลังสอนสดอยู่ตอนนี้
+                </span>
+                <span className="text-xs text-indigo-300 font-extrabold">
+                  {activeLiveClasses[0].course_title}
+                </span>
+              </div>
+              <h2 className="text-xl font-black">{activeLiveClasses[0].title}</h2>
+              {activeLiveClasses[0].host_name && (
+                <p className="text-xs text-slate-300">
+                  ผู้สอน: ครู{activeLiveClasses[0].host_name}
+                </p>
+              )}
+            </div>
+
+            <JoinLiveClassButton
+              liveClassId={activeLiveClasses[0].id}
+              roomName={activeLiveClasses[0].room_name}
+              displayName={displayName}
+              isActive={true}
+              size="lg"
+            >
+              เข้าห้องเรียนสดทันที →
+            </JoinLiveClassButton>
+          </div>
+        </div>
+      )}
 
       {/* Banner Section */}
       <HeroBanner
@@ -73,6 +133,62 @@ export function DashboardTab({ displayName, enrolledCourses, setTab, setSelected
         <StatCard icon={<Clock className="h-6 w-6" />} label="เวลาสะสมที่ศึกษา" value="0 ชั่วโมง 0 นาที" accent="purple" className="animate-slideInUp stagger-2" />
         <StatCard icon={<Trophy className="h-6 w-6" />} label="ควิซที่ผ่านแล้ว" value="0 ชุดทดสอบ" accent="emerald" className="animate-slideInUp stagger-3" />
       </div>
+
+      {/* Live Classroom Sessions Widget (if scheduled or active) */}
+      {allLiveClasses.length > 0 && activeLiveClasses.length === 0 && (
+        <div className="rounded-3xl p-6 border space-y-4 animate-slideInUp" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center">
+                <Video className="h-4 w-4" />
+              </div>
+              <h2 className="text-base font-bold tracking-tight" style={{ color: tx.primary }}>
+                ห้องเรียนสดและตารางเรียน (Live Classroom Sessions)
+              </h2>
+            </div>
+            <span className="text-xs font-bold" style={{ color: tx.muted }}>
+              {allLiveClasses.length} คาบเรียน
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {allLiveClasses.map((lc) => (
+              <div
+                key={lc.id}
+                className="p-4 rounded-2xl border flex flex-col justify-between space-y-3 bg-slate-50/50 dark:bg-slate-900/40"
+                style={{ borderColor: tx.borderS }}
+              >
+                <div className="space-y-1">
+                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500">
+                    {lc.course_title}
+                  </span>
+                  <h3 className="font-bold text-sm line-clamp-1" style={{ color: tx.primary }}>
+                    {lc.title}
+                  </h3>
+                  {lc.host_name && (
+                    <p className="text-xs" style={{ color: tx.muted }}>
+                      ผู้สอน: ครู{lc.host_name}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: tx.borderS }}>
+                  <span className="text-[11px]" style={{ color: tx.secondary }}>
+                    🕒 {lc.scheduled_at ? new Date(lc.scheduled_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "เร็วๆ นี้"}
+                  </span>
+                  <JoinLiveClassButton
+                    liveClassId={lc.id}
+                    roomName={lc.room_name}
+                    displayName={displayName}
+                    isActive={lc.is_active}
+                    size="sm"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Courses Overview In Dashboard */}
       <div className="space-y-6">

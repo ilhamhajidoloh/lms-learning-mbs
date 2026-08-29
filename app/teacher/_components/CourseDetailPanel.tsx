@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, Shield, RefreshCw } from "lucide-react";
+import { ArrowLeft, Shield, RefreshCw, Radio } from "lucide-react";
 import { tx } from "../../lib/theme";
 import { toast } from "@/lib/swal";
 import { useUser, type Assignment, type Chapter, type Course, type Enrollment, type Lesson, type StudentSubmission, type Topic } from "../../context/UserContext";
@@ -103,14 +103,23 @@ export function CourseDetailPanel({
         title={selectedCourse.title}
         subtitle={`ผู้สอน: ${selectedCourse.instructor}`}
         action={
-          <button
-            type="button"
-            onClick={() => setShowEnrollSettingsModal(true)}
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-4 py-2.5 rounded-2xl shadow-lg transition-transform hover:-translate-y-0.5 text-xs cursor-pointer btn-press"
-          >
-            <Shield className="h-4 w-4 text-indigo-300" />
-            ตั้งค่าการลงทะเบียน
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/teacher/live-classes"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-600/80 hover:bg-red-600 border border-red-500/40 text-white font-bold px-4 py-2.5 rounded-2xl shadow-lg transition-transform hover:-translate-y-0.5 text-xs cursor-pointer btn-press"
+            >
+              <Radio className="h-4 w-4 animate-pulse" />
+              จัดการห้องเรียนสด
+            </a>
+            <button
+              type="button"
+              onClick={() => setShowEnrollSettingsModal(true)}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-4 py-2.5 rounded-2xl shadow-lg transition-transform hover:-translate-y-0.5 text-xs cursor-pointer btn-press"
+            >
+              <Shield className="h-4 w-4 text-indigo-300" />
+              ตั้งค่าการลงทะเบียน
+            </button>
+          </div>
         }
       />
 

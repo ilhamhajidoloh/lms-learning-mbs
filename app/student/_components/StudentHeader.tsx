@@ -1,10 +1,13 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import type { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
-  Sparkles, Moon, Sun, Menu, X, LogOut, Video, BarChart2, BookOpen, Trophy,
+  Sparkles, Moon, Sun, Menu, X, LogOut, Video, BarChart2, BookOpen, Trophy, Radio,
 } from "lucide-react";
 import { tx } from "../../lib/theme";
 import { Avatar } from "../../components/Avatar";
+import { JoinLiveClassButton } from "../../components/JoinLiveClassButton";
+import { apiFetch } from "@/lib/api";
 
 type StudentTab = "dashboard" | "courses" | "study" | "profile";
 
@@ -30,6 +33,24 @@ interface StudentHeaderProps {
 export function StudentHeader({
   displayName, darkMode, toggleDarkMode, logout, tab, setTab, mobileOpen, setMobileOpen, router,
 }: StudentHeaderProps) {
+  const [activeLiveClass, setActiveLiveClass] = useState<any>(null);
+
+  useEffect(() => {
+    const checkLive = async () => {
+      try {
+        const { data } = await apiFetch<{ activeLiveClasses?: any[]; activeLiveClass?: any }>("/api/live-classes/active");
+        const active = data?.activeLiveClasses?.[0] || data?.activeLiveClass || null;
+        setActiveLiveClass(active);
+      } catch (e) {
+        console.warn("Failed to check active live class in header:", e);
+      }
+    };
+    checkLive();
+    // Periodically check every 20 seconds
+    const interval = setInterval(checkLive, 20000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <header className="sticky top-0 z-50 glass-panel shadow-sm animate-slideInDown" style={{ borderBottom: `1px solid ${tx.borderS}` }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -66,6 +87,20 @@ export function StudentHeader({
                 </button>
               );
             })}
+
+            {/* Active Live Class shortcut in header */}
+            {activeLiveClass && (
+              <JoinLiveClassButton
+                liveClassId={activeLiveClass.id}
+                roomName={activeLiveClass.room_name}
+                displayName={displayName}
+                isActive={true}
+                size="sm"
+                className="ml-2"
+              >
+                เข้าเรียนสด 🔴
+              </JoinLiveClassButton>
+            )}
           </nav>
 
           {/* Right Buttons */}
@@ -120,6 +155,21 @@ export function StudentHeader({
               </button>
             );
           })}
+
+          {activeLiveClass && (
+            <div className="pt-1" onClick={() => setMobileOpen(false)}>
+              <JoinLiveClassButton
+                liveClassId={activeLiveClass.id}
+                roomName={activeLiveClass.room_name}
+                displayName={displayName}
+                isActive={true}
+                size="md"
+                className="w-full"
+              >
+                เข้าห้องเรียนสดตอนนี้ 🔴
+              </JoinLiveClassButton>
+            </div>
+          )}
         </div>
       </div>
     </header>
