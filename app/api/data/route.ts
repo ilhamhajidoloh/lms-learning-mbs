@@ -12,18 +12,33 @@ export async function GET(request: Request) {
 
   const coursesQuery = pool.query(`
     SELECT c.id, c.title, c.level, c.level_label, c.gradient_class, c.instructor_id,
-           c.is_open, c.enroll_code,
+           c.is_open, c.enroll_code, c.show_scores, c.sequential_lessons, c.quiz_review_mode,
            u.display_name AS instructor_name,
-           (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id) AS lessons_count
+           (SELECT COUNT(*) FROM lessons l 
+            JOIN topics t ON l.topic_id = t.id 
+            JOIN chapters ch ON t.chapter_id = ch.id 
+            WHERE ch.course_id = c.id) AS lessons_count
     FROM courses c
     JOIN users u ON u.id = c.instructor_id
     ORDER BY c.created_at DESC
   `);
 
+  const chaptersQuery = pool.query(`
+    SELECT ch.id, ch.course_id, ch.title, ch.sort_order
+    FROM chapters ch
+    ORDER BY ch.course_id, ch.sort_order
+  `);
+
+  const topicsQuery = pool.query(`
+    SELECT t.id, t.chapter_id, t.title, t.sort_order
+    FROM topics t
+    ORDER BY t.chapter_id, t.sort_order
+  `);
+
   const lessonsQuery = pool.query(`
-    SELECT l.id, l.course_id, l.title, l.description, l.video_url, l.sort_order
+    SELECT l.id, l.topic_id, l.course_id, l.title, l.description, l.video_url, l.sort_order, l.is_published, l.is_locked
     FROM lessons l
-    ORDER BY l.course_id, l.sort_order
+    ORDER BY l.topic_id, l.sort_order
   `);
 
   const segmentsQuery = pool.query(`
@@ -34,7 +49,8 @@ export async function GET(request: Request) {
 
   const assignmentsQuery = pool.query(`
     SELECT a.id, a.course_id, a.lesson_id, a.type, a.title, a.due_date, a.points,
-           a.instructions, a.time_limit, a.created_at
+           a.instructions, a.time_limit, a.created_at, a.show_scores, a.quiz_review_mode, a.is_open,
+           a.allow_edit_submission, a.allow_cancel_submission, a.quiz_attempt_limit, a.open_at, a.close_at
     FROM assignments a
     ORDER BY a.created_at DESC
   `);
@@ -49,7 +65,7 @@ export async function GET(request: Request) {
   const submissionsQuery = role === "student"
     ? pool.query(`
         SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
-               s.score, s.answers, s.submitted_at, u.display_name AS student_name
+               s.score, s.previous_score, s.answers, s.submitted_at, u.display_name AS student_name
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         WHERE s.student_id = $1
@@ -57,18 +73,11 @@ export async function GET(request: Request) {
       `, [userId])
     : pool.query(`
         SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
-               s.score, s.answers, s.submitted_at, u.display_name AS student_name
+               s.score, s.previous_score, s.answers, s.submitted_at, u.display_name AS student_name
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         ORDER BY s.submitted_at DESC
       `);
-
-  const meetingsQuery = pool.query(`
-    SELECT m.id, m.subject, m.join_url, m.start_datetime, m.end_datetime,
-           m.passcode, m.created_at
-    FROM meetings m
-    ORDER BY m.created_at DESC
-  `);
 
   const enrollmentsQuery = role === "teacher"
     ? pool.query(`
@@ -93,18 +102,52 @@ export async function GET(request: Request) {
     : Promise.resolve({ rows: [] });
 
   const [
-    coursesRes, lessonsRes, segmentsRes, assignmentsRes,
-    quizQuestionsRes, submissionsRes, meetingsRes, enrollmentsRes, profilesRes,
+    coursesRes, chaptersRes, topicsRes, lessonsRes, segmentsRes, assignmentsRes,
+    quizQuestionsRes, submissionsRes, enrollmentsRes, profilesRes,
     completedLessonsRes,
   ] = await Promise.all([
-    coursesQuery, lessonsQuery, segmentsQuery, assignmentsQuery,
-    quizQuestionsQuery, submissionsQuery, meetingsQuery, enrollmentsQuery, profilesQuery,
+    coursesQuery, chaptersQuery, topicsQuery, lessonsQuery, segmentsQuery, assignmentsQuery,
+    quizQuestionsQuery, submissionsQuery, enrollmentsQuery, profilesQuery,
     completedLessonsQuery,
   ]);
 
+  // Dynamic course progress calculation
+  const chapterToCourseMap = new Map<string, string>();
+  for (const ch of chaptersRes.rows) {
+    chapterToCourseMap.set(ch.id, ch.course_id);
+  }
+
+  const topicToCourseMap = new Map<string, string>();
+  for (const t of topicsRes.rows) {
+    const courseId = chapterToCourseMap.get(t.chapter_id);
+    if (courseId) {
+      topicToCourseMap.set(t.id, courseId);
+    }
+  }
+
+  const completedLessonSet = new Set(completedLessonsRes.rows.map((r) => r.lesson_id));
+
+  const totalLessonsPerCourse: Record<string, number> = {};
+  const completedLessonsPerCourse: Record<string, number> = {};
+
+  for (const l of lessonsRes.rows) {
+    if (l.is_published === false) continue;
+    const courseId = topicToCourseMap.get(l.topic_id) || l.course_id;
+    if (courseId) {
+      totalLessonsPerCourse[courseId] = (totalLessonsPerCourse[courseId] || 0) + 1;
+      if (completedLessonSet.has(l.id)) {
+        completedLessonsPerCourse[courseId] = (completedLessonsPerCourse[courseId] || 0) + 1;
+      }
+    }
+  }
+
   const progressMap: Record<string, number> = {};
   for (const e of enrollmentsRes.rows) {
-    progressMap[e.course_id] = e.progress;
+    const cId = e.course_id;
+    const total = totalLessonsPerCourse[cId] || 0;
+    const done = completedLessonsPerCourse[cId] || 0;
+    const calculated = total > 0 ? Math.round((done / total) * 100) : 0;
+    progressMap[cId] = calculated;
   }
 
   const segmentsByLesson: Record<string, typeof segmentsRes.rows> = {};
@@ -134,15 +177,34 @@ export async function GET(request: Request) {
       enrollCode: showCode ? c.enroll_code : undefined,
       enrollCodeRequired: !c.is_open && (c.enroll_code !== null && c.enroll_code !== ""),
       isEnrolled: isEnrolled || role === "teacher", // Teachers implicitly enrolled in their own courses or seen as enrolled
+      showScores: c.show_scores !== false,
+      sequentialLessons: !!c.sequential_lessons,
+      quizReviewMode: (c.quiz_review_mode || "full") as "full" | "answers_only" | "none",
     };
   });
 
+  const chapters = chaptersRes.rows.map((ch) => ({
+    id: ch.id,
+    courseId: ch.course_id,
+    title: ch.title,
+    order: ch.sort_order,
+  }));
+
+  const topics = topicsRes.rows.map((t) => ({
+    id: t.id,
+    chapterId: t.chapter_id,
+    title: t.title,
+    order: t.sort_order,
+  }));
+
   const lessons = lessonsRes.rows.map((l) => ({
     id: l.id,
-    courseId: l.course_id,
+    topicId: l.topic_id,
     title: l.title,
     description: l.description,
     videoUrl: l.video_url || undefined,
+    isPublished: l.is_published !== false,
+    isLocked: l.is_locked === true,
     subLessons: (segmentsByLesson[l.id] ?? []).map((s) => ({
       id: s.id,
       title: s.title,
@@ -169,6 +231,14 @@ export async function GET(request: Request) {
         }))
       : undefined,
     createdAt: new Date(a.created_at).getTime(),
+    showScores: a.show_scores !== false,
+    quizReviewMode: (a.quiz_review_mode || "full") as "full" | "answers_only" | "none",
+    isOpen: a.is_open !== false,
+    allowEditSubmission: a.allow_edit_submission === true,
+    allowCancelSubmission: a.allow_cancel_submission === true,
+    quizAttemptLimit: a.quiz_attempt_limit ?? undefined,
+    openAt: a.open_at ? new Date(a.open_at).toISOString() : undefined,
+    closeAt: a.close_at ? new Date(a.close_at).toISOString() : undefined,
   }));
 
   const submissions = submissionsRes.rows.map((s) => ({
@@ -180,25 +250,8 @@ export async function GET(request: Request) {
     type: s.type,
     fileName: s.file_name || undefined,
     score: s.score ?? undefined,
+    previousScore: s.previous_score ?? undefined,
     answers: s.answers || undefined,
-  }));
-
-  const meetings = meetingsRes.rows.map((m) => ({
-    id: m.id,
-    subject: m.subject,
-    joinUrl: m.join_url,
-    startDateTime: m.start_datetime,
-    endDateTime: m.end_datetime,
-    passcode: m.passcode,
-    createdAt: new Date(m.created_at).getTime(),
-  }));
-
-  const appUsers = profilesRes.rows.map((p) => ({
-    id: p.id,
-    username: p.username,
-    displayName: p.display_name,
-    role: p.role,
-    createdAt: new Date(p.created_at).getTime(),
   }));
 
   const enrollments = enrollmentsRes.rows.map((e) => ({
@@ -209,12 +262,21 @@ export async function GET(request: Request) {
     studentUsername: e.student_username,
   }));
 
+  const appUsers = profilesRes.rows.map((p) => ({
+    id: p.id,
+    username: p.username,
+    displayName: p.display_name,
+    role: p.role,
+    createdAt: new Date(p.created_at).getTime(),
+  }));
+
   return Response.json({
     courses,
+    chapters,
+    topics,
     lessons,
     assignments,
     submissions,
-    meetings,
     appUsers,
     enrollments,
     completedLessonIds: completedLessonsRes.rows.map((r: any) => r.lesson_id),

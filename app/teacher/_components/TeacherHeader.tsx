@@ -1,7 +1,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import {
-  Sparkles, BarChart2, BookOpen, Video, Moon, Sun, LogOut, Menu, X,
+  Sparkles, BarChart2, BookOpen, Moon, Sun, LogOut, Menu, X,
 } from "lucide-react";
 import { tx } from "../../lib/theme";
 import { Avatar } from "../../components/Avatar";
@@ -54,12 +54,6 @@ export function TeacherHeader({ tab, setTab, mobileOpen, setMobileOpen, darkMode
               <BookOpen className="h-4 w-4" />
               คอร์สที่ฉันสอน
             </button>
-            <button onClick={() => router.push("/teacher/teams")}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 active:scale-95"
-              style={{ color: tx.secondary }}>
-              <Video className="h-4 w-4" />
-              สร้าง Teams Meeting
-            </button>
           </nav>
 
           {/* Settings & Profile */}
@@ -109,13 +103,6 @@ export function TeacherHeader({ tab, setTab, mobileOpen, setMobileOpen, darkMode
           >
             <BookOpen className="h-5 w-5" />
             คอร์สที่ฉันสอน
-          </button>
-          <button onClick={() => { router.push("/teacher/teams"); setMobileOpen(false); }}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 active:scale-95"
-            style={{ color: tx.secondary }}
-          >
-            <Video className="h-5 w-5" />
-            สร้าง Teams Meeting
           </button>
         </div>
       </div>

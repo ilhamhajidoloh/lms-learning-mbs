@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Upload, FileText, Check } from "lucide-react";
-import { tx } from "../../lib/theme";
-import type { Assignment, StudentSubmission } from "../../context/UserContext";
+import { Upload, FileText, Check, PencilLine, Undo2, Lock, Clock } from "lucide-react";
+import { tx, card } from "../../lib/theme";
+import { useUser, type Assignment, type StudentSubmission } from "../../context/UserContext";
+import Swal from "sweetalert2";
 
 interface FileSubmissionPanelProps {
   activeTask: Assignment;
@@ -11,27 +12,50 @@ interface FileSubmissionPanelProps {
   addSubmission: (submission: StudentSubmission) => void;
   currentUserId: string | null;
   displayName: string;
+  activeLessonId?: string | null;
 }
 
 export function FileSubmissionPanel({
-  activeTask, fileNameInput, setFileNameInput, setSelectedAssignmentId, addSubmission, currentUserId, displayName,
+  activeTask, fileNameInput, setFileNameInput, setSelectedAssignmentId, addSubmission, currentUserId, displayName, activeLessonId,
 }: FileSubmissionPanelProps) {
+  const { toggleLessonComplete, submissions, editFileSubmission, cancelFileSubmission } = useUser();
   const [isDragging, setIsDragging] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  const existingSub = submissions.find(s => s.assignmentId === activeTask.id && s.studentId === currentUserId);
+  const isEdit = !!existingSub;
+
+  const nowMs = Date.now();
+  const openAtMs = activeTask.openAt ? new Date(activeTask.openAt).getTime() : null;
+  const closeAtMs = activeTask.closeAt ? new Date(activeTask.closeAt).getTime() : null;
+  const notOpenYet = openAtMs !== null && nowMs < openAtMs;
+  const alreadyClosed = closeAtMs !== null && nowMs > closeAtMs;
+  const isOpen = activeTask.isOpen !== false && !notOpenYet && !alreadyClosed;
+
+  const canEdit = !isEdit || activeTask.allowEditSubmission === true;
+
   const handleSubmit = async () => {
+    if (!isOpen || !canEdit) return;
     const name = fileNameInput.trim();
     if (!name) return;
     setSubmitted(true);
-    await addSubmission({
-      id: Math.random().toString(),
-      studentId: currentUserId || "",
-      studentName: displayName,
-      assignmentId: activeTask.id,
-      type: "file",
-      fileName: name,
-      submittedAt: Date.now()
-    });
+    if (isEdit) {
+      await editFileSubmission(existingSub.id, name);
+    } else {
+      await addSubmission({
+        id: Math.random().toString(),
+        studentId: currentUserId || "",
+        studentName: displayName,
+        assignmentId: activeTask.id,
+        type: "file",
+        fileName: name,
+        submittedAt: Date.now()
+      });
+      const targetLessonId = activeTask.lessonId || activeLessonId;
+      if (targetLessonId) {
+        toggleLessonComplete(targetLessonId, true);
+      }
+    }
     setTimeout(() => {
       setFileNameInput("");
       setSelectedAssignmentId(null);
@@ -41,9 +65,62 @@ export function FileSubmissionPanel({
   return (
     <div className="p-4 rounded-xl border space-y-4 animate-scaleIn" style={{ borderColor: tx.borderS }}>
       <div className="flex justify-between items-center">
-        <h5 className="font-bold text-sm">ส่งไฟล์การบ้าน: {activeTask.title}</h5>
+        <h5 className="font-bold text-sm flex items-center gap-1.5">
+          {isEdit ? <PencilLine className="h-4 w-4 text-indigo-500" /> : <Upload className="h-4 w-4 text-indigo-500" />}
+          {isEdit ? `แก้ไขไฟล์ที่ส่งแล้ว: ${activeTask.title}` : `ส่งไฟล์การบ้าน: ${activeTask.title}`}
+        </h5>
         <button onClick={() => setSelectedAssignmentId(null)} className="text-xs text-rose-500 hover:underline font-bold active:scale-95 transition-transform">ย้อนกลับ</button>
       </div>
+
+      {!isOpen && (
+        <div className="p-3 rounded-xl border bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+          {notOpenYet ? <Clock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+          <span>{notOpenYet ? `งานนี้จะเปิดรับส่งในวันที่ ${new Date(activeTask.openAt!).toLocaleString("th-TH")}` : "งานนี้ปิดรับการส่งแล้ว (หมดเวลาส่ง หรือผู้สอนปิดการรับส่ง)"}</span>
+        </div>
+      )}
+
+      {isEdit && !activeTask.allowEditSubmission && (
+        <div className="p-3 rounded-xl border bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold flex items-center gap-2">
+          <Lock className="h-4 w-4" />
+          <span>ผู้สอนไม่อนุญาตให้แก้ไขไฟล์ที่ส่งแล้ว</span>
+        </div>
+      )}
+
+      {isEdit && existingSub.fileName && (
+        <div className="p-3 rounded-xl border text-[11px] flex items-center justify-between gap-2 animate-slideInUp" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
+          <div className="flex items-center gap-2 overflow-hidden">
+            <FileText className="h-4 w-4 text-indigo-500 shrink-0" />
+            <span style={{ color: tx.muted }}>ไฟล์ที่ส่งอยู่ตอนนี้:</span>
+            <span className="font-mono font-bold truncate" style={{ color: tx.primary }}>{existingSub.fileName}</span>
+          </div>
+          {activeTask.allowCancelSubmission && isOpen && (
+            <button
+              type="button"
+              onClick={async () => {
+                const confirmed = await Swal.fire({
+                  title: "ยกเลิกการส่งไฟล์?",
+                  text: "ไฟล์ที่ส่งไว้จะถูกลบออก และต้องส่งใหม่อีกครั้ง",
+                  icon: "warning",
+                  showCancelButton: true,
+                  confirmButtonText: "ยกเลิกการส่ง",
+                  cancelButtonText: "กลับ",
+                  confirmButtonColor: "#ef4444",
+                  background: card.style.background ? String(card.style.background) : undefined,
+                  color: tx.primary,
+                });
+                if (confirmed.isConfirmed) {
+                  await cancelFileSubmission(existingSub.id);
+                  setFileNameInput("");
+                  setSelectedAssignmentId(null);
+                }
+              }}
+              className="px-3 py-1 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-300 font-bold text-[10px] hover:bg-rose-200 shrink-0 cursor-pointer flex items-center gap-1"
+            >
+              <Undo2 className="h-3 w-3" /> ยกเลิกการส่ง
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="p-3.5 rounded-xl border text-xs leading-relaxed animate-slideInUp stagger-1" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
         <strong style={{ color: tx.secondary }}>คำสั่งการบ้าน:</strong>
@@ -104,13 +181,17 @@ export function FileSubmissionPanel({
               className={`px-4 py-2 font-bold text-xs rounded-xl shadow transition-all duration-200 active:scale-95 flex items-center gap-1.5 ${
                 submitted
                   ? "bg-emerald-500 text-white"
-                  : "bg-indigo-600 hover:bg-indigo-500 text-white hover:shadow-lg disabled:opacity-40"
+                  : isEdit
+                    ? "bg-indigo-600 hover:bg-indigo-500 text-white hover:shadow-lg disabled:opacity-40"
+                    : "bg-indigo-600 hover:bg-indigo-500 text-white hover:shadow-lg disabled:opacity-40"
               }`}
             >
               {submitted ? (
                 <>
-                  <Check className="h-3.5 w-3.5 animate-scaleIn" /> ส่งแล้ว!
+                  <Check className="h-3.5 w-3.5 animate-scaleIn" /> {isEdit ? "บันทึกแล้ว!" : "ส่งแล้ว!"}
                 </>
+              ) : isEdit ? (
+                "บันทึกการแก้ไข"
               ) : (
                 "ส่งการบ้าน"
               )}

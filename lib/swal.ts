@@ -37,7 +37,7 @@ export const toast = {
       title: message,
       allowOutsideClick: false,
       allowEscapeKey: false,
-      allowEnterKey: false,
+      preConfirm: () => false,
       showConfirmButton: false,
       didOpen: () => {
         Swal.showLoading();
@@ -53,6 +53,15 @@ export const toast = {
 };
 
 export const alert = {
+  success: (title: string, text?: string) => {
+    if (typeof window === "undefined") return Promise.resolve();
+    return Swal.fire({
+      icon: "success",
+      title,
+      text,
+      confirmButtonText: "ตกลง",
+    });
+  },
   error: (title: string, text?: string) => {
     if (typeof window === "undefined") return Promise.resolve();
     return Swal.fire({

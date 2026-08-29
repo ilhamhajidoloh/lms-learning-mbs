@@ -16,11 +16,25 @@ export async function POST(request: Request) {
 
   try {
     // 1. Get courseId for this lesson
-    const lessonCheck = await pool.query("SELECT course_id FROM lessons WHERE id = $1", [lessonId]);
+    let courseId: string | null = null;
+    const lessonCheck = await pool.query(
+      `SELECT ch.course_id
+       FROM lessons l
+       JOIN topics t ON l.topic_id = t.id
+       JOIN chapters ch ON t.chapter_id = ch.id
+       WHERE l.id = $1`,
+      [lessonId]
+    );
     if (lessonCheck.rows.length === 0) {
-      return Response.json({ error: "Lesson not found" }, { status: 404 });
+      const fallbackCheck = await pool.query("SELECT course_id FROM lessons WHERE id = $1", [lessonId]).catch(() => ({ rows: [] }));
+      if (fallbackCheck.rows.length > 0 && fallbackCheck.rows[0].course_id) {
+        courseId = fallbackCheck.rows[0].course_id;
+      } else {
+        return Response.json({ error: "Lesson not found" }, { status: 404 });
+      }
+    } else {
+      courseId = lessonCheck.rows[0].course_id;
     }
-    const courseId = lessonCheck.rows[0].course_id;
 
     // 2. Insert or delete the completion record
     if (completed) {
@@ -40,7 +54,10 @@ export async function POST(request: Request) {
 
     // 3. Recalculate progress for this course
     const totalLessonsQuery = await pool.query(
-      "SELECT COUNT(*) FROM lessons WHERE course_id = $1",
+      `SELECT COUNT(DISTINCT l.id) FROM lessons l
+       LEFT JOIN topics t ON l.topic_id = t.id
+       LEFT JOIN chapters ch ON t.chapter_id = ch.id
+       WHERE ch.course_id = $1 OR l.course_id = $1`,
       [courseId]
     );
     const totalLessons = parseInt(totalLessonsQuery.rows[0].count, 10);
@@ -48,10 +65,12 @@ export async function POST(request: Request) {
     let progress = 0;
     if (totalLessons > 0) {
       const completedLessonsQuery = await pool.query(
-        `SELECT COUNT(*)
+        `SELECT COUNT(DISTINCT slc.lesson_id)
          FROM student_lesson_completions slc
          JOIN lessons l ON slc.lesson_id = l.id
-         WHERE l.course_id = $1 AND slc.student_id = $2`,
+         LEFT JOIN topics t ON l.topic_id = t.id
+         LEFT JOIN chapters ch ON t.chapter_id = ch.id
+         WHERE (ch.course_id = $1 OR l.course_id = $1) AND slc.student_id = $2`,
         [courseId, userId]
       );
       const completedLessons = parseInt(completedLessonsQuery.rows[0].count, 10);

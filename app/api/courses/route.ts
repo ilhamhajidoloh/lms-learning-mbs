@@ -23,7 +23,7 @@ export async function PUT(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, isOpen, enrollCode, level, levelLabel } = await request.json();
+  const { id, isOpen, enrollCode, level, levelLabel, showScores, sequentialLessons, quizReviewMode } = await request.json();
   if (!id) return Response.json({ error: "Missing course id" }, { status: 400 });
 
   const hasMetadataUpdate = level !== undefined || levelLabel !== undefined;
@@ -61,9 +61,21 @@ export async function PUT(request: Request) {
 
   await pool.query(
     `UPDATE courses
-     SET is_open = $1, enroll_code = $2, updated_at = now()
-     WHERE id = $3`,
-    [isOpen, enrollCode || null, id]
+     SET is_open = COALESCE($1, is_open),
+         enroll_code = $2,
+         show_scores = COALESCE($3, show_scores),
+         sequential_lessons = COALESCE($4, sequential_lessons),
+         quiz_review_mode = COALESCE($5, quiz_review_mode),
+         updated_at = now()
+     WHERE id = $6`,
+    [
+      isOpen !== undefined ? isOpen : null,
+      enrollCode || null,
+      showScores !== undefined ? showScores : null,
+      sequentialLessons !== undefined ? sequentialLessons : null,
+      quizReviewMode !== undefined ? quizReviewMode : null,
+      id,
+    ]
   );
 
   return Response.json({ success: true });

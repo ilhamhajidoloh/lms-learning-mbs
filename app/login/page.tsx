@@ -37,7 +37,7 @@ export default function LoginPage() {
 
     const { data, error: apiError } = await apiFetch<{
       token: string;
-      user: { id: string; username: string; displayName: string; role: Role };
+      user: { id: string; username: string; displayName: string; role: Role; passwordChanged: boolean };
     }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ username: username.trim(), password }),
@@ -52,12 +52,12 @@ export default function LoginPage() {
     }
 
     setToken(data.token);
-    login(data.user.role, data.user.displayName, data.user.username, data.user.id);
+    login(data.user.role, data.user.displayName, data.user.username, data.user.id, data.user.passwordChanged);
     await refreshData();
     loadingToast.close();
     toast.success("เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ " + data.user.displayName);
 
-    const dest = data.user.role === "admin" ? "/admin" : data.user.role === "teacher" ? "/teacher" : "/student";
+    const dest = !data.user.passwordChanged ? "/change-password" : data.user.role === "admin" ? "/admin" : data.user.role === "teacher" ? "/teacher" : "/student";
     router.push(dest);
   };
 

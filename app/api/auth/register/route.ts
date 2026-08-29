@@ -31,23 +31,24 @@ export async function POST(request: Request) {
 
   const passwordHash = await hashPassword(password);
 
-  const { rows } = await pool.query(
-    `INSERT INTO users (email, password_hash, username, display_name, role)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, username, display_name, role`,
-    [signupEmail, passwordHash, username.trim(), displayName.trim(), userRole]
-  );
+   const { rows } = await pool.query(
+      `INSERT INTO users (email, password_hash, username, display_name, role, password_changed)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, username, display_name, role, password_changed`,
+      [signupEmail, passwordHash, username.trim(), displayName.trim(), userRole, true]
+    );
 
-  const user = rows[0];
-  const token = signToken({ userId: user.id, role: user.role });
+    const user = rows[0];
+    const token = signToken({ userId: user.id, role: user.role });
 
-  return Response.json({
-    token,
-    user: {
-      id: user.id,
-      username: user.username,
-      displayName: user.display_name,
-      role: user.role,
-    },
-  });
+    return Response.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        displayName: user.display_name,
+        role: user.role,
+        passwordChanged: user.password_changed,
+      },
+    });
 }

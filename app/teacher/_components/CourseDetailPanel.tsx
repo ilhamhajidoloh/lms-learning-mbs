@@ -1,7 +1,8 @@
-import React from "react";
-import { ArrowLeft, Shield } from "lucide-react";
+import React, { useState } from "react";
+import { ArrowLeft, Shield, RefreshCw } from "lucide-react";
 import { tx } from "../../lib/theme";
-import type { Assignment, Course, Enrollment, Lesson, StudentSubmission } from "../../context/UserContext";
+import { toast } from "@/lib/swal";
+import { useUser, type Assignment, type Chapter, type Course, type Enrollment, type Lesson, type StudentSubmission, type Topic } from "../../context/UserContext";
 import { AssignmentsPanel } from "./AssignmentsPanel";
 import { LessonsPanel } from "./LessonsPanel";
 import { StudentsPanel } from "./StudentsPanel";
@@ -22,6 +23,8 @@ interface CourseDetailPanelProps {
   setViewingQuizSub: (sub: StudentSubmission | null) => void;
 
   lessons: Lesson[];
+  chapters: Chapter[];
+  topics: Topic[];
   setShowAddLessonModal: (show: boolean) => void;
   setEditingLesson: (lesson: Lesson | null) => void;
   setEditLessonTitle: (v: string) => void;
@@ -48,6 +51,8 @@ export function CourseDetailPanel({
   setViewingAssignmentId,
   setViewingQuizSub,
   lessons,
+  chapters,
+  topics,
   setShowAddLessonModal,
   setEditingLesson,
   setEditLessonTitle,
@@ -59,14 +64,37 @@ export function CourseDetailPanel({
   setShowAddStudentModal,
   teacherRemoveStudent,
 }: CourseDetailPanelProps) {
+  const { refreshData } = useUser();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshData();
+    setTimeout(() => setRefreshing(false), 500);
+    toast.success("อัปเดตข้อมูลบทเรียนและงานล่าสุดเรียบร้อยแล้ว!");
+  };
+
   const courseAssignments = assignments.filter(a => a.courseId === selectedCourse.id);
 
   return (
     <div className="space-y-6 animate-fadeIn text-left">
-      {/* Back Button */}
-      <button onClick={() => { setSelectedCourseId(null); setShowForm(false); }} className="flex items-center gap-2 font-bold hover:text-indigo-500 dark:hover:text-indigo-400 transition-all duration-200 active:scale-95 mb-4">
-        <ArrowLeft className="h-5 w-5" /> กลับหน้าคอร์สเรียนทั้งหมด
-      </button>
+      {/* Back Button & Refresh Button */}
+      <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
+        <button onClick={() => { setSelectedCourseId(null); setShowForm(false); }} className="flex items-center gap-2 font-bold hover:text-indigo-500 dark:hover:text-indigo-400 transition-all duration-200 active:scale-95">
+          <ArrowLeft className="h-5 w-5" /> กลับหน้าคอร์สเรียนทั้งหมด
+        </button>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 shadow-sm hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 cursor-pointer btn-press"
+          style={{ borderColor: tx.borderS, color: tx.secondary }}
+          title="คลิกเพื่อดึงข้อมูลบทเรียนและงานล่าสุดจากเซิร์ฟเวอร์"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 text-indigo-500 ${refreshing ? "animate-spin" : ""}`} />
+          <span>{refreshing ? "กำลังอัปเดต..." : "รีเฟรชข้อมูล"}</span>
+        </button>
+      </div>
 
       {/* Header Banner */}
       <HeroBanner
@@ -116,18 +144,20 @@ export function CourseDetailPanel({
         />
       )}
 
-      {/* Tab 2: Lessons */}
-      {detailTab === "lessons" && (
-        <LessonsPanel
-          lessons={lessons}
-          courseId={selectedCourse.id}
-          setShowAddLessonModal={setShowAddLessonModal}
-          setEditingLesson={setEditingLesson}
-          setEditLessonTitle={setEditLessonTitle}
-          setEditLessonDescription={setEditLessonDescription}
-          setEditLessonVideoUrl={setEditLessonVideoUrl}
-        />
-      )}
+       {/* Tab 2: Lessons */}
+       {detailTab === "lessons" && (
+         <LessonsPanel
+           lessons={lessons}
+           chapters={chapters}
+           topics={topics}
+           courseId={selectedCourse.id}
+           setShowAddLessonModal={setShowAddLessonModal}
+           setEditingLesson={setEditingLesson}
+           setEditLessonTitle={setEditLessonTitle}
+           setEditLessonDescription={setEditLessonDescription}
+           setEditLessonVideoUrl={setEditLessonVideoUrl}
+         />
+       )}
 
       {/* Tab 3: Students */}
       {detailTab === "students" && (

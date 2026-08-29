@@ -7,8 +7,44 @@ const pool = new Pool({
 
 let migrated = false;
 
+// ฟังก์ชันตรวจสอบว่าตารางมีอยู่ใน database หรือไม่
+async function checkTableExists(tableName: string): Promise<boolean> {
+  try {
+    const result = await pool.query(
+      `SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = $1
+      )`,
+      [tableName]
+    );
+    return result.rows[0]?.exists || false;
+  } catch (err) {
+    console.error(`Error checking table '${tableName}':`, err);
+    return false;
+  }
+}
+
+// ตรวจสอบว่า Database เชื่อมต่อได้
+async function checkDatabaseConnection(): Promise<boolean> {
+  try {
+    await pool.query("SELECT NOW()");
+    return true;
+  } catch (err) {
+    console.error("Database connection failed:", err);
+    return false;
+  }
+}
+
 export async function ensureTables() {
   if (migrated) return;
+  
+  // ตรวจสอบการเชื่อมต่อ
+  const isConnected = await checkDatabaseConnection();
+  if (!isConnected) {
+    throw new Error("Cannot connect to database. Please check DATABASE_URL in .env.local");
+  }
+
   migrated = true;
 
   await pool.query(`
@@ -19,6 +55,7 @@ export async function ensureTables() {
       username      TEXT        NOT NULL UNIQUE,
       display_name  TEXT        NOT NULL,
       role          TEXT        NOT NULL DEFAULT 'student' CHECK (role IN ('admin', 'teacher', 'student')),
+      password_changed BOOLEAN  NOT NULL DEFAULT FALSE,
       created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
@@ -55,13 +92,19 @@ export async function ensureTables() {
   // Add columns for course enrollment settings if not exist
   try {
     await pool.query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT FALSE`);
-  } catch (err) {
-    console.error("Failed to add column is_open:", err);
-  }
-  try {
     await pool.query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS enroll_code TEXT`);
+    await pool.query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS show_scores BOOLEAN NOT NULL DEFAULT TRUE`);
+    await pool.query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS sequential_lessons BOOLEAN NOT NULL DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS quiz_review_mode TEXT NOT NULL DEFAULT 'full'`);
   } catch (err) {
-    console.error("Failed to add column enroll_code:", err);
+    console.error("Failed to add course columns:", err);
+  }
+
+  // Add password_changed column if not exist
+  try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed BOOLEAN NOT NULL DEFAULT FALSE`);
+  } catch (err) {
+    console.error("Failed to add column password_changed:", err);
   }
 
   await pool.query(`
@@ -86,9 +129,31 @@ export async function ensureTables() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS lessons (
+    CREATE TABLE IF NOT EXISTS chapters (
       id          TEXT        PRIMARY KEY,
       course_id   TEXT        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      title       TEXT        NOT NULL,
+      sort_order  INT         NOT NULL DEFAULT 0,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS topics (
+      id          TEXT        PRIMARY KEY,
+      chapter_id  TEXT        NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+      title       TEXT        NOT NULL,
+      sort_order  INT         NOT NULL DEFAULT 0,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lessons (
+      id          TEXT        PRIMARY KEY,
+      topic_id    TEXT        NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
       title       TEXT        NOT NULL,
       description TEXT        NOT NULL DEFAULT '',
       video_url   TEXT,
@@ -173,19 +238,74 @@ export async function ensureTables() {
     )
   `);
 
+  const lessonMigrations = [
+    `ALTER TABLE lessons ADD COLUMN IF NOT EXISTS topic_id TEXT REFERENCES topics(id) ON DELETE CASCADE`,
+    `ALTER TABLE lessons ADD COLUMN IF NOT EXISTS course_id TEXT REFERENCES courses(id) ON DELETE CASCADE`,
+    `ALTER TABLE lessons ALTER COLUMN course_id DROP NOT NULL`,
+    `ALTER TABLE lessons ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT TRUE`,
+    `ALTER TABLE lessons ADD COLUMN IF NOT EXISTS is_locked BOOLEAN NOT NULL DEFAULT FALSE`,
+  ];
+
+  for (const query of lessonMigrations) {
+    try {
+      await pool.query(query);
+    } catch (err) {
+      console.error("Failed to apply lessons table migration:", query, err);
+    }
+  }
+
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_enrollments_student    ON course_enrollments (student_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_enrollments_course     ON course_enrollments (course_id)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_lessons_course         ON lessons (course_id, sort_order)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_chapters_course        ON chapters (course_id, sort_order)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_topics_chapter         ON topics (chapter_id, sort_order)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_lessons_topic          ON lessons (topic_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_segments_lesson        ON lesson_segments (lesson_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_assignments_course     ON assignments (course_id)`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS lesson_id TEXT REFERENCES lessons(id) ON DELETE CASCADE`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS show_scores BOOLEAN NOT NULL DEFAULT TRUE`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS quiz_review_mode TEXT NOT NULL DEFAULT 'full'`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT TRUE`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS allow_edit_submission BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS allow_cancel_submission BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS quiz_attempt_limit INT`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS open_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS close_at TIMESTAMPTZ`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_quiz_questions_assign  ON quiz_questions (assignment_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON submissions (assignment_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_student    ON submissions (student_id)`);
+  await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS previous_score INT`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_created_by    ON meetings (created_by)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_start         ON meetings (start_datetime DESC)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_completions_student    ON student_lesson_completions (student_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_completions_lesson     ON student_lesson_completions (lesson_id)`);
+
+  // ตรวจสอบว่าตารางทั้งหมดถูกสร้างแล้ว
+  const requiredTables = [
+    "users",
+    "courses",
+    "course_levels",
+    "course_enrollments",
+    "chapters",
+    "topics",
+    "lessons",
+    "lesson_segments",
+    "assignments",
+    "quiz_questions",
+    "submissions",
+    "meetings",
+    "student_lesson_completions"
+  ];
+
+  console.log("Verifying database tables...");
+  for (const table of requiredTables) {
+    const exists = await checkTableExists(table);
+    if (exists) {
+      console.log(`✓ Table '${table}' exists`);
+    } else {
+      throw new Error(`✗ Failed to create table '${table}'. Please check your database.`);
+    }
+  }
+  console.log("✓ All required tables are ready!");
 }
 
 export default pool;

@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   }
 
   const { rows } = await pool.query(
-    "SELECT id, username, display_name, role FROM users WHERE id = $1",
+    "SELECT id, username, display_name, role, password_changed FROM users WHERE id = $1",
     [auth.userId]
   );
 
@@ -23,5 +23,6 @@ export async function GET(request: Request) {
     username: user.username,
     displayName: user.display_name,
     role: user.role,
+    passwordChanged: user.password_changed,
   });
 }

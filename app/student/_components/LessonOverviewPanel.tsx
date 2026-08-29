@@ -3,7 +3,7 @@ import { tx } from "../../lib/theme";
 import { extractYouTubeId } from "../../lib/youtube";
 import type { Lesson } from "../../context/UserContext";
 import { useUser } from "../../context/UserContext";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Lock } from "lucide-react";
 import { toast } from "../../../lib/swal";
 
 type StudyTabId = "overview" | "resources" | "tasks";
@@ -12,11 +12,13 @@ interface LessonOverviewPanelProps {
   activeLesson: Lesson;
   studyTab: StudyTabId;
   setStudyTab: React.Dispatch<React.SetStateAction<StudyTabId>>;
+  hasTasks?: boolean;
+  tasksCompleted?: boolean;
 }
 
-export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab }: LessonOverviewPanelProps) {
+export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTasks = false, tasksCompleted = false }: LessonOverviewPanelProps) {
   const { completedLessonIds, toggleLessonComplete } = useUser();
-  const isCompleted = completedLessonIds.includes(activeLesson.id);
+  const isCompleted = completedLessonIds.includes(activeLesson.id) || tasksCompleted;
 
   const ytId = activeLesson.videoUrl ? extractYouTubeId(activeLesson.videoUrl) : null;
 
@@ -41,7 +43,7 @@ export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab }: Les
           onStateChange: (event: any) => {
             // YT.PlayerState.ENDED is 0
             if (event.data === (window as any).YT.PlayerState.ENDED) {
-              if (!isCompleted) {
+              if (!isCompleted && !hasTasks) {
                 toggleLessonComplete(activeLesson.id, true);
                 toast.success("ยินดีด้วย! คุณเรียนจบบทเรียนนี้แล้วและระบบได้บันทึกความคืบหน้าให้แล้วครับ");
               }
@@ -66,28 +68,51 @@ export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab }: Les
         player.destroy();
       }
     };
-  }, [ytId, activeLesson.id, isCompleted]);
+  }, [ytId, activeLesson.id, isCompleted, hasTasks]);
 
   return (
     <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-slideInUp">
         <h2 className="text-xl font-extrabold">{activeLesson.title}</h2>
-        <button
-          onClick={() => {
-            toggleLessonComplete(activeLesson.id, !isCompleted);
-            if (!isCompleted) {
-              toast.success("บันทึกว่าเรียนบทเรียนนี้แล้ว!");
-            }
-          }}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm border ${
-            isCompleted
-              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-400"
-              : "bg-indigo-50/70 hover:bg-indigo-100 text-indigo-600 border-indigo-500/10 dark:bg-indigo-950/30 dark:text-indigo-400"
-          }`}
-        >
-          <CheckCircle2 className={`h-4 w-4 ${isCompleted ? "text-emerald-500 animate-scaleIn" : ""}`} />
-          {isCompleted ? "เรียนเสร็จแล้ว" : "ทำเครื่องหมายว่าเรียนแล้ว"}
-        </button>
+        {hasTasks ? (
+          <div
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold shadow-sm border ${
+              isCompleted
+                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-400"
+                : "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:bg-amber-950/30 dark:text-amber-400"
+            }`}
+            title={isCompleted ? "ส่งงานเรียบร้อยแล้ว" : "ต้องส่งงานหรือทำควิซในบทเรียนนี้ก่อน"}
+          >
+            {isCompleted ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 animate-scaleIn" />
+                <span>เรียนเสร็จแล้ว (ทำภาระงานครบ)</span>
+              </>
+            ) : (
+              <>
+                <Lock className="h-3.5 w-3.5 text-amber-500" />
+                <span>ต้องส่งงาน / ทำควิซในบทนี้ก่อน</span>
+              </>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              toggleLessonComplete(activeLesson.id, !isCompleted);
+              if (!isCompleted) {
+                toast.success("บันทึกว่าเรียนบทเรียนนี้แล้ว!");
+              }
+            }}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm border ${
+              isCompleted
+                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-400"
+                : "bg-indigo-50/70 hover:bg-indigo-100 text-indigo-600 border-indigo-500/10 dark:bg-indigo-950/30 dark:text-indigo-400"
+            }`}
+          >
+            <CheckCircle2 className={`h-4 w-4 ${isCompleted ? "text-emerald-500 animate-scaleIn" : ""}`} />
+            {isCompleted ? "เรียนเสร็จแล้ว" : "ทำเครื่องหมายว่าเรียนแล้ว"}
+          </button>
+        )}
       </div>
 
       {/* Video player embedded */}

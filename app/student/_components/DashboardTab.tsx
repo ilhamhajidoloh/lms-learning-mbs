@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Sparkles, Play, Book, Clock, CheckCircle, Trophy, ArrowUpRight, ChevronRight, Search, Video, Award,
+  Sparkles, Play, Book, Clock, CheckCircle, Trophy, ArrowUpRight, ChevronRight, Search, Award,
 } from "lucide-react";
 import { tx, card } from "../../lib/theme";
-import type { Course, Meeting } from "../../context/UserContext";
+import type { Course } from "../../context/UserContext";
 import { StatCard } from "../../components/StatCard";
 import { HeroBanner } from "../../components/HeroBanner";
 import { EmptyState } from "../../components/EmptyState";
@@ -13,7 +13,6 @@ type StudentTab = "dashboard" | "courses" | "study" | "profile";
 interface DashboardTabProps {
   displayName: string;
   enrolledCourses: Course[];
-  meetings: Meeting[];
   setTab: (tab: StudentTab) => void;
   setSelectedCourseId: React.Dispatch<React.SetStateAction<string | null>>;
 }
@@ -41,7 +40,7 @@ function useAnimatedCounter(target: number, duration = 800) {
   return value;
 }
 
-export function DashboardTab({ displayName, enrolledCourses, meetings, setTab, setSelectedCourseId }: DashboardTabProps) {
+export function DashboardTab({ displayName, enrolledCourses, setTab, setSelectedCourseId }: DashboardTabProps) {
   const courseCount = useAnimatedCounter(enrolledCourses.length, 600);
 
   return (
@@ -74,42 +73,6 @@ export function DashboardTab({ displayName, enrolledCourses, meetings, setTab, s
         <StatCard icon={<Clock className="h-6 w-6" />} label="เวลาสะสมที่ศึกษา" value="0 ชั่วโมง 0 นาที" accent="purple" className="animate-slideInUp stagger-2" />
         <StatCard icon={<Trophy className="h-6 w-6" />} label="ควิซที่ผ่านแล้ว" value="0 ชุดทดสอบ" accent="emerald" className="animate-slideInUp stagger-3" />
       </div>
-
-      {/* Microsoft Teams meetings live schedule */}
-      {meetings.length > 0 && (
-        <div className="space-y-4 animate-slideInUp stagger-4">
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-            <h2 className="text-xl font-bold tracking-tight">คลาสเรียนสดออนไลน์ทาง Teams ตอนนี้</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {meetings.map((m, i) => (
-              <div key={m.id} className={`rounded-2xl p-5 flex flex-col justify-between shadow-md card-hover-sm animate-slideInUp stagger-${Math.min(i + 1, 6)}`} style={card.style}>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-start">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
-                      เข้าเรียนสด
-                    </span>
-                    <span className="text-xs" style={{ color: tx.faint }}>
-                      ครูเซ็ง กำลังรอสอน
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-sm line-clamp-1">{m.subject}</h4>
-                  <p className="text-xs flex items-center gap-1.5" style={{ color: tx.muted }}>
-                    <Clock className="h-3.5 w-3.5" /> {m.startDateTime} น.
-                  </p>
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-300 dark:border-slate-700 flex justify-between items-center">
-                  <span className="text-xs font-mono" style={{ color: tx.muted }}>Passcode: {m.passcode}</span>
-                  <a href={m.joinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-indigo-500 dark:text-indigo-400 font-bold hover:underline transition-colors hover:text-indigo-600">
-                    กดเข้าร่วม (Join) <ArrowUpRight className="h-3.5 w-3.5" />
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Courses Overview In Dashboard */}
       <div className="space-y-6">
@@ -147,7 +110,7 @@ export function DashboardTab({ displayName, enrolledCourses, meetings, setTab, s
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-5">
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-xs font-medium" style={{ color: tx.secondary }}>
-                      <span className="flex items-center gap-1.5"><Video className="h-3.5 w-3.5" /> {course.lessonsCount} ตอน</span>
+                      <span className="flex items-center gap-1.5"><Book className="h-3.5 w-3.5" /> {course.lessonsCount} ตอน</span>
                       <span className="flex items-center gap-1.5"><Award className="h-3.5 w-3.5 text-amber-500" /> {course.instructor}</span>
                     </div>
                     <div className="space-y-1.5 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">

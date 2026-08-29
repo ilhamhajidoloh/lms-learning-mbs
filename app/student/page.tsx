@@ -13,7 +13,7 @@ import { StudyTab } from "./_components/StudyTab";
 import { ProfileTab } from "./_components/ProfileTab";
 
 export default function StudentDashboard() {
-  const { role, isAuthenticated, displayName, logout, meetings, darkMode, toggleDarkMode, assignments, submissions, addSubmission, lessons, courses, loadingData, enrollInCourse, currentUserId } = useUser();
+  const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, assignments, submissions, addSubmission, chapters, topics, lessons, courses, loadingData, enrollInCourse, currentUserId } = useUser();
   const router = useRouter();
   const [tab,          setTab]          = useState<"dashboard"|"courses"|"study"|"profile">("dashboard");
   const [search,       setSearch]       = useState("");
@@ -116,7 +116,6 @@ export default function StudentDashboard() {
           <DashboardTab
             displayName={displayName}
             enrolledCourses={enrolledCourses}
-            meetings={meetings}
             setTab={setTab}
             setSelectedCourseId={setSelectedCourseId}
           />
@@ -142,6 +141,8 @@ export default function StudentDashboard() {
           <StudyTab
             enrolledCourses={enrolledCourses}
             courses={courses}
+            chapters={chapters}
+            topics={topics}
             lessons={lessons}
             assignments={assignments}
             submissions={submissions}

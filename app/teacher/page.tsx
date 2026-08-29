@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useUser, QuizQuestion, Assignment, StudentSubmission, Lesson } from "../context/UserContext";
+import { useUser, QuizQuestion, Assignment, StudentSubmission, Lesson, Chapter, Topic } from "../context/UserContext";
 import LoadingScreen from "../components/LoadingScreen";
 import { tx } from "../lib/theme";
 import { TeacherHeader } from "./_components/TeacherHeader";
@@ -17,7 +17,7 @@ import { AddLessonModal } from "./_components/AddLessonModal";
 import { AddStudentModal } from "./_components/AddStudentModal";
 
 export default function TeacherDashboard() {
-  const { role, isAuthenticated, displayName, logout, meetings, darkMode, toggleDarkMode, assignments, addAssignment, submissions, lessons, addLesson, updateLesson, courses, currentUserId, createCourse, loadingData, enrollments, teacherAddStudent, teacherRemoveStudent, updateCourseSettings, appUsers, levels } = useUser();
+  const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, assignments, addAssignment, submissions, lessons, addLesson, updateLesson, courses, currentUserId, createCourse, loadingData, enrollments, teacherAddStudent, teacherRemoveStudent, updateCourseSettings, appUsers, levels, chapters, addChapter, topics, addTopic } = useUser();
   const router = useRouter();
   const [tab, setTab] = useState<"dashboard" | "courses" | "students">("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -38,13 +38,15 @@ export default function TeacherDashboard() {
   const [addLessonTitle, setAddLessonTitle] = useState("");
   const [addLessonDescription, setAddLessonDescription] = useState("");
   const [addLessonVideoUrl, setAddLessonVideoUrl] = useState("");
+  const [selectedTopicId, setSelectedTopicId] = useState("");
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
 
-  const handleCreateLesson = async (e: FormEvent) => {
+  const handleCreateLesson = async (e: FormEvent, customTopicId?: string) => {
     e.preventDefault();
-    if (!addLessonTitle.trim() || !selectedCourseId) return;
+    const topicIdToUse = customTopicId || selectedTopicId;
+    if (!addLessonTitle.trim() || !topicIdToUse) return;
     const res = await addLesson({
-      courseId: selectedCourseId,
+      topicId: topicIdToUse,
       title: addLessonTitle.trim(),
       description: addLessonDescription.trim(),
       videoUrl: addLessonVideoUrl.trim() || undefined,
@@ -53,6 +55,7 @@ export default function TeacherDashboard() {
       setAddLessonTitle("");
       setAddLessonDescription("");
       setAddLessonVideoUrl("");
+      setSelectedTopicId("");
       setShowAddLessonModal(false);
     }
   };
@@ -210,7 +213,13 @@ export default function TeacherDashboard() {
 
   const teacherCourses = courses.filter(c => c.instructorId === currentUserId);
   const selectedCourse = selectedCourseId ? teacherCourses.find(c => c.id === selectedCourseId) || null : null;
-  const selectedCourseLessons = selectedCourse ? lessons.filter(lesson => lesson.courseId === selectedCourse.id) : [];
+  
+  // Filter topics by selected course
+  const courseChapters = selectedCourse ? chapters.filter(ch => ch.courseId === selectedCourse.id) : [];
+  const courseTopics = courseChapters.length > 0 ? topics.filter(t => courseChapters.some(ch => ch.id === t.chapterId)) : [];
+  
+  // Filter lessons by course topics
+  const selectedCourseLessons = courseTopics.length > 0 ? lessons.filter(lesson => courseTopics.some(t => t.id === lesson.topicId)) : [];
 
   useEffect(() => {
     if (!showForm) return;
@@ -274,9 +283,10 @@ export default function TeacherDashboard() {
             displayName={displayName}
             router={router}
             teacherCourses={teacherCourses}
-            meetings={meetings}
             setShowCourseForm={setShowCourseForm}
             setTab={setTab}
+            setSelectedCourseId={setSelectedCourseId}
+            setDetailTab={setDetailTab}
           />
         )}
 
@@ -296,6 +306,8 @@ export default function TeacherDashboard() {
             setViewingAssignmentId={setViewingAssignmentId}
             setViewingQuizSub={setViewingQuizSub}
             lessons={lessons}
+            chapters={chapters}
+            topics={topics}
             setShowAddLessonModal={setShowAddLessonModal}
             setEditingLesson={setEditingLesson}
             setEditLessonTitle={setEditLessonTitle}
@@ -389,6 +401,13 @@ export default function TeacherDashboard() {
           addLessonVideoUrl={addLessonVideoUrl}
           setAddLessonVideoUrl={setAddLessonVideoUrl}
           handleCreateLesson={handleCreateLesson}
+          topics={topics}
+          chapters={chapters}
+          selectedCourseId={selectedCourseId}
+          selectedTopicId={selectedTopicId}
+          setSelectedTopicId={setSelectedTopicId}
+          addChapter={addChapter}
+          addTopic={addTopic}
         />
       )}
 

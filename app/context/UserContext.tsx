@@ -8,16 +8,6 @@ export type Role = "teacher" | "student" | "admin";
 
 export type CourseLevel = string;
 
-export interface Meeting {
-  id: string;
-  subject: string;
-  joinUrl: string;
-  startDateTime: string;
-  endDateTime: string;
-  passcode: string;
-  createdAt: number;
-}
-
 export interface Course {
   id: string;
   title: string;
@@ -32,6 +22,9 @@ export interface Course {
   enrollCode?: string;
   enrollCodeRequired?: boolean;
   isEnrolled?: boolean;
+  showScores?: boolean;
+  sequentialLessons?: boolean;
+  quizReviewMode?: "full" | "answers_only" | "none";
 }
 
 export interface QuizQuestion {
@@ -53,6 +46,14 @@ export interface Assignment {
   timeLimit?: number;
   questions?: QuizQuestion[];
   createdAt: number;
+  showScores?: boolean;
+  quizReviewMode?: "full" | "answers_only" | "none";
+  isOpen?: boolean;
+  allowEditSubmission?: boolean;
+  allowCancelSubmission?: boolean;
+  quizAttemptLimit?: number;
+  openAt?: string;
+  closeAt?: string;
 }
 
 export interface StudentSubmission {
@@ -64,7 +65,22 @@ export interface StudentSubmission {
   type: "file" | "quiz";
   fileName?: string;
   score?: number;
+  previousScore?: number;
   answers?: Record<number, number> | number[];
+}
+
+export interface Chapter {
+  id: string;
+  courseId: string;
+  title: string;
+  order: number;
+}
+
+export interface Topic {
+  id: string;
+  chapterId: string;
+  title: string;
+  order: number;
 }
 
 export interface LessonSegment {
@@ -75,10 +91,12 @@ export interface LessonSegment {
 
 export interface Lesson {
   id: string;
-  courseId: string;
+  topicId: string;
   title: string;
   description: string;
   videoUrl?: string;
+  isPublished?: boolean;
+  isLocked?: boolean;
   subLessons?: LessonSegment[];
 }
 
@@ -118,25 +136,48 @@ interface UserContextProps {
   displayName: string;
   currentUsername: string;
   currentUserId: string | null;
+  passwordChanged: boolean;
   loadingData: boolean;
-  login: (role: Role, name: string, username: string, userId?: string) => void;
+  login: (role: Role, name: string, username: string, userId?: string, passwordChanged?: boolean) => void;
   logout: () => void;
   register: (data: Credential) => Promise<{ success: boolean; error?: string }>;
   updateDisplayName: (name: string) => void;
   updatePassword: (oldPw: string, newPw: string) => Promise<{ success: boolean; error?: string }>;
-  meetings: Meeting[];
-  addMeeting: (meeting: Meeting) => void;
   darkMode: boolean;
   toggleDarkMode: () => void;
   courses: Course[];
   createCourse: (data: Partial<Course>) => Promise<{success: boolean; error?: string}>;
+  chapters: Chapter[];
+  addChapter: (courseId: string, title: string) => Promise<{ success: boolean; id?: string; error?: string }>;
+  updateChapter: (id: string, title: string) => Promise<{ success: boolean; error?: string }>;
+  deleteChapter: (id: string) => Promise<{ success: boolean; error?: string }>;
+  topics: Topic[];
+  addTopic: (chapterId: string, title: string) => Promise<{ success: boolean; id?: string; error?: string }>;
+  updateTopic: (id: string, title: string) => Promise<{ success: boolean; error?: string }>;
+  deleteTopic: (id: string) => Promise<{ success: boolean; error?: string }>;
   assignments: Assignment[];
   addAssignment: (assignment: Assignment) => void;
+  updateAssignmentSettings: (assignmentId: string, showScores?: boolean, quizReviewMode?: "full" | "answers_only" | "none") => Promise<{ success: boolean; error?: string }>;
+  toggleAssignmentOpen: (assignmentId: string, isOpen: boolean) => Promise<{ success: boolean; error?: string }>;
+  updateAssignmentAdvancedSettings: (assignmentId: string, settings: {
+    allowEditSubmission?: boolean;
+    allowCancelSubmission?: boolean;
+    quizAttemptLimit?: number;
+    openAt?: string;
+    closeAt?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  editFileSubmission: (submissionId: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
+  cancelFileSubmission: (submissionId: string) => Promise<{ success: boolean; error?: string }>;
   submissions: StudentSubmission[];
   addSubmission: (submission: StudentSubmission) => void;
+  gradeSubmission: (submissionId: string, score: number) => Promise<{ success: boolean; error?: string }>;
+  cancelSubmissionScore: (submissionId: string) => Promise<{ success: boolean; error?: string }>;
   lessons: Lesson[];
   addLesson: (lesson: Omit<Lesson, "id">) => Promise<{ success: boolean; error?: string }>;
   updateLesson: (lesson: Lesson) => void;
+  toggleLessonPublished: (lessonId: string, isPublished: boolean) => Promise<{ success: boolean; error?: string }>;
+  toggleLessonLocked: (lessonId: string, isLocked: boolean) => Promise<{ success: boolean; error?: string }>;
+  deleteLesson: (id: string) => Promise<{ success: boolean; error?: string }>;
   appUsers: AppUser[];
   addAppUser: (user: AppUser) => void;
   updateAppUser: (user: AppUser) => void;
@@ -146,7 +187,7 @@ interface UserContextProps {
   enrollInCourse: (courseId: string, enrollCode?: string) => Promise<{ success: boolean; error?: string }>;
   teacherAddStudent: (courseId: string, studentId: string) => Promise<{ success: boolean; error?: string }>;
   teacherRemoveStudent: (courseId: string, studentId: string) => Promise<{ success: boolean; error?: string }>;
-  updateCourseSettings: (courseId: string, isOpen: boolean, enrollCode: string | null) => Promise<{ success: boolean; error?: string }>;
+  updateCourseSettings: (courseId: string, isOpen: boolean, enrollCode: string | null, showScores?: boolean, sequentialLessons?: boolean, quizReviewMode?: "full" | "answers_only" | "none") => Promise<{ success: boolean; error?: string }>;
   levels: CourseLevelOption[];
   addLevel: (value: string, label: string) => Promise<{ success: boolean; error?: string }>;
   deleteLevel: (id: string) => Promise<{ success: boolean; error?: string }>;
@@ -158,10 +199,11 @@ const UserContext = createContext<UserContextProps | undefined>(undefined);
 
 interface AllDataResponse {
   courses: Course[];
+  chapters: Chapter[];
+  topics: Topic[];
   lessons: Lesson[];
   assignments: Assignment[];
   submissions: StudentSubmission[];
-  meetings: Meeting[];
   appUsers: AppUser[];
   enrollments?: Enrollment[];
   completedLessonIds?: string[];
@@ -175,10 +217,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>("student");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [passwordChanged, setPasswordChanged] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [darkMode, setDarkMode] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<StudentSubmission[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -201,10 +245,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return;
       }
       setCourses(data.courses);
+      setChapters(data.chapters);
+      setTopics(data.topics);
       setLessons(data.lessons);
       setAssignments(data.assignments);
       setSubmissions(data.submissions);
-      setMeetings(data.meetings);
       setAppUsers(data.appUsers);
       setEnrollments(data.enrollments || []);
       setCompletedLessonIds(data.completedLessonIds || []);
@@ -295,11 +340,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = (selectedRole: Role, name: string, username: string, id?: string) => {
+  const login = (selectedRole: Role, name: string, username: string, id?: string, passwordChanged?: boolean) => {
     setRole(selectedRole);
     setDisplayName(name);
     setCurrentUsername(username);
     if (id) setUserId(id);
+    if (passwordChanged !== undefined) setPasswordChanged(passwordChanged);
     setIsAuthenticated(true);
   };
 
@@ -310,43 +356,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setDisplayName("ผู้ใช้");
     setCurrentUsername("");
     setUserId(null);
+    setPasswordChanged(true);
     setCourses([]);
     setAssignments([]);
     setSubmissions([]);
     setLessons([]);
-    setMeetings([]);
     setAppUsers([]);
     setEnrollments([]);
     setCompletedLessonIds([]);
     setLevels([]);
-  };
-
-  const addMeeting = async (meeting: Meeting) => {
-    const loadingToast = toast.loading("กำลังสร้างคลาสเรียนสด...");
-    try {
-      const { error } = await apiFetch("/api/meetings", {
-        method: "POST",
-        body: JSON.stringify({
-          id: meeting.id,
-          subject: meeting.subject,
-          joinUrl: meeting.joinUrl,
-          startDateTime: meeting.startDateTime,
-          endDateTime: meeting.endDateTime,
-          passcode: meeting.passcode,
-        }),
-      });
-      loadingToast.close();
-      if (error) {
-        toast.error("สร้างคลาสเรียนสดไม่สำเร็จ: " + error);
-      } else {
-        setMeetings((prev) => [meeting, ...prev]);
-        toast.success("สร้างคลาสเรียนสดสำเร็จ!");
-      }
-    } catch (err: unknown) {
-      loadingToast.close();
-      const message = err instanceof Error ? err.message : "Unknown error";
-      toast.error("สร้างคลาสเรียนสดไม่สำเร็จ: " + message);
-    }
   };
 
   const toggleDarkMode = () => {
@@ -385,6 +403,142 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateAssignmentSettings = async (
+    assignmentId: string,
+    showScores?: boolean,
+    quizReviewMode?: "full" | "answers_only" | "none"
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await apiFetch("/api/assignments", {
+        method: "PUT",
+        body: JSON.stringify({ id: assignmentId, showScores, quizReviewMode }),
+      });
+      if (error) {
+        toast.error("บันทึกการตั้งค่าไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === assignmentId
+            ? {
+                ...a,
+                ...(showScores !== undefined ? { showScores } : {}),
+                ...(quizReviewMode !== undefined ? { quizReviewMode } : {}),
+              }
+            : a
+        )
+      );
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("บันทึกการตั้งค่าไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const toggleAssignmentOpen = async (assignmentId: string, isOpen: boolean): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await apiFetch("/api/assignments", {
+        method: "PUT",
+        body: JSON.stringify({ id: assignmentId, isOpen }),
+      });
+      if (error) {
+        toast.error("อัปเดตสถานะงานไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      setAssignments((prev) =>
+        prev.map((a) => (a.id === assignmentId ? { ...a, isOpen } : a))
+      );
+      toast.success(isOpen ? "เปิดงานนี้แล้ว (นักเรียนส่งงานได้)" : "ปิดงานนี้แล้ว (นักเรียนส่งงานไม่ได้)");
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("อัปเดตสถานะงานไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const updateAssignmentAdvancedSettings = async (
+    assignmentId: string,
+    settings: {
+      allowEditSubmission?: boolean;
+      allowCancelSubmission?: boolean;
+      quizAttemptLimit?: number;
+      openAt?: string;
+      closeAt?: string;
+    }
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await apiFetch("/api/assignments", {
+        method: "PUT",
+        body: JSON.stringify({ id: assignmentId, ...settings }),
+      });
+      if (error) {
+        toast.error("บันทึกการตั้งค่าไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("บันทึกการตั้งค่างานสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("บันทึกการตั้งค่าไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const editFileSubmission = async (submissionId: string, fileName: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await apiFetch("/api/submissions", {
+        method: "PUT",
+        body: JSON.stringify({ submissionId, fileName }),
+      });
+      if (error) {
+        toast.error("แก้ไขไฟล์ที่ส่งไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      setSubmissions((prev) =>
+        prev.map((s) =>
+          s.id === submissionId
+            ? {
+                ...s,
+                fileName,
+                previousScore: s.score ?? s.previousScore,
+                score: undefined,
+                submittedAt: Date.now(),
+              }
+            : s
+        )
+      );
+      toast.success("แก้ไขไฟล์ที่ส่งสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("แก้ไขไฟล์ที่ส่งไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const cancelFileSubmission = async (submissionId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await apiFetch("/api/submissions", {
+        method: "DELETE",
+        body: JSON.stringify({ submissionId }),
+      });
+      if (error) {
+        toast.error("ยกเลิกการส่งไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      setSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
+      toast.success("ยกเลิกการส่งไฟล์เรียบร้อยแล้ว");
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ยกเลิกการส่งไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
   const addSubmission = async (submission: StudentSubmission) => {
     const loadingToast = toast.loading("กำลังส่งงาน/คำตอบ...");
     try {
@@ -413,6 +567,92 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const gradeSubmission = async (submissionId: string, score: number): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังบันทึกคะแนน...");
+    try {
+      const { error } = await apiFetch("/api/submissions", {
+        method: "PUT",
+        body: JSON.stringify({ submissionId, score }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("ให้คะแนนงานไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("ให้คะแนนงานสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ให้คะแนนงานไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const cancelSubmissionScore = async (submissionId: string): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังยกเลิกคะแนน...");
+    try {
+      const { error } = await apiFetch("/api/submissions", {
+        method: "PUT",
+        body: JSON.stringify({ submissionId, reset: true }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("ยกเลิกคะแนนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("ยกเลิกคะแนนเรียบร้อยแล้ว!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ยกเลิกคะแนนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const toggleLessonPublished = async (lessonId: string, isPublished: boolean): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await apiFetch("/api/lessons", {
+        method: "PUT",
+        body: JSON.stringify({ id: lessonId, isPublished }),
+      });
+      if (error) {
+        toast.error("อัปเดตการมองเห็นบทเรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success(isPublished ? "เปิดการมองเห็นบทเรียนแล้ว" : "ซ่อนบทเรียนเรียบร้อยแล้ว");
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("อัปเดตไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const toggleLessonLocked = async (lessonId: string, isLocked: boolean): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await apiFetch("/api/lessons", {
+        method: "PUT",
+        body: JSON.stringify({ id: lessonId, isLocked }),
+      });
+      if (error) {
+        toast.error("อัปเดตการล็อกบทเรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success(isLocked ? "ล็อกบทเรียนเรียบร้อยแล้ว" : "ปลดล็อกบทเรียนเรียบร้อยแล้ว");
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("อัปเดตไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
   const addLesson = async (lesson: Omit<Lesson, "id">): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังเพิ่มบทเรียน...");
     try {
@@ -421,7 +661,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: JSON.stringify({
           id,
-          courseId: lesson.courseId,
+          topicId: lesson.topicId,
           title: lesson.title,
           description: lesson.description,
           videoUrl: lesson.videoUrl,
@@ -439,6 +679,126 @@ export function UserProvider({ children }: { children: ReactNode }) {
       loadingToast.close();
       const message = err instanceof Error ? err.message : "Unknown error";
       toast.error("เพิ่มบทเรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const addChapter = async (courseId: string, title: string): Promise<{ success: boolean; id?: string; error?: string }> => {
+    try {
+      const id = "chap-" + Math.random().toString(36).substring(2, 9);
+      const { data, error } = await apiFetch<{ id: string }>("/api/chapters", {
+        method: "POST",
+        body: JSON.stringify({ id, courseId, title }),
+      });
+      if (error || !data) {
+        return { success: false, error: error || "Failed to create chapter" };
+      }
+      await fetchAllData();
+      return { success: true, id: data.id };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      return { success: false, error: message };
+    }
+  };
+
+  const addTopic = async (chapterId: string, title: string): Promise<{ success: boolean; id?: string; error?: string }> => {
+    try {
+      const id = "topic-" + Math.random().toString(36).substring(2, 9);
+      const { data, error } = await apiFetch<{ id: string }>("/api/topics", {
+        method: "POST",
+        body: JSON.stringify({ id, chapterId, title }),
+      });
+      if (error || !data) {
+        return { success: false, error: error || "Failed to create topic" };
+      }
+      await fetchAllData();
+      return { success: true, id: data.id };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      return { success: false, error: message };
+    }
+  };
+
+  const updateChapter = async (id: string, title: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await apiFetch("/api/chapters", {
+        method: "PUT",
+        body: JSON.stringify({ id, title }),
+      });
+      if (error) {
+        toast.error("แก้ไขชื่อหน่วยเรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("แก้ไขชื่อหน่วยเรียนสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("แก้ไขชื่อหน่วยเรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const deleteChapter = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังลบหน่วยเรียน...");
+    try {
+      const { error } = await apiFetch(`/api/chapters?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("ลบหน่วยเรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("ลบหน่วยเรียนสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ลบหน่วยเรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const updateTopic = async (id: string, title: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await apiFetch("/api/topics", {
+        method: "PUT",
+        body: JSON.stringify({ id, title }),
+      });
+      if (error) {
+        toast.error("แก้ไขชื่อเรื่องไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("แก้ไขชื่อเรื่องสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("แก้ไขชื่อเรื่องไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const deleteTopic = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังลบเรื่อง...");
+    try {
+      const { error } = await apiFetch(`/api/topics?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("ลบเรื่องไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("ลบเรื่องสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ลบเรื่องไม่สำเร็จ: " + message);
       return { success: false, error: message };
     }
   };
@@ -466,6 +826,28 @@ export function UserProvider({ children }: { children: ReactNode }) {
       loadingToast.close();
       const message = err instanceof Error ? err.message : "Unknown error";
       toast.error("บันทึกบทเรียนไม่สำเร็จ: " + message);
+    }
+  };
+
+  const deleteLesson = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังลบบทเรียน...");
+    try {
+      const { error } = await apiFetch(`/api/lessons?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("ลบบทเรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("ลบบทเรียนสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ลบบทเรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
     }
   };
 
@@ -520,6 +902,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         toast.error("เปลี่ยนรหัสผ่านไม่สำเร็จ: " + error);
         return { success: false, error };
       }
+      setPasswordChanged(true);
       toast.success("เปลี่ยนรหัสผ่านสำเร็จ!");
       return { success: true };
     } catch (err: unknown) {
@@ -599,12 +982,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateCourseSettings = async (courseId: string, isOpen: boolean, enrollCode: string | null): Promise<{ success: boolean; error?: string }> => {
+  const updateCourseSettings = async (
+    courseId: string,
+    isOpen: boolean,
+    enrollCode: string | null,
+    showScores?: boolean,
+    sequentialLessons?: boolean,
+    quizReviewMode?: "full" | "answers_only" | "none"
+  ): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังอัปเดตการตั้งค่าคอร์ส...");
     try {
       const { error } = await apiFetch("/api/courses", {
         method: "PUT",
-        body: JSON.stringify({ id: courseId, isOpen, enrollCode }),
+        body: JSON.stringify({ id: courseId, isOpen, enrollCode, showScores, sequentialLessons, quizReviewMode }),
       });
       loadingToast.close();
       if (error) {
@@ -636,11 +1026,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
         completed ? [...prev, lessonId] : prev.filter((id) => id !== lessonId)
       );
 
-      const lesson = lessons.find((l) => l.id === lessonId);
-      if (lesson && data) {
-        setCourses((prev) =>
-          prev.map((c) => (c.id === lesson.courseId ? { ...c, progress: data.progress } : c))
-        );
+      if (data) {
+        // Try to find courseId via topic chain first
+        const lesson = lessons.find((l) => l.id === lessonId);
+        let courseId: string | null = null;
+        if (lesson) {
+          const topic = topics.find((t) => t.id === lesson.topicId);
+          if (topic) {
+            const chapter = chapters.find((ch) => ch.id === topic.chapterId);
+            if (chapter) courseId = chapter.courseId;
+          }
+          // Fallback: lesson may have courseId directly (via course_id column)
+          if (!courseId) {
+            const lessonWithCourse = lesson as unknown as { courseId?: string };
+            courseId = lessonWithCourse.courseId ?? null;
+          }
+        }
+
+        if (courseId) {
+          setCourses((prev) =>
+            prev.map((c) => (c.id === courseId ? { ...c, progress: data.progress } : c))
+          );
+        } else {
+          // Cannot find courseId locally - refresh all data to sync progress
+          await fetchAllData();
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ";
@@ -653,7 +1063,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { data: result, error } = await apiFetch<{
         token: string;
-        user: { id: string; username: string; displayName: string; role: Role };
+        user: { id: string; username: string; displayName: string; role: Role; passwordChanged: boolean };
       }>("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({
@@ -676,6 +1086,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setDisplayName(result.user.displayName);
       setCurrentUsername(result.user.username);
       setUserId(result.user.id);
+      setPasswordChanged(result.user.passwordChanged);
       setIsAuthenticated(true);
       toast.success("สมัครสมาชิกสำเร็จ!");
       return { success: true };
@@ -700,6 +1111,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         username: string;
         displayName: string;
         role: Role;
+        passwordChanged: boolean;
       }>("/api/auth/me");
 
       if (error || !user) {
@@ -712,6 +1124,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setDisplayName(user.displayName);
       setCurrentUsername(user.username);
       setUserId(user.id);
+      setPasswordChanged(user.passwordChanged);
       setIsAuthenticated(true);
       await fetchAllData();
     };
@@ -725,7 +1138,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [darkMode]);
 
-  return (
+   return (
     <UserContext.Provider
       value={{
         role,
@@ -733,22 +1146,39 @@ export function UserProvider({ children }: { children: ReactNode }) {
         displayName,
         currentUsername,
         currentUserId: userId,
+        passwordChanged,
         loadingData,
         login,
         logout,
-        meetings,
-        addMeeting,
         darkMode,
         toggleDarkMode,
         courses,
         createCourse,
+        chapters,
+        addChapter,
+        updateChapter,
+        deleteChapter,
+        topics,
+        addTopic,
+        updateTopic,
+        deleteTopic,
         assignments,
         addAssignment,
+        updateAssignmentSettings,
+        toggleAssignmentOpen,
+        updateAssignmentAdvancedSettings,
+        editFileSubmission,
+        cancelFileSubmission,
         submissions,
         addSubmission,
+        gradeSubmission,
+        cancelSubmissionScore,
         lessons,
         addLesson,
         updateLesson,
+        toggleLessonPublished,
+        toggleLessonLocked,
+        deleteLesson,
         appUsers,
         addAppUser,
         updateAppUser,

@@ -2,7 +2,7 @@ import React from "react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import Swal from "sweetalert2";
 import { tx } from "../../lib/theme";
-import type { Assignment, StudentSubmission } from "../../context/UserContext";
+import { useUser, type Assignment, type StudentSubmission } from "../../context/UserContext";
 import { EmptyState } from "../../components/EmptyState";
 
 interface QuizPlayerProps {
@@ -16,21 +16,36 @@ interface QuizPlayerProps {
   addSubmission: (submission: StudentSubmission) => void;
   currentUserId: string | null;
   displayName: string;
+  activeLessonId?: string | null;
 }
 
 export function QuizPlayer({
   activeTask, sub, currentQuizQuestionIndex, setCurrentQuizQuestionIndex, quizAnswers, setQuizAnswers,
-  setSelectedAssignmentId, addSubmission, currentUserId, displayName,
+  setSelectedAssignmentId, addSubmission, currentUserId, displayName, activeLessonId,
 }: QuizPlayerProps) {
+  const { toggleLessonComplete } = useUser();
+  const quizReviewMode = activeTask.quizReviewMode ?? "full";
+  const showScores = activeTask.showScores !== false;
+
   if (sub) {
-    // QUIZ REVIEW (SUBMITTED)
+    // QUIZ REVIEW (SUBMITTED) - quizReviewMode controls what is shown
+    // "none" mode: this panel should never be opened (button is hidden in TaskListPanel)
+    // but guard here just in case
+    if (quizReviewMode === "none") {
+      return (
+        <div className="p-4 rounded-xl border text-center space-y-2 animate-scaleIn" style={{ borderColor: tx.borderS }}>
+          <p className="text-sm font-bold" style={{ color: tx.muted }}>ผู้สอนไม่เปิดให้ดูผลควิซนี้</p>
+          <button onClick={() => setSelectedAssignmentId(null)} className="text-xs text-indigo-500 hover:underline font-bold active:scale-95 transition-transform">ย้อนกลับ</button>
+        </div>
+      );
+    }
+
     return (
       <div className="p-4 rounded-xl border space-y-4 animate-scaleIn" style={{ borderColor: tx.borderS }}>
         <div className="flex justify-between items-center">
-          <div>
-            <h5 className="font-bold text-sm">ผลลัพธ์คำตอบควิซ: {activeTask.title}</h5>
-            <p className="text-[10px]" style={{ color: tx.muted }}>ได้คะแนน {sub.score} / {activeTask.questions?.length} ข้อ</p>
-          </div>
+          <h5 className="font-bold text-sm">
+            {quizReviewMode === "answers_only" ? "คำตอบของคุณ:" : "เฉลยและผลคะแนน:"} {activeTask.title}
+          </h5>
           <button onClick={() => setSelectedAssignmentId(null)} className="text-xs text-rose-500 hover:underline font-bold active:scale-95 transition-transform">ย้อนกลับ</button>
         </div>
 
@@ -38,15 +53,28 @@ export function QuizPlayer({
           {activeTask.questions?.map((q, idx) => {
             const studentAns = sub.answers?.[idx];
             const isCorrect = studentAns === q.correctIndex;
+            const showCorrectAnswer = quizReviewMode === "full";
+
+            // Border color: full mode - green/red by correctness; answers_only - neutral
+            const borderColor = showCorrectAnswer ? (isCorrect ? "#10b981" : "#f43f5e") : undefined;
+
             return (
-              <div key={idx} className={`p-3.5 rounded-xl border text-xs space-y-2 animate-slideInUp stagger-${Math.min(idx + 1, 6)}`}
-                style={{ borderColor: isCorrect ? "#10b981" : "#f43f5e" }}>
+              <div key={idx}
+                className={`p-3.5 rounded-xl border text-xs space-y-2 animate-slideInUp stagger-${Math.min(idx + 1, 6)}`}
+                style={{ borderColor: borderColor ?? tx.borderS }}
+              >
                 <h6 className="font-bold">ข้อที่ {idx + 1}: {q.question}</h6>
-                <p className={isCorrect ? "text-emerald-500 font-semibold" : "text-rose-500 font-semibold"}>
-                  คุณตอบ: {studentAns !== undefined ? q.options[studentAns] : "ไม่ได้ตอบ"}
+                <p className={
+                  showCorrectAnswer
+                    ? (isCorrect ? "text-emerald-500 font-semibold" : "text-rose-500 font-semibold")
+                    : "font-semibold"
+                } style={!showCorrectAnswer ? { color: tx.secondary } : {}}>
+                  คำตอบของคุณ: {studentAns !== undefined ? q.options[studentAns as number] : "ไม่ได้ตอบ"}
                 </p>
-                <p className="text-emerald-500">คำตอบที่ถูก: {q.options[q.correctIndex]}</p>
-                {q.explanation && (
+                {showCorrectAnswer && (
+                  <p className="text-emerald-500">คำตอบที่ถูก: {q.options[q.correctIndex]}</p>
+                )}
+                {showCorrectAnswer && q.explanation && (
                   <div className="p-2.5 rounded-lg border text-[11px]" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
                     <strong>อธิบาย:</strong> {q.explanation}
                   </div>
@@ -60,6 +88,24 @@ export function QuizPlayer({
   }
 
   // ACTIVE INTERACTIVE QUIZ
+  const nowMs = Date.now();
+  const openAtMs = activeTask.openAt ? new Date(activeTask.openAt).getTime() : null;
+  const closeAtMs = activeTask.closeAt ? new Date(activeTask.closeAt).getTime() : null;
+  const notOpenYet = openAtMs !== null && nowMs < openAtMs;
+  const alreadyClosed = closeAtMs !== null && nowMs > closeAtMs;
+  const isOpen = activeTask.isOpen !== false && !notOpenYet && !alreadyClosed;
+
+  if (!isOpen) {
+    return (
+      <div className="p-4 rounded-xl border text-center space-y-2 animate-scaleIn" style={{ borderColor: tx.borderS }}>
+        <p className="text-sm font-bold text-rose-500">
+          {notOpenYet ? `ข้อสอบนี้จะเปิดให้ทำในวันที่ ${new Date(activeTask.openAt!).toLocaleString("th-TH")}` : "แบบทดสอบนี้ปิดรับการส่งแล้ว"}
+        </p>
+        <button onClick={() => setSelectedAssignmentId(null)} className="text-xs text-indigo-500 hover:underline font-bold active:scale-95 transition-transform">ย้อนกลับ</button>
+      </div>
+    );
+  }
+
   const q = activeTask.questions?.[currentQuizQuestionIndex];
   if (!q) return <EmptyState illustration="quiz" variant="compact" accent="purple" title="ไม่มีคำถามในชุดแบบทดสอบนี้" />;
   const chosenIndex = quizAnswers[currentQuizQuestionIndex];
@@ -176,6 +222,11 @@ export function QuizPlayer({
                   answers: submissionAnswers,
                   submittedAt: Date.now()
                 });
+
+                const targetLessonId = activeTask.lessonId || activeLessonId;
+                if (targetLessonId) {
+                  toggleLessonComplete(targetLessonId, true);
+                }
 
                 setQuizAnswers({});
                 setSelectedAssignmentId(null);

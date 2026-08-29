@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   }
 
   const { rows } = await pool.query(
-    "SELECT id, email, password_hash, username, display_name, role FROM users WHERE email = $1 OR username = $2 LIMIT 1",
+    "SELECT id, email, password_hash, username, display_name, role, password_changed FROM users WHERE email = $1 OR username = $2 LIMIT 1",
     [loginEmail, username.trim()]
   );
 
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
       username: user.username,
       displayName: user.display_name,
       role: user.role,
+      passwordChanged: user.password_changed,
     },
   });
 }

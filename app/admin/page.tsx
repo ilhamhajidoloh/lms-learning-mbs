@@ -122,8 +122,30 @@ export default function AdminPage() {
       toast.success("อัปเดตข้อมูลสำเร็จ!");
       fetchUsers();
     } else {
-      swalAlert.warning("ไม่สามารถเพิ่มผู้ใช้งาน", "การเพิ่มผู้ใช้งานใหม่จากหน้า Admin จะต้องให้ผู้ใช้งานสมัครสมาชิกด้วยตัวเอง");
-      return;
+      // สร้าง user ใหม่จากแอดมิน
+      const { data, error } = await apiFetch<{ generatedPassword?: string; message?: string }>("/api/admin/users", {
+        method: "POST",
+        body: JSON.stringify({
+          username: formData.username.trim(),
+          displayName: formData.displayName.trim(),
+          role: formData.role,
+        }),
+      });
+
+      if (error) {
+        setFormError("สร้างผู้ใช้งานไม่สำเร็จ: " + error);
+        return;
+      }
+      
+      if (data?.generatedPassword) {
+        swalAlert.success(
+          "สร้างผู้ใช้งานสำเร็จ",
+          `Username: ${formData.username.trim()}\nรหัสผ่านชั่วคราว: ${data.generatedPassword}\n\nกรุณาบอกให้ผู้ใช้งานทราบรหัสผ่านนี้`
+        );
+      } else {
+        toast.success("สร้างผู้ใช้งานสำเร็จ!");
+      }
+      fetchUsers();
     }
     closeForm();
   };

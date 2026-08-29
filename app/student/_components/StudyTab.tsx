@@ -1,8 +1,9 @@
-import React from "react";
-import { ArrowLeft, BookOpen, ChevronRight, Search, CheckCircle2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { ArrowLeft, BookOpen, ChevronRight, Search, CheckCircle2, Lock, RefreshCw } from "lucide-react";
 import { tx } from "../../lib/theme";
+import { toast } from "@/lib/swal";
 import { useUser } from "../../context/UserContext";
-import type { Assignment, Course, Lesson, StudentSubmission } from "../../context/UserContext";
+import type { Assignment, Chapter, Course, Lesson, StudentSubmission, Topic } from "../../context/UserContext";
 import { LessonOverviewPanel } from "./LessonOverviewPanel";
 import { TaskListPanel } from "./TaskListPanel";
 import { FileSubmissionPanel } from "./FileSubmissionPanel";
@@ -15,6 +16,8 @@ type StudyTabId = "overview" | "resources" | "tasks";
 interface StudyTabProps {
   enrolledCourses: Course[];
   courses: Course[];
+  chapters: Chapter[];
+  topics: Topic[];
   lessons: Lesson[];
   assignments: Assignment[];
   submissions: StudentSubmission[];
@@ -44,13 +47,28 @@ interface StudyTabProps {
 }
 
 export function StudyTab({
-  enrolledCourses, courses, lessons, assignments, submissions, currentUserId, displayName, addSubmission,
+  enrolledCourses, courses, chapters, topics, lessons, assignments, submissions, currentUserId, displayName, addSubmission,
   setTab, selectedCourseId, setSelectedCourseId, activeLessonId, setActiveLessonId,
   selectedAssignmentId, setSelectedAssignmentId, studyTab, setStudyTab,
   fileNameInput, setFileNameInput,
   currentQuizQuestionIndex, setCurrentQuizQuestionIndex, quizAnswers, setQuizAnswers,
 }: StudyTabProps) {
-  const { completedLessonIds } = useUser();
+  const { completedLessonIds, toggleLessonComplete, refreshData } = useUser();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshData();
+    setTimeout(() => setRefreshing(false), 500);
+    toast.success("อัปเดตบทเรียนและคะแนนล่าสุดเรียบร้อยแล้ว!");
+  };
+
+  // When a quiz is opened for retake (student already submitted before),
+  // QuizPlayer must show the interactive quiz instead of the review.
+  const [quizRetakingId, setQuizRetakingId] = useState<string | null>(null);
+  useEffect(() => {
+    if (selectedAssignmentId === null) setQuizRetakingId(null);
+  }, [selectedAssignmentId]);
 
   if (selectedCourseId === null) {
     // COURSE SELECTOR
@@ -105,9 +123,40 @@ export function StudyTab({
   const currentCourse = courses.find(c => c.id === selectedCourseId);
   if (!currentCourse) return null;
 
-  const courseLessons = lessons.filter(l => l.courseId === selectedCourseId);
-  // Find active lesson
-  const activeLesson = lessons.find(l => l.id === activeLessonId) || courseLessons[0];
+  // Get chapters, topics, and lessons for this course (published only for students)
+  const courseChapters = chapters.filter(ch => ch.courseId === selectedCourseId);
+  const courseTopics = topics.filter(t => {
+    const chapter = chapters.find(ch => ch.id === t.chapterId);
+    return chapter?.courseId === selectedCourseId;
+  });
+  const courseLessons = lessons.filter(l => l.isPublished !== false && (courseTopics.some(t => t.id === l.topicId) || (l as { courseId?: string }).courseId === selectedCourseId));
+
+  const isLessonLocked = (lessonId: string) => {
+    const lesson = courseLessons.find(l => l.id === lessonId);
+    if (lesson?.isLocked === true) return true;
+    if (!currentCourse.sequentialLessons) return false;
+    const lessonIdx = courseLessons.findIndex(l => l.id === lessonId);
+    if (lessonIdx <= 0) return false;
+
+    for (let i = 0; i < lessonIdx; i++) {
+      const prevL = courseLessons[i];
+      const prevLAssignments = assignments.filter(a => {
+        if (a.courseId !== selectedCourseId) return false;
+        if (a.lessonId) return a.lessonId === prevL.id;
+        return i === 0;
+      });
+      const hasTasks = prevLAssignments.length > 0;
+      const tasksDone = hasTasks && prevLAssignments.every(a => submissions.some(s => s.assignmentId === a.id && s.studentId === currentUserId));
+      const prevCompleted = completedLessonIds.includes(prevL.id) || tasksDone;
+      if (!prevCompleted) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Find active lesson (ensure not locked)
+  const activeLesson = lessons.find(l => l.id === activeLessonId && !isLessonLocked(l.id)) || courseLessons.find(l => !isLessonLocked(l.id)) || courseLessons[0];
   const activeLessonIdResolved = activeLesson?.id || null;
   const firstLessonId = courseLessons[0]?.id || null;
   const courseAssignments = assignments.filter((assignment) => {
@@ -118,13 +167,55 @@ export function StudyTab({
     return activeLessonIdResolved !== null && activeLessonIdResolved === firstLessonId;
   });
 
+  const activeLessonHasTasks = courseAssignments.length > 0;
+  const activeLessonTasksCompleted = activeLessonHasTasks && courseAssignments.every(a => submissions.some(s => s.assignmentId === a.id && s.studentId === currentUserId));
+
+  // Auto-sync lesson completion when all tasks for a lesson are submitted
+  useEffect(() => {
+    if (!currentUserId || !selectedCourseId || courseLessons.length === 0) return;
+
+    courseLessons.forEach((l, index) => {
+      const lAssignments = assignments.filter((a) => {
+        if (a.courseId !== selectedCourseId) return false;
+        if (a.lessonId) return a.lessonId === l.id;
+        return index === 0;
+      });
+
+      if (lAssignments.length > 0) {
+        const allDone = lAssignments.every((a) =>
+          submissions.some((s) => s.assignmentId === a.id && s.studentId === currentUserId)
+        );
+        if (allDone && !completedLessonIds.includes(l.id)) {
+          toggleLessonComplete(l.id, true);
+        }
+      }
+    });
+  }, [selectedCourseId, courseLessons, assignments, submissions, currentUserId, completedLessonIds, toggleLessonComplete]);
+
+  const courseLessonsCount = courseLessons.length;
+  const courseCompletedLessonsCount = courseLessons.filter(l => completedLessonIds.includes(l.id)).length;
+  const realTimeProgress = courseLessonsCount > 0 ? Math.round((courseCompletedLessonsCount / courseLessonsCount) * 100) : 0;
+
   return (
     <div className="space-y-6 text-left animate-fadeIn">
-      {/* Navigation Back */}
-      <button onClick={() => { setSelectedCourseId(null); setActiveLessonId(null); setSelectedAssignmentId(null); }}
-        className="flex items-center gap-2 font-bold hover:text-indigo-500 dark:hover:text-indigo-400 transition-all mb-4 active:scale-95 group">
-        <ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" /> กลับหน้ารายการคอร์สเรียน
-      </button>
+      {/* Navigation Back & Refresh Button */}
+      <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
+        <button onClick={() => { setSelectedCourseId(null); setActiveLessonId(null); setSelectedAssignmentId(null); }}
+          className="flex items-center gap-2 font-bold hover:text-indigo-500 dark:hover:text-indigo-400 transition-all active:scale-95 group">
+          <ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" /> กลับหน้ารายการคอร์สเรียน
+        </button>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 shadow-sm hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 cursor-pointer btn-press"
+          style={{ borderColor: tx.borderS, color: tx.secondary }}
+          title="คลิกเพื่อดึงข้อมูลบทเรียนและงานล่าสุดจากเซิร์ฟเวอร์"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 text-indigo-500 ${refreshing ? "animate-spin" : ""}`} />
+          <span>{refreshing ? "กำลังอัปเดต..." : "รีเฟรชข้อมูล"}</span>
+        </button>
+      </div>
 
       {/* Course Banner */}
       <div className="rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden shadow-xl text-white bg-gradient-to-r from-indigo-900 via-purple-950 to-slate-950 animate-slideInUp">
@@ -140,7 +231,7 @@ export function StudyTab({
         </div>
         <div className="relative z-10 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 text-center text-xs">
           <p className="font-bold">Progress ความคืบหน้า</p>
-          <p className="text-lg font-black mt-0.5">{currentCourse.progress}%</p>
+          <p className="text-lg font-black mt-0.5">{realTimeProgress}%</p>
         </div>
       </div>
 
@@ -158,26 +249,95 @@ export function StudyTab({
                 accent="slate"
                 title="วิชานี้ยังไม่มีหัวข้อบทเรียน"
               />
-            ) : (
+            ) : courseChapters.length === 0 ? (
               <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
                 {courseLessons.map((l, index) => {
                   const isActive = activeLesson && l.id === activeLesson.id;
                   const isCompleted = completedLessonIds.includes(l.id);
+                  const isLocked = isLessonLocked(l.id);
                   return (
-                    <button key={l.id} onClick={() => { setActiveLessonId(l.id); setSelectedAssignmentId(null); }}
-                      className={`w-full text-left p-3.5 rounded-xl border text-xs font-bold flex gap-3 items-center transition-all duration-200 active:scale-[0.98] ${isActive ? "animate-borderGlow" : ""}`}
+                    <button key={l.id}
+                      onClick={() => {
+                        if (isLocked) {
+                          toast.error(l.isLocked === true ? "บทเรียนนี้ถูกล็อกโดยคุณครู 🔒" : "บทเรียนนี้ถูกล็อก 🔒 กรุณาเรียนบทเรียนก่อนหน้าให้ผ่านก่อนครับ");
+                          return;
+                        }
+                        setActiveLessonId(l.id);
+                        setSelectedAssignmentId(null);
+                      }}
+                      className={`w-full text-left p-3.5 rounded-xl border text-xs font-bold flex gap-3 items-center transition-all duration-200 active:scale-[0.98] ${isActive ? "animate-borderGlow" : ""} ${isLocked ? "opacity-60 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed" : ""}`}
                       style={isActive
                         ? { borderColor: tx.accent, backgroundColor: tx.accentBg, color: tx.accent }
                         : { borderColor: tx.borderS, color: tx.secondary }}>
                       <span className={`flex h-5 w-5 rounded-full items-center justify-center text-[10px] font-mono shrink-0 transition-colors ${
-                        isCompleted
-                          ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20"
-                          : isActive ? "bg-indigo-500/20 text-indigo-500" : "bg-indigo-500/10 text-indigo-500"
+                        isLocked
+                          ? "bg-amber-500/20 text-amber-500"
+                          : isCompleted
+                            ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20"
+                            : isActive ? "bg-indigo-500/20 text-indigo-500" : "bg-indigo-500/10 text-indigo-500"
                       }`}>
-                        {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
+                        {isLocked ? <Lock className="h-3 w-3" /> : isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
                       </span>
                       <span className="truncate">{l.title}</span>
                     </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                {courseChapters.map((chap, cIdx) => {
+                  const chapTopics = topics.filter(t => t.chapterId === chap.id);
+                  return (
+                    <div key={chap.id} className="rounded-xl border p-3 space-y-2" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
+                      <div className="flex items-center justify-between text-xs font-extrabold text-indigo-600 dark:text-indigo-400 border-b pb-1.5" style={{ borderColor: tx.borderS }}>
+                        <span className="truncate">หน่วยที่ {cIdx + 1}: {chap.title}</span>
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        {chapTopics.map((top, tIdx) => {
+                          const topicLessons = lessons.filter(l => l.topicId === top.id && l.isPublished !== false);
+                          return (
+                            <div key={top.id} className="space-y-1.5 border-l-2 border-indigo-500/30 pl-2.5">
+                              <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate">
+                                {cIdx + 1}.{tIdx + 1} {top.title}
+                              </div>
+
+                              <div className="space-y-1">
+                                {topicLessons.map((l, index) => {
+                                  const isActive = activeLesson && l.id === activeLesson.id;
+                                  const isCompleted = completedLessonIds.includes(l.id);
+                                  const isLocked = isLessonLocked(l.id);
+                                  return (
+                                    <button key={l.id}
+                                      onClick={() => {
+                                        if (isLocked) {
+                                          toast.error(l.isLocked === true ? "บทเรียนนี้ถูกล็อกโดยคุณครู 🔒" : "บทเรียนนี้ถูกล็อก 🔒 กรุณาเรียนบทเรียนก่อนหน้าให้ผ่านก่อนครับ");
+                                          return;
+                                        }
+                                        setActiveLessonId(l.id);
+                                        setSelectedAssignmentId(null);
+                                      }}
+                                      className={`w-full text-left p-2.5 rounded-lg border text-xs font-semibold flex gap-2.5 items-center transition-all duration-200 ${isActive ? "shadow-sm border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 font-bold" : "hover:bg-slate-100 dark:hover:bg-slate-800"} ${isLocked ? "opacity-60 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed" : ""}`}
+                                      style={!isActive ? { borderColor: tx.borderS, color: tx.secondary } : {}}>
+                                      <span className={`flex h-4 w-4 rounded-full items-center justify-center text-[9px] font-mono shrink-0 ${
+                                        isLocked
+                                          ? "bg-amber-500/20 text-amber-500"
+                                          : isCompleted
+                                            ? "bg-emerald-500/20 text-emerald-500"
+                                            : isActive ? "bg-indigo-500/20 text-indigo-500" : "bg-slate-200 dark:bg-slate-700 text-slate-500"
+                                      }`}>
+                                        {isLocked ? <Lock className="h-2.5 w-2.5" /> : isCompleted ? <CheckCircle2 className="h-3 w-3" /> : index + 1}
+                                      </span>
+                                      <span className="truncate">{l.title}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -200,7 +360,13 @@ export function StudyTab({
 
               {/* Active Lesson details */}
               <div className="rounded-3xl p-6 shadow-sm border space-y-4 animate-scaleIn" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
-                <LessonOverviewPanel activeLesson={activeLesson} studyTab={studyTab} setStudyTab={setStudyTab} />
+                <LessonOverviewPanel
+                  activeLesson={activeLesson}
+                  studyTab={studyTab}
+                  setStudyTab={setStudyTab}
+                  hasTasks={activeLessonHasTasks}
+                  tasksCompleted={activeLessonTasksCompleted}
+                />
 
                 {studyTab === "tasks" && (
                   <div className="space-y-4 py-2">
@@ -214,12 +380,15 @@ export function StudyTab({
                         setCurrentQuizQuestionIndex={setCurrentQuizQuestionIndex}
                         setQuizAnswers={setQuizAnswers}
                         setFileNameInput={setFileNameInput}
+                        setQuizRetakingId={setQuizRetakingId}
                       />
                     ) : (
                       // ACTIVE TASK VIEW (FILE OR QUIZ)
                       (() => {
                         const activeTask = courseAssignments.find(a => a.id === selectedAssignmentId)!;
                         const sub = submissions.find(s => s.assignmentId === activeTask.id && s.studentId === currentUserId);
+                        // When retaking, hide the existing submission so QuizPlayer shows the interactive quiz
+                        const effectiveSub = quizRetakingId === activeTask.id ? undefined : sub;
 
                         if (activeTask.type === "file") {
                           return (
@@ -231,6 +400,7 @@ export function StudyTab({
                               addSubmission={addSubmission}
                               currentUserId={currentUserId}
                               displayName={displayName}
+                              activeLessonId={activeLessonIdResolved}
                             />
                           );
                         } else {
@@ -238,7 +408,7 @@ export function StudyTab({
                           return (
                             <QuizPlayer
                               activeTask={activeTask}
-                              sub={sub}
+                              sub={effectiveSub}
                               currentQuizQuestionIndex={currentQuizQuestionIndex}
                               setCurrentQuizQuestionIndex={setCurrentQuizQuestionIndex}
                               quizAnswers={quizAnswers}
@@ -247,6 +417,7 @@ export function StudyTab({
                               addSubmission={addSubmission}
                               currentUserId={currentUserId}
                               displayName={displayName}
+                              activeLessonId={activeLessonIdResolved}
                             />
                           );
                         }

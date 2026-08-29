@@ -66,13 +66,6 @@ export function StudentHeader({
                 </button>
               );
             })}
-            <button onClick={() => router.push("/student/teams")}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 active:scale-95"
-              style={{ color: tx.secondary }}
-            >
-              <Video className="h-4 w-4" />
-              Teams ประชุม
-            </button>
           </nav>
 
           {/* Right Buttons */}
@@ -127,13 +120,6 @@ export function StudentHeader({
               </button>
             );
           })}
-          <button onClick={() => { router.push("/student/teams"); setMobileOpen(false); }}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 active:scale-95"
-            style={{ color: tx.secondary }}
-          >
-            <Video className="h-5 w-5" />
-            Teams ประชุม
-          </button>
         </div>
       </div>
     </header>

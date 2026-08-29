@@ -1,7 +1,7 @@
 import React from "react";
 import { Plus, BookOpen, ChevronRight } from "lucide-react";
 import { tx, card } from "../../lib/theme";
-import type { Assignment, Course, Enrollment, Lesson, StudentSubmission } from "../../context/UserContext";
+import type { Assignment, Chapter, Course, Enrollment, Lesson, StudentSubmission, Topic } from "../../context/UserContext";
 import { CourseDetailPanel } from "./CourseDetailPanel";
 
 interface CoursesTabProps {
@@ -22,6 +22,8 @@ interface CoursesTabProps {
   setViewingQuizSub: (sub: StudentSubmission | null) => void;
 
   lessons: Lesson[];
+  chapters: Chapter[];
+  topics: Topic[];
   setShowAddLessonModal: (show: boolean) => void;
   setEditingLesson: (lesson: Lesson | null) => void;
   setEditLessonTitle: (v: string) => void;
@@ -50,6 +52,8 @@ export function CoursesTab({
   setViewingAssignmentId,
   setViewingQuizSub,
   lessons,
+  chapters,
+  topics,
   setShowAddLessonModal,
   setEditingLesson,
   setEditLessonTitle,
@@ -79,6 +83,8 @@ export function CoursesTab({
           setViewingAssignmentId={setViewingAssignmentId}
           setViewingQuizSub={setViewingQuizSub}
           lessons={lessons}
+          chapters={chapters}
+          topics={topics}
           setShowAddLessonModal={setShowAddLessonModal}
           setEditingLesson={setEditingLesson}
           setEditLessonTitle={setEditLessonTitle}
