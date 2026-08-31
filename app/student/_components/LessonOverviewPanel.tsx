@@ -16,6 +16,31 @@ interface LessonOverviewPanelProps {
   tasksCompleted?: boolean;
 }
 
+interface YTPlayerInstance {
+  destroy?: () => void;
+}
+
+interface YTNamespace {
+  Player: new (
+    elementId: string,
+    config: {
+      events?: {
+        onStateChange?: (event: { data: number }) => void;
+      };
+    }
+  ) => YTPlayerInstance;
+  PlayerState: {
+    ENDED: number;
+  };
+}
+
+declare global {
+  interface Window {
+    YT?: YTNamespace;
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
 export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTasks = false, tasksCompleted = false }: LessonOverviewPanelProps) {
   const { completedLessonIds, toggleLessonComplete } = useUser();
   const isCompleted = completedLessonIds.includes(activeLesson.id) || tasksCompleted;
@@ -26,23 +51,23 @@ export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTa
     if (!ytId) return;
 
     // Load the YouTube Iframe API if not loaded
-    if (!(window as any).YT) {
+    if (!window.YT) {
       const tag = document.createElement("script");
       tag.src = "https://www.youtube.com/iframe_api";
       const firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
     }
 
-    let player: any;
+    let player: YTPlayerInstance | null = null;
 
     const initPlayer = () => {
       const playerEl = document.getElementById(`yt-player-${activeLesson.id}`);
-      if (!playerEl) return;
-      player = new (window as any).YT.Player(`yt-player-${activeLesson.id}`, {
+      if (!playerEl || !window.YT) return;
+      player = new window.YT.Player(`yt-player-${activeLesson.id}`, {
         events: {
-          onStateChange: (event: any) => {
+          onStateChange: (event: { data: number }) => {
             // YT.PlayerState.ENDED is 0
-            if (event.data === (window as any).YT.PlayerState.ENDED) {
+            if (window.YT && event.data === window.YT.PlayerState.ENDED) {
               if (!isCompleted && !hasTasks) {
                 toggleLessonComplete(activeLesson.id, true);
                 toast.success("ยินดีด้วย! คุณเรียนจบบทเรียนนี้แล้วและระบบได้บันทึกความคืบหน้าให้แล้วครับ");
@@ -53,11 +78,11 @@ export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTa
       });
     };
 
-    if ((window as any).YT && (window as any).YT.Player) {
+    if (window.YT && window.YT.Player) {
       initPlayer();
     } else {
-      const previousOnReady = (window as any).onYouTubeIframeAPIReady;
-      (window as any).onYouTubeIframeAPIReady = () => {
+      const previousOnReady = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
         if (previousOnReady) previousOnReady();
         initPlayer();
       };
@@ -68,7 +93,7 @@ export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTa
         player.destroy();
       }
     };
-  }, [ytId, activeLesson.id, isCompleted, hasTasks]);
+  }, [ytId, activeLesson.id, isCompleted, hasTasks, toggleLessonComplete]);
 
   return (
     <>

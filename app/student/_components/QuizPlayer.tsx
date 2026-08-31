@@ -24,8 +24,8 @@ export function QuizPlayer({
   setSelectedAssignmentId, addSubmission, currentUserId, displayName, activeLessonId,
 }: QuizPlayerProps) {
   const { toggleLessonComplete } = useUser();
+  const [nowMs] = React.useState(() => Date.now());
   const quizReviewMode = activeTask.quizReviewMode ?? "full";
-  const showScores = activeTask.showScores !== false;
 
   if (sub) {
     // QUIZ REVIEW (SUBMITTED) - quizReviewMode controls what is shown
@@ -88,7 +88,6 @@ export function QuizPlayer({
   }
 
   // ACTIVE INTERACTIVE QUIZ
-  const nowMs = Date.now();
   const openAtMs = activeTask.openAt ? new Date(activeTask.openAt).getTime() : null;
   const closeAtMs = activeTask.closeAt ? new Date(activeTask.closeAt).getTime() : null;
   const notOpenYet = openAtMs !== null && nowMs < openAtMs;

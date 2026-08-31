@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Video, Calendar, Clock, BookOpen, Sparkles, Loader2 } from "lucide-react";
+import { X, Video, Sparkles, Loader2 } from "lucide-react";
 import { tx } from "../lib/theme";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/swal";
 import type { Course } from "../context/UserContext";
+import type { LiveClassData } from "./LiveClassCard";
 
 interface CreateLiveClassModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreated: (createdClass: any) => void;
+  onCreated: (createdClass: LiveClassData) => void;
   courses: Course[];
   initialCourseId?: string;
 }
@@ -51,7 +52,7 @@ export function CreateLiveClassModal({
 
     setLoading(true);
     try {
-      const { data, error } = await apiFetch<{ liveClass: any }>("/api/live-classes", {
+      const { data, error } = await apiFetch<{ liveClass: LiveClassData }>("/api/live-classes", {
         method: "POST",
         body: JSON.stringify({
           course_id: courseId,

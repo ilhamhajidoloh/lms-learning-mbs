@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { tx, card } from "../../lib/theme";
 import type { Assignment, StudentSubmission } from "../../context/UserContext";
 import { useUser } from "../../context/UserContext";
@@ -21,6 +21,7 @@ export function TaskListPanel({
   courseAssignments, submissions, currentUserId, setSelectedAssignmentId, setCurrentQuizQuestionIndex, setQuizAnswers, setFileNameInput, setQuizRetakingId,
 }: TaskListPanelProps) {
   const { cancelFileSubmission } = useUser();
+  const [nowMs] = useState(() => Date.now());
 
   const formatWindowTime = (iso?: string) => {
     if (!iso) return "";
@@ -66,7 +67,6 @@ export function TaskListPanel({
           const attemptLimit = a.quizAttemptLimit ?? 0;
 
           // Scheduled open/close window
-          const nowMs = Date.now();
           const openAtMs = a.openAt ? new Date(a.openAt).getTime() : null;
           const closeAtMs = a.closeAt ? new Date(a.closeAt).getTime() : null;
           const notOpenYet = openAtMs !== null && nowMs < openAtMs;
@@ -91,7 +91,6 @@ export function TaskListPanel({
             }
           }
 
-          const showLockedBadge = !isOpen && (!notOpenYet && !alreadyClosed);
           const windowLabel = notOpenYet
             ? `จะเปิดให้ทำวันที่ ${formatWindowTime(a.openAt)}`
             : alreadyClosed

@@ -4,9 +4,14 @@ import React, { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { Loader2 } from "lucide-react";
 
+export interface JitsiMeetExternalAPIInstance {
+  dispose: () => void;
+  addEventListener: (event: string, handler: () => void) => void;
+}
+
 declare global {
   interface Window {
-    JitsiMeetExternalAPI?: any;
+    JitsiMeetExternalAPI?: new (domain: string, options: unknown) => JitsiMeetExternalAPIInstance;
   }
 }
 
@@ -26,19 +31,14 @@ export function JitsiMeeting({
   className = "",
 }: JitsiMeetingProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const apiRef = useRef<any>(null);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const apiRef = useRef<JitsiMeetExternalAPIInstance | null>(null);
+  const [scriptLoaded, setScriptLoaded] = useState(
+    () => typeof window !== "undefined" && Boolean(window.JitsiMeetExternalAPI)
+  );
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Check if script is already present on window
   useEffect(() => {
-    if (typeof window !== "undefined" && window.JitsiMeetExternalAPI) {
-      setScriptLoaded(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!scriptLoaded || !containerRef.current || !roomName) return;
+    if (!scriptLoaded || !containerRef.current || !roomName || !window.JitsiMeetExternalAPI) return;
 
     // Clean up any previous instance before creating a new one
     if (apiRef.current) {
@@ -133,7 +133,9 @@ export function JitsiMeeting({
       };
     } catch (err) {
       console.error("Error initializing Jitsi Meet:", err);
-      setIsInitializing(false);
+      setTimeout(() => {
+        setIsInitializing(false);
+      }, 0);
     }
   }, [scriptLoaded, roomName, displayName, onJoin, onLeave]);
 

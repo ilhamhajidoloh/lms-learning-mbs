@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Video, Users, Power, Play, AlertCircle, ShieldAlert, Sparkles, Loader2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Users, Power, Play, AlertCircle, ShieldAlert, ExternalLink } from "lucide-react";
 import { useUser } from "../../context/UserContext";
 import { JitsiMeeting } from "../../components/JitsiMeeting";
 import { generateJitsiUrl } from "@/lib/jitsi";
@@ -43,17 +42,16 @@ export default function LiveClassPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [hasJoined, setHasJoined] = useState(false);
 
-  // Fetch live class details
   const fetchLiveClass = async () => {
+    setLoading(true);
     try {
-      const { data, error } = await apiFetch<{ liveClass: LiveClassDetail }>(`/api/live-classes/${classId}`);
-      if (error || !data) {
-        setError(error || "ไม่พบข้อมูลห้องเรียนสดนี้");
-        return;
+      const { data, error: fetchErr } = await apiFetch<{ liveClass: LiveClassDetail }>(`/api/live-classes/${classId}`);
+      if (fetchErr || !data) {
+        setError(fetchErr || "ไม่พบข้อมูลห้องเรียนสดนี้");
+      } else {
+        setLiveClass(data.liveClass);
       }
-      setLiveClass(data.liveClass);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการโหลดห้องเรียน";
       setError(msg);
@@ -68,12 +66,33 @@ export default function LiveClassPage({
       router.push("/login");
       return;
     }
-    fetchLiveClass();
+
+    let isCancelled = false;
+    apiFetch<{ liveClass: LiveClassDetail }>(`/api/live-classes/${classId}`)
+      .then(({ data, error }) => {
+        if (isCancelled) return;
+        if (error || !data) {
+          setError(error || "ไม่พบข้อมูลห้องเรียนสดนี้");
+        } else {
+          setLiveClass(data.liveClass);
+        }
+      })
+      .catch((err: unknown) => {
+        if (isCancelled) return;
+        const msg = err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการโหลดห้องเรียน";
+        setError(msg);
+      })
+      .finally(() => {
+        if (!isCancelled) setLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [isAuthenticated, loadingData, classId, router]);
 
   // Handle participant join event
   const handleJoin = async () => {
-    setHasJoined(true);
     try {
       await apiFetch(`/api/live-classes/${classId}/join`, {
         method: "POST",
@@ -302,7 +321,7 @@ export default function LiveClassPage({
             {!liveClass.is_active && isHost && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-amber-500/90 text-slate-950 px-4 py-2 rounded-2xl shadow-xl backdrop-blur-md flex items-center gap-3 text-xs font-extrabold animate-bounce">
                 <AlertCircle className="h-4 w-4" />
-                <span>สถานะ: ยังไม่เปิดห้องเรียนสด — คุณครูกดปุ่ม "เริ่มสอนสด" ด้านบนเพื่อให้นักเรียนเข้าห้องได้ครับ</span>
+                <span>สถานะ: ยังไม่เปิดห้องเรียนสด — คุณครูกดปุ่ม &ldquo;เริ่มสอนสด&rdquo; ด้านบนเพื่อให้นักเรียนเข้าห้องได้ครับ</span>
                 <button
                   onClick={handleStartClass}
                   className="px-3 py-1 rounded-xl bg-slate-950 text-white text-xs hover:bg-slate-800 transition-colors"

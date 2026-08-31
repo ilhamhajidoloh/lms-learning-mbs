@@ -93,7 +93,7 @@ export function CourseEnrollSettingsModal({ selectedCourse, setShowEnrollSetting
                   เปิดแสดงคะแนนให้นักเรียนเห็น (Show Scores to Students)
                 </label>
                 <p className="text-[10px]" style={{ color: tx.muted }}>
-                  หากปิด นักเรียนจะเห็นสถานะ "ส่งแล้ว (รอประกาศคะแนน)" โดยไม่แสดงตัวเลขคะแนน
+                  หากปิด นักเรียนจะเห็นสถานะ &ldquo;ส่งแล้ว (รอประกาศคะแนน)&rdquo; โดยไม่แสดงตัวเลขคะแนน
                 </p>
               </div>
               <input

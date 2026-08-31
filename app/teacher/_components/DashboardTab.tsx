@@ -1,8 +1,7 @@
 import React from "react";
-import { useRouter } from "next/navigation";
 import {
-  Shield, Users, TrendingUp, BookOpen, Clipboard, Clock, Plus,
-  ArrowUpRight, BookDashed, Award, Calendar,
+  Users, BookOpen, Clipboard, Clock, Plus,
+  ArrowUpRight, BookDashed, Award,
 } from "lucide-react";
 import { tx, card } from "../../lib/theme";
 import type { Course } from "../../context/UserContext";
@@ -21,11 +20,8 @@ interface StudentActivity {
 
 const RECENT_STUDENT_ACTIVITIES: StudentActivity[] = [];
 
-type AppRouter = ReturnType<typeof useRouter>;
-
 interface DashboardTabProps {
   displayName: string;
-  router: AppRouter;
   teacherCourses: Course[];
   setShowCourseForm: (show: boolean) => void;
   setTab: (tab: "dashboard" | "courses" | "students") => void;
@@ -33,7 +29,7 @@ interface DashboardTabProps {
   setDetailTab: (tab: "assignments" | "lessons" | "students") => void;
 }
 
-export function DashboardTab({ displayName, router, teacherCourses, setShowCourseForm, setTab, setSelectedCourseId, setDetailTab }: DashboardTabProps) {
+export function DashboardTab({ displayName, teacherCourses, setShowCourseForm, setTab, setSelectedCourseId, setDetailTab }: DashboardTabProps) {
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* Hero / Welcome */}

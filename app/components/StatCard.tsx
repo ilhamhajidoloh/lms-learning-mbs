@@ -40,15 +40,13 @@ export function StatCard({ icon, label, value, accent = "indigo", className = ""
 }
 
 interface StatCardCompactProps {
-  icon: React.ReactNode;
   label: string;
   value: string | number;
+  icon?: React.ReactNode;
   accent?: string;
 }
 
-export function StatCardCompact({ icon, label, value, accent = "indigo" }: StatCardCompactProps) {
-  const a = ACCENT_MAP[accent] || ACCENT_MAP.indigo;
-
+export function StatCardCompact({ label, value }: StatCardCompactProps) {
   return (
     <div className="p-4 rounded-2xl border text-center" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
       <p className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>{label}</p>

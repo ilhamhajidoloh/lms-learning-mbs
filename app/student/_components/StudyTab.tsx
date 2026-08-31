@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, BookOpen, ChevronRight, Search, CheckCircle2, Lock, RefreshCw, Radio, Video } from "lucide-react";
+import React, { useEffect, useState, useMemo } from "react";
+import { ArrowLeft, ChevronRight, Search, CheckCircle2, Lock, RefreshCw, Video } from "lucide-react";
 import { tx } from "../../lib/theme";
 import { toast } from "@/lib/swal";
 import { apiFetch } from "@/lib/api";
 import { useUser } from "../../context/UserContext";
 import type { Assignment, Chapter, Course, Lesson, StudentSubmission, Topic } from "../../context/UserContext";
+import { type LiveClassData } from "../../components/LiveClassCard";
 import { LessonOverviewPanel } from "./LessonOverviewPanel";
 import { TaskListPanel } from "./TaskListPanel";
 import { FileSubmissionPanel } from "./FileSubmissionPanel";
@@ -58,48 +58,100 @@ export function StudyTab({
 }: StudyTabProps) {
   const { completedLessonIds, toggleLessonComplete, refreshData } = useUser();
   const [refreshing, setRefreshing] = useState(false);
-  const [activeLiveClass, setActiveLiveClass] = useState<any>(null);
-  const [courseLiveClasses, setCourseLiveClasses] = useState<any[]>([]);
-
-  const fetchLiveClassesForCourse = async (courseId: string) => {
-    try {
-      const [{ data: activeData }, { data: listData }] = await Promise.all([
-        apiFetch<{ activeLiveClass: any }>(`/api/live-classes/active?course_id=${courseId}`),
-        apiFetch<{ liveClasses: any[] }>(`/api/live-classes?course_id=${courseId}`),
-      ]);
-      setActiveLiveClass(activeData?.activeLiveClass || null);
-      setCourseLiveClasses(listData?.liveClasses || []);
-    } catch {
-      setActiveLiveClass(null);
-      setCourseLiveClasses([]);
-    }
-  };
+  const [activeLiveClass, setActiveLiveClass] = useState<LiveClassData | null>(null);
+  const [courseLiveClasses, setCourseLiveClasses] = useState<LiveClassData[]>([]);
+  const [quizRetakingId, setQuizRetakingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selectedCourseId) {
-      fetchLiveClassesForCourse(selectedCourseId);
-    } else {
-      setActiveLiveClass(null);
-      setCourseLiveClasses([]);
+    if (!selectedCourseId) {
+      return;
     }
+    let isCancelled = false;
+    Promise.all([
+      apiFetch<{ activeLiveClass: LiveClassData }>(`/api/live-classes/active?course_id=${selectedCourseId}`),
+      apiFetch<{ liveClasses: LiveClassData[] }>(`/api/live-classes?course_id=${selectedCourseId}`),
+    ])
+      .then(([{ data: activeData }, { data: listData }]) => {
+        if (isCancelled) return;
+        setActiveLiveClass(activeData?.activeLiveClass || null);
+        setCourseLiveClasses(listData?.liveClasses || []);
+      })
+      .catch(() => {
+        if (isCancelled) return;
+        setActiveLiveClass(null);
+        setCourseLiveClasses([]);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [selectedCourseId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await refreshData();
     if (selectedCourseId) {
-      await fetchLiveClassesForCourse(selectedCourseId);
+      try {
+        const [{ data: activeData }, { data: listData }] = await Promise.all([
+          apiFetch<{ activeLiveClass: LiveClassData }>(`/api/live-classes/active?course_id=${selectedCourseId}`),
+          apiFetch<{ liveClasses: LiveClassData[] }>(`/api/live-classes?course_id=${selectedCourseId}`),
+        ]);
+        setActiveLiveClass(activeData?.activeLiveClass || null);
+        setCourseLiveClasses(listData?.liveClasses || []);
+      } catch {
+        setActiveLiveClass(null);
+        setCourseLiveClasses([]);
+      }
     }
     setTimeout(() => setRefreshing(false), 500);
     toast.success("อัปเดตบทเรียนและคะแนนล่าสุดเรียบร้อยแล้ว!");
   };
 
-  // When a quiz is opened for retake (student already submitted before),
-  // QuizPlayer must show the interactive quiz instead of the review.
-  const [quizRetakingId, setQuizRetakingId] = useState<string | null>(null);
+  const courseChapters = useMemo(() => {
+    return selectedCourseId ? chapters.filter(ch => ch.courseId === selectedCourseId) : [];
+  }, [chapters, selectedCourseId]);
+
+  const courseTopics = useMemo(() => {
+    return selectedCourseId
+      ? topics.filter(t => {
+          const chapter = chapters.find(ch => ch.id === t.chapterId);
+          return chapter?.courseId === selectedCourseId;
+        })
+      : [];
+  }, [topics, chapters, selectedCourseId]);
+
+  const courseLessons = useMemo(() => {
+    return selectedCourseId
+      ? lessons.filter(
+          l =>
+            l.isPublished !== false &&
+            (courseTopics.some(t => t.id === l.topicId) ||
+              (l as { courseId?: string }).courseId === selectedCourseId)
+        )
+      : [];
+  }, [lessons, courseTopics, selectedCourseId]);
+
+  // Auto-sync lesson completion when all tasks for a lesson are submitted
   useEffect(() => {
-    if (selectedAssignmentId === null) setQuizRetakingId(null);
-  }, [selectedAssignmentId]);
+    if (!currentUserId || !selectedCourseId || courseLessons.length === 0) return;
+
+    courseLessons.forEach((l, index) => {
+      const lAssignments = assignments.filter((a) => {
+        if (a.courseId !== selectedCourseId) return false;
+        if (a.lessonId) return a.lessonId === l.id;
+        return index === 0;
+      });
+
+      if (lAssignments.length > 0) {
+        const allDone = lAssignments.every((a) =>
+          submissions.some((s) => s.assignmentId === a.id && s.studentId === currentUserId)
+        );
+        if (allDone && !completedLessonIds.includes(l.id)) {
+          toggleLessonComplete(l.id, true);
+        }
+      }
+    });
+  }, [selectedCourseId, courseLessons, assignments, submissions, currentUserId, completedLessonIds, toggleLessonComplete]);
 
   if (selectedCourseId === null) {
     // COURSE SELECTOR
@@ -154,14 +206,6 @@ export function StudyTab({
   const currentCourse = courses.find(c => c.id === selectedCourseId);
   if (!currentCourse) return null;
 
-  // Get chapters, topics, and lessons for this course (published only for students)
-  const courseChapters = chapters.filter(ch => ch.courseId === selectedCourseId);
-  const courseTopics = topics.filter(t => {
-    const chapter = chapters.find(ch => ch.id === t.chapterId);
-    return chapter?.courseId === selectedCourseId;
-  });
-  const courseLessons = lessons.filter(l => l.isPublished !== false && (courseTopics.some(t => t.id === l.topicId) || (l as { courseId?: string }).courseId === selectedCourseId));
-
   const isLessonLocked = (lessonId: string) => {
     const lesson = courseLessons.find(l => l.id === lessonId);
     if (lesson?.isLocked === true) return true;
@@ -200,28 +244,6 @@ export function StudyTab({
 
   const activeLessonHasTasks = courseAssignments.length > 0;
   const activeLessonTasksCompleted = activeLessonHasTasks && courseAssignments.every(a => submissions.some(s => s.assignmentId === a.id && s.studentId === currentUserId));
-
-  // Auto-sync lesson completion when all tasks for a lesson are submitted
-  useEffect(() => {
-    if (!currentUserId || !selectedCourseId || courseLessons.length === 0) return;
-
-    courseLessons.forEach((l, index) => {
-      const lAssignments = assignments.filter((a) => {
-        if (a.courseId !== selectedCourseId) return false;
-        if (a.lessonId) return a.lessonId === l.id;
-        return index === 0;
-      });
-
-      if (lAssignments.length > 0) {
-        const allDone = lAssignments.every((a) =>
-          submissions.some((s) => s.assignmentId === a.id && s.studentId === currentUserId)
-        );
-        if (allDone && !completedLessonIds.includes(l.id)) {
-          toggleLessonComplete(l.id, true);
-        }
-      }
-    });
-  }, [selectedCourseId, courseLessons, assignments, submissions, currentUserId, completedLessonIds, toggleLessonComplete]);
 
   const courseLessonsCount = courseLessons.length;
   const courseCompletedLessonsCount = courseLessons.filter(l => completedLessonIds.includes(l.id)).length;

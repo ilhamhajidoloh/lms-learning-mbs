@@ -1,16 +1,10 @@
 import React, { useState } from "react";
-import { Plus, ArrowLeft, Users, Eye, EyeOff, BookOpen, Unplug, Clock, PencilLine, Undo2, RotateCcw, Settings, X, Lock, Unlock, Check, Save } from "lucide-react";
+import { Plus, ArrowLeft, Users, Eye, EyeOff, BookOpen, Clock, PencilLine, Undo2, RotateCcw, Settings, X, Lock, Unlock, Check, Save } from "lucide-react";
 import { tx, card } from "../../lib/theme";
 import { useUser, type Assignment, type StudentSubmission } from "../../context/UserContext";
 import { EmptyState } from "../../components/EmptyState";
 import Swal from "sweetalert2";
 import { toast } from "@/lib/swal";
-
-interface SubmissionRow {
-  id: string;
-  name: string;
-  submission: StudentSubmission;
-}
 
 interface AssignmentsPanelProps {
   courseAssignments: Assignment[];
@@ -58,19 +52,6 @@ function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlMod
   const [allowEdit, setAllowEdit] = useState(a ? a.allowEditSubmission === true : false);
   const [allowCancel, setAllowCancel] = useState(a ? a.allowCancelSubmission === true : false);
   const [saving, setSaving] = useState(false);
-
-  React.useEffect(() => {
-    if (a) {
-      setIsOpenState(a.isOpen !== false);
-      setShowScores(a.showScores !== false);
-      setQuizReviewMode(a.quizReviewMode ?? "full");
-      setOpenAtInput(isoToLocalInput(a.openAt));
-      setCloseAtInput(isoToLocalInput(a.closeAt));
-      setAttemptInput(a.quizAttemptLimit ? String(a.quizAttemptLimit) : "");
-      setAllowEdit(a.allowEditSubmission === true);
-      setAllowCancel(a.allowCancelSubmission === true);
-    }
-  }, [a]);
 
   if (!a) return null;
 
@@ -318,14 +299,8 @@ export function AssignmentsPanel({
   setViewingQuizSub,
   setShowForm,
 }: AssignmentsPanelProps) {
-  const { gradeSubmission, cancelSubmissionScore, updateAssignmentSettings, toggleAssignmentOpen, updateAssignmentAdvancedSettings, lessons, topics, chapters, enrollments } = useUser();
+  const { gradeSubmission, cancelSubmissionScore, lessons, topics, chapters, enrollments } = useUser();
   const [managingAssignment, setManagingAssignment] = useState<Assignment | null>(null);
-
-  const QUIZ_REVIEW_OPTIONS: { value: "full" | "answers_only" | "none"; label: string }[] = [
-    { value: "full", label: "เฉลยเต็มรูปแบบ (ดูเฉลย + คำอธิบาย)" },
-    { value: "answers_only", label: "เฉพาะคำตอบของนักเรียน (ไม่เฉลย)" },
-    { value: "none", label: "ปิด (ไม่แสดงอะไร)" },
-  ];
 
   const groupedAssignments = React.useMemo(() => {
     const map = new Map<string, Assignment[]>();
@@ -618,9 +593,16 @@ export function AssignmentsPanel({
                                      </div>
                                    </div>
                                 ) : (
-                                  <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-3 flex-wrap">
                                     <span className="text-emerald-600 font-bold">{sub.score} / {activeAssignment.questions?.length} คะแนน</span>
                                     <button type="button" onClick={() => setViewingQuizSub(sub)} className="text-[10px] text-indigo-500 hover:underline cursor-pointer">ตรวจคำตอบ</button>
+                                    <button
+                                       type="button"
+                                       onClick={() => handleGradeQuizSubmission(sub.id, sub.score, activeAssignment.questions?.length || activeAssignment.points)}
+                                       className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow cursor-pointer"
+                                     >
+                                       แก้ไขคะแนน
+                                     </button>
                                   </div>
                                 )}
                               </td>
@@ -757,10 +739,13 @@ export function AssignmentsPanel({
       )}
 
       {/* Assignment Controls Modal */}
-      <AssignmentControlModal
-        assignment={managingAssignment}
-        onClose={() => setManagingAssignment(null)}
-      />
+      {managingAssignment && (
+        <AssignmentControlModal
+          key={managingAssignment.id}
+          assignment={managingAssignment}
+          onClose={() => setManagingAssignment(null)}
+        />
+      )}
     </div>
   );
 }

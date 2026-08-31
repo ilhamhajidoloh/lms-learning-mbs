@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import {
-  Sparkles, Play, Book, Clock, CheckCircle, Trophy, ArrowUpRight, ChevronRight, Search, Award, Video, Radio,
+  Play, Book, Clock, Trophy, ChevronRight, Search, Award, Video,
 } from "lucide-react";
-import { tx, card } from "../../lib/theme";
+import { tx } from "../../lib/theme";
 import type { Course } from "../../context/UserContext";
 import { StatCard } from "../../components/StatCard";
 import { HeroBanner } from "../../components/HeroBanner";
 import { EmptyState } from "../../components/EmptyState";
 import { JoinLiveClassButton } from "../../components/JoinLiveClassButton";
+import { type LiveClassData } from "../../components/LiveClassCard";
 import { apiFetch } from "@/lib/api";
 
 type StudentTab = "dashboard" | "courses" | "study" | "profile";
@@ -45,15 +45,15 @@ function useAnimatedCounter(target: number, duration = 800) {
 
 export function DashboardTab({ displayName, enrolledCourses, setTab, setSelectedCourseId }: DashboardTabProps) {
   const courseCount = useAnimatedCounter(enrolledCourses.length, 600);
-  const [activeLiveClasses, setActiveLiveClasses] = useState<any[]>([]);
-  const [allLiveClasses, setAllLiveClasses] = useState<any[]>([]);
+  const [activeLiveClasses, setActiveLiveClasses] = useState<LiveClassData[]>([]);
+  const [allLiveClasses, setAllLiveClasses] = useState<LiveClassData[]>([]);
 
   useEffect(() => {
     const fetchLiveData = async () => {
       try {
         const [{ data: activeData }, { data: listData }] = await Promise.all([
-          apiFetch<{ activeLiveClasses: any[] }>("/api/live-classes/active"),
-          apiFetch<{ liveClasses: any[] }>("/api/live-classes"),
+          apiFetch<{ activeLiveClasses: LiveClassData[] }>("/api/live-classes/active"),
+          apiFetch<{ liveClasses: LiveClassData[] }>("/api/live-classes"),
         ]);
         if (activeData?.activeLiveClasses) {
           setActiveLiveClasses(activeData.activeLiveClasses);

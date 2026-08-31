@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import type { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
-  Sparkles, Moon, Sun, Menu, X, LogOut, Video, BarChart2, BookOpen, Trophy, Radio,
+  Sparkles, Moon, Sun, Menu, X, LogOut, Video, BarChart2, BookOpen, Trophy,
 } from "lucide-react";
 import { tx } from "../../lib/theme";
 import { Avatar } from "../../components/Avatar";
 import { JoinLiveClassButton } from "../../components/JoinLiveClassButton";
+import { type LiveClassData } from "../../components/LiveClassCard";
 import { apiFetch } from "@/lib/api";
 
 type StudentTab = "dashboard" | "courses" | "study" | "profile";
@@ -33,12 +33,12 @@ interface StudentHeaderProps {
 export function StudentHeader({
   displayName, darkMode, toggleDarkMode, logout, tab, setTab, mobileOpen, setMobileOpen, router,
 }: StudentHeaderProps) {
-  const [activeLiveClass, setActiveLiveClass] = useState<any>(null);
+  const [activeLiveClass, setActiveLiveClass] = useState<LiveClassData | null>(null);
 
   useEffect(() => {
     const checkLive = async () => {
       try {
-        const { data } = await apiFetch<{ activeLiveClasses?: any[]; activeLiveClass?: any }>("/api/live-classes/active");
+        const { data } = await apiFetch<{ activeLiveClasses?: LiveClassData[]; activeLiveClass?: LiveClassData }>("/api/live-classes/active");
         const active = data?.activeLiveClasses?.[0] || data?.activeLiveClass || null;
         setActiveLiveClass(active);
       } catch (e) {

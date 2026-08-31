@@ -1,5 +1,4 @@
 import React from "react";
-import { tx } from "../lib/theme";
 
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 

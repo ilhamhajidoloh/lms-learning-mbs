@@ -279,6 +279,6 @@ export async function GET(request: Request) {
     submissions,
     appUsers,
     enrollments,
-    completedLessonIds: completedLessonsRes.rows.map((r: any) => r.lesson_id),
+    completedLessonIds: completedLessonsRes.rows.map((r: { lesson_id: string }) => r.lesson_id),
   });
 }

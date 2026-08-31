@@ -318,7 +318,7 @@ export function LessonsPanel({
                   <div className="p-4 space-y-4">
                     {chapTopics.length === 0 ? (
                       <p className="text-xs text-slate-400 italic text-center py-2">
-                        ยังไม่มีหัวข้อ/เรื่องในหน่วยนี้ (กด "+ เพิ่มเรื่อง" ด้านบนเพื่อเพิ่ม)
+                        ยังไม่มีหัวข้อ/เรื่องในหน่วยนี้ (กด &ldquo;+ เพิ่มเรื่อง&rdquo; ด้านบนเพื่อเพิ่ม)
                       </p>
                     ) : (
                       chapTopics.map((top, topIdx) => {

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Video, Radio, RefreshCw, Calendar, Sparkles, Clock, ArrowLeft } from "lucide-react";
+import { Plus, Video, Radio, RefreshCw, Calendar, ArrowLeft } from "lucide-react";
 import { useUser } from "../../context/UserContext";
 import { TeacherHeader } from "../_components/TeacherHeader";
 import { LiveClassCard, type LiveClassData } from "../../components/LiveClassCard";
@@ -11,7 +11,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { StatCard } from "../../components/StatCard";
 import LoadingScreen from "../../components/LoadingScreen";
 import { apiFetch } from "@/lib/api";
-import { toast } from "@/lib/swal";
+import { toast, alert as swalAlert } from "@/lib/swal";
 import { tx } from "../../lib/theme";
 
 export default function TeacherLiveClassesPage() {
@@ -54,7 +54,27 @@ export default function TeacherLiveClassesPage() {
     } else if (role !== "teacher" && role !== "admin") {
       router.push("/student");
     } else {
-      fetchLiveClasses();
+      let isCancelled = false;
+      apiFetch<{ liveClasses: LiveClassData[] }>("/api/live-classes")
+        .then(({ data, error }) => {
+          if (isCancelled) return;
+          if (error || !data) {
+            console.error("Failed to fetch live classes:", error);
+            return;
+          }
+          setLiveClasses(data.liveClasses || []);
+        })
+        .catch((err) => {
+          if (isCancelled) return;
+          console.error("fetchLiveClasses error:", err);
+        })
+        .finally(() => {
+          if (!isCancelled) setLoading(false);
+        });
+
+      return () => {
+        isCancelled = true;
+      };
     }
   }, [isAuthenticated, role, loadingData, router]);
 
@@ -93,7 +113,8 @@ export default function TeacherLiveClassesPage() {
   };
 
   const handleDeleteClass = async (id: string) => {
-    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบห้องเรียนสดนี้?")) return;
+    const confirmed = await swalAlert.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบห้องเรียนสดนี้?");
+    if (!confirmed) return;
 
     try {
       const { error } = await apiFetch(`/api/live-classes/${id}`, {
@@ -312,4 +333,3 @@ export default function TeacherLiveClassesPage() {
     </div>
   );
 }
-

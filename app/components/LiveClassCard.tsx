@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { Video, Calendar, Clock, User, Users, Play, Power, Trash2 } from "lucide-react";
+import { Calendar, Clock, User, Users, Play, Power, Trash2 } from "lucide-react";
 import { tx } from "../lib/theme";
 import { JoinLiveClassButton } from "./JoinLiveClassButton";
 

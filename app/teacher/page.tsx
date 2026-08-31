@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useUser, QuizQuestion, Assignment, StudentSubmission, Lesson, Chapter, Topic } from "../context/UserContext";
+import { useUser, type QuizQuestion, type Assignment, type StudentSubmission, type Lesson } from "../context/UserContext";
 import LoadingScreen from "../components/LoadingScreen";
 import { tx } from "../lib/theme";
 import { TeacherHeader } from "./_components/TeacherHeader";
@@ -169,14 +169,37 @@ export default function TeacherDashboard() {
     setQuizQuestions(prev => prev.filter((_, idx) => idx !== index));
   };
 
+  const teacherCourses = courses.filter(c => c.instructorId === currentUserId);
+  const selectedCourse = selectedCourseId ? teacherCourses.find(c => c.id === selectedCourseId) || null : null;
+  
+  // Filter topics by selected course
+  const courseChapters = React.useMemo(() => {
+    return selectedCourse ? chapters.filter(ch => ch.courseId === selectedCourse.id) : [];
+  }, [selectedCourse, chapters]);
+
+  const courseTopics = React.useMemo(() => {
+    return courseChapters.length > 0 ? topics.filter(t => courseChapters.some(ch => ch.id === t.chapterId)) : [];
+  }, [courseChapters, topics]);
+  
+  // Filter lessons by course topics
+  const selectedCourseLessons = React.useMemo(() => {
+    return courseTopics.length > 0 ? lessons.filter(lesson => courseTopics.some(t => t.id === lesson.topicId)) : [];
+  }, [courseTopics, lessons]);
+
+  const effectiveAssignLessonId = assignLessonId && selectedCourseLessons.some(lesson => lesson.id === assignLessonId)
+    ? assignLessonId
+    : (selectedCourseLessons[0]?.id ?? "");
+
   const handleCreateAssignment = (e: FormEvent) => {
     e.preventDefault();
     if (!assignTitle.trim()) return;
 
+    const targetLessonId = assignLessonId || effectiveAssignLessonId;
+
     const newAssignment: Assignment = {
       id: "assign-" + Math.random().toString(36).substring(2, 9),
       courseId: selectedCourseId || "",
-      lessonId: assignLessonId || undefined,
+      lessonId: targetLessonId || undefined,
       type: assignType,
       title: assignTitle,
       dueDate: assignDueDate,
@@ -209,30 +232,6 @@ export default function TeacherDashboard() {
       router.push(role === "admin" ? "/admin" : "/student");
     }
   }, [isAuthenticated, role, router, loadingData]);
-
-
-  const teacherCourses = courses.filter(c => c.instructorId === currentUserId);
-  const selectedCourse = selectedCourseId ? teacherCourses.find(c => c.id === selectedCourseId) || null : null;
-  
-  // Filter topics by selected course
-  const courseChapters = selectedCourse ? chapters.filter(ch => ch.courseId === selectedCourse.id) : [];
-  const courseTopics = courseChapters.length > 0 ? topics.filter(t => courseChapters.some(ch => ch.id === t.chapterId)) : [];
-  
-  // Filter lessons by course topics
-  const selectedCourseLessons = courseTopics.length > 0 ? lessons.filter(lesson => courseTopics.some(t => t.id === lesson.topicId)) : [];
-
-  useEffect(() => {
-    if (!showForm) return;
-
-    if (selectedCourseLessons.length === 0) {
-      setAssignLessonId("");
-      return;
-    }
-
-    if (!assignLessonId || !selectedCourseLessons.some(lesson => lesson.id === assignLessonId)) {
-      setAssignLessonId(selectedCourseLessons[0].id);
-    }
-  }, [showForm, selectedCourseLessons, assignLessonId]);
 
   if (loadingData) {
     return <LoadingScreen />;
@@ -281,7 +280,6 @@ export default function TeacherDashboard() {
         {tab === "dashboard" && (
           <DashboardTab
             displayName={displayName}
-            router={router}
             teacherCourses={teacherCourses}
             setShowCourseForm={setShowCourseForm}
             setTab={setTab}
@@ -356,7 +354,7 @@ export default function TeacherDashboard() {
         <AssignmentFormModal
           setShowForm={setShowForm}
           lessons={selectedCourseLessons}
-          assignLessonId={assignLessonId}
+          assignLessonId={effectiveAssignLessonId}
           setAssignLessonId={setAssignLessonId}
           assignType={assignType}
           setAssignType={setAssignType}

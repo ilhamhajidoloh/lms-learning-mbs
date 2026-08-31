@@ -1,5 +1,5 @@
 import React, { useState, type FormEvent } from "react";
-import { X, Video, Plus, Check } from "lucide-react";
+import { X, Video, Plus } from "lucide-react";
 import { tx } from "../../lib/theme";
 import type { Chapter, Topic } from "../../context/UserContext";
 
@@ -53,9 +53,7 @@ export function AddLessonModal({
   // Toggle for creating a new topic mode
   const [isNewTopicMode, setIsNewTopicMode] = useState<boolean>(courseTopics.length === 0);
   const [newTopicTitle, setNewTopicTitle] = useState<string>("");
-  const [selectedChapterId, setSelectedChapterId] = useState<string>(
-    courseChapters.length > 0 ? courseChapters[0].id : ""
-  );
+  const selectedChapterId = courseChapters.length > 0 ? courseChapters[0].id : "";
   const [newChapterTitle, setNewChapterTitle] = useState<string>("หน่วยการเรียนรู้ที่ 1");
   const [isCreatingTopic, setIsCreatingTopic] = useState<boolean>(false);
   const [topicError, setTopicError] = useState<string>("");

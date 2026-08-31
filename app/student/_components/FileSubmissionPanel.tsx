@@ -25,7 +25,7 @@ export function FileSubmissionPanel({
   const existingSub = submissions.find(s => s.assignmentId === activeTask.id && s.studentId === currentUserId);
   const isEdit = !!existingSub;
 
-  const nowMs = Date.now();
+  const [nowMs] = useState(() => Date.now());
   const openAtMs = activeTask.openAt ? new Date(activeTask.openAt).getTime() : null;
   const closeAtMs = activeTask.closeAt ? new Date(activeTask.closeAt).getTime() : null;
   const notOpenYet = openAtMs !== null && nowMs < openAtMs;
