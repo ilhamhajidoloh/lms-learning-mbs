@@ -211,7 +211,6 @@ export async function ensureTables() {
     await pool.query(`ALTER TABLE quiz_questions DROP CONSTRAINT IF EXISTS quiz_questions_question_type_check`);
     await pool.query(`ALTER TABLE quiz_questions ADD CONSTRAINT quiz_questions_question_type_check CHECK (question_type IN ('multiple_choice', 'fill_blank', 'matching', 'essay'))`);
     await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS points NUMERIC NOT NULL DEFAULT 1`);
-    await pool.query(`ALTER TABLE submissions ALTER COLUMN score TYPE NUMERIC`);
   } catch (err) {
     console.error("Failed to update quiz_questions columns/constraints:", err);
   }
@@ -224,12 +223,23 @@ export async function ensureTables() {
       type          TEXT        NOT NULL CHECK (type IN ('file', 'quiz')),
       file_name     TEXT,
       file_path     TEXT,
-      score         INT         CHECK (score >= 0),
+      score         NUMERIC     CHECK (score >= 0),
       question_scores JSONB,
       answers       JSONB,
       submitted_at  TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+
+  // Score may contain decimal points (for example, 4.8). This must run after
+  // the table is created; otherwise a fresh CockroachDB deployment leaves it
+  // as INT permanently because the earlier migration cannot find the table.
+  try {
+    await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS previous_score NUMERIC`);
+    await pool.query(`ALTER TABLE submissions ALTER COLUMN score TYPE NUMERIC`);
+    await pool.query(`ALTER TABLE submissions ALTER COLUMN previous_score TYPE NUMERIC`);
+  } catch (err) {
+    console.error("Failed to migrate submission scores to NUMERIC:", err);
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS meetings (
@@ -323,7 +333,7 @@ export async function ensureTables() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_quiz_questions_assign  ON quiz_questions (assignment_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON submissions (assignment_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_student    ON submissions (student_id)`);
-  await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS previous_score INT`);
+  await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS previous_score NUMERIC`);
   await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS question_scores JSONB`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_created_by    ON meetings (created_by)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_start         ON meetings (start_datetime DESC)`);
