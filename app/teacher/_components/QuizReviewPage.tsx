@@ -5,13 +5,13 @@ import { ArrowLeft, Award, ChevronLeft, ChevronRight, Save } from "lucide-react"
 import { useRouter } from "next/navigation";
 import LoadingScreen from "../../components/LoadingScreen";
 import { QuizReviewItem } from "../../student/_components/QuizReviewItem";
-import { useUser, type QuizQuestion, type StudentSubmission } from "../../context/UserContext";
+import { useUser, type QuizQuestion } from "../../context/UserContext";
 import { tx } from "../../lib/theme";
 import { TeacherHeader } from "./TeacherHeader";
 
 function automaticQuestionScore(
   question: QuizQuestion,
-  answer: StudentSubmission["answers"] extends (infer T)[] ? T : never,
+  answer: number | string | Record<number, number> | undefined,
 ): number {
   const points = Number(question.points ?? 1);
   const type = question.questionType ?? "multiple_choice";
