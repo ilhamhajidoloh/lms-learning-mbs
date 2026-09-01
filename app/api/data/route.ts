@@ -282,6 +282,14 @@ export async function GET(request: Request) {
 
     let score = s.score === null || s.score === undefined ? undefined : Number(s.score);
     const previousScore = s.previous_score === null || s.previous_score === undefined ? undefined : Number(s.previous_score);
+    let answers = s.answers;
+    if (typeof answers === "string") {
+      try {
+        answers = JSON.parse(answers);
+      } catch {
+        // Keep the original value if legacy data cannot be parsed.
+      }
+    }
 
     // If quiz submission has no manual question_scores override and contains only auto-gradable questions,
     // ensure score is strictly in sync with the current quiz questions and points
@@ -291,10 +299,6 @@ export async function GET(request: Request) {
         (q) => q.question_type === "essay" || (q.question_type === "fill_blank" && !q.correct_answer?.trim())
       );
       if (!hasManualQuestions && qList && qList.length > 0) {
-        let answers = s.answers;
-        if (typeof answers === "string") {
-          try { answers = JSON.parse(answers); } catch {}
-        }
         if (answers !== undefined && answers !== null) {
           let calculatedTotal = 0;
           for (let i = 0; i < qList.length; i++) {
@@ -333,7 +337,9 @@ export async function GET(request: Request) {
       score: Number.isFinite(score) ? score : undefined,
       questionScores,
       previousScore: Number.isFinite(previousScore) ? previousScore : undefined,
-      answers: s.answers || undefined,
+      // Always return structured answers. The review page needs these to calculate
+      // legacy submissions that do not yet have question_scores saved.
+      answers: answers ?? undefined,
     };
   });
 
