@@ -202,12 +202,20 @@ export function QuizPlayer({
           ? sub.answers[reviewQuestionIndex]
           : (sub.answers as Record<number, number | string | Record<number, number>> | undefined)?.[reviewQuestionIndex])
       : undefined;
+    // For student review: prefer saved question_scores from teacher grading
+    // If not available, try automatic scoring, but accept undefined for manual-graded questions
     const savedQuestionScore = sub.questionScores?.[reviewQuestionIndex];
-    const reviewQuestionScore = typeof savedQuestionScore === "number" && Number.isFinite(savedQuestionScore)
-      ? Number(savedQuestionScore)
-      : reviewQuestion
-        ? getAutomaticQuestionScore(reviewQuestion, reviewStudentAnswer)
-        : undefined;
+    let reviewQuestionScore: number | undefined;
+
+    if (typeof savedQuestionScore === "number" && Number.isFinite(savedQuestionScore)) {
+      // Use teacher's graded score if available
+      reviewQuestionScore = Number(savedQuestionScore);
+    } else if (reviewQuestion) {
+      // Try automatic scoring only if the question supports it
+      reviewQuestionScore = getAutomaticQuestionScore(reviewQuestion, reviewStudentAnswer);
+    } else {
+      reviewQuestionScore = undefined;
+    }
 
     return (
       <div className="max-w-4xl mx-auto space-y-6 text-left animate-fadeIn pb-16">

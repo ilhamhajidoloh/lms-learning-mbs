@@ -326,6 +326,7 @@ export async function GET(request: Request) {
       }
     }
 
+    console.log('[API /data] Final score before return:', score, 'isFinite:', Number.isFinite(score));
     return {
       id: s.id,
       assignmentId: s.assignment_id,

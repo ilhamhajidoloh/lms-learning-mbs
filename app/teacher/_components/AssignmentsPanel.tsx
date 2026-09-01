@@ -668,17 +668,35 @@ export function AssignmentsPanel({
                                    </div>
                                 ) : (
                                    <div className="flex items-center gap-2.5 flex-wrap">
-                                     <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
-                                       {(sub.score ?? 0).toFixed(2)} / {activeAssignment.points} คะแนน
-                                     </span>
-                                     <button
-                                       type="button"
-                                       onClick={() => router.push(`/teacher/review/${sub.id}`)}
-                                       className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold text-xs border border-indigo-200 dark:border-indigo-800/40 cursor-pointer transition-all active:scale-95 shadow-sm"
-                                       title="คลิกเพื่อเปิดหน้าตรวจคำตอบและให้คะแนนรายข้อ"
-                                     >
-                                       🔍 ตรวจคำตอบรายข้อ
-                                     </button>
+                                     {sub.questionScores && Array.isArray(sub.questionScores) && sub.questionScores.length > 0 ? (
+                                       <>
+                                         <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
+                                           {(sub.score ?? 0).toFixed(2)} / {activeAssignment.points} คะแนน
+                                         </span>
+                                         <button
+                                           type="button"
+                                           onClick={() => router.push(`/teacher/review/${sub.id}`)}
+                                           className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold text-xs border border-indigo-200 dark:border-indigo-800/40 cursor-pointer transition-all active:scale-95 shadow-sm"
+                                           title="คลิกเพื่อแก้ไขคะแนนรายข้อ"
+                                         >
+                                           ✏️ แก้ไขคะแนน
+                                         </button>
+                                       </>
+                                     ) : (
+                                       <>
+                                         <span className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400 font-bold text-xs">
+                                           รอตรวจคะแนน
+                                         </span>
+                                         <button
+                                           type="button"
+                                           onClick={() => router.push(`/teacher/review/${sub.id}`)}
+                                           className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer transition-all active:scale-95 shadow-sm"
+                                           title="คลิกเพื่อเปิดหน้าตรวจคำตอบและให้คะแนนรายข้อ"
+                                         >
+                                           ⭐ ตรวจคำตอบรายข้อ
+                                         </button>
+                                       </>
+                                     )}
                                    </div>
                                 )}
                               </td>
