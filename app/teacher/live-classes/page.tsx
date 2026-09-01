@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Video, Radio, RefreshCw, Calendar, ArrowLeft } from "lucide-react";
+import { Plus, Video, Radio, RefreshCw, Calendar, ArrowLeft, BookOpen } from "lucide-react";
 import { useUser } from "../../context/UserContext";
 import { TeacherHeader } from "../_components/TeacherHeader";
 import { LiveClassCard, type LiveClassData } from "../../components/LiveClassCard";
@@ -24,6 +24,7 @@ export default function TeacherLiveClassesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "active" | "scheduled">("all");
+  const [selectedCourseId, setSelectedCourseId] = useState("all");
 
   const teacherCourses = courses.filter((c) => c.instructorId === currentUserId);
 
@@ -148,12 +149,38 @@ export default function TeacherLiveClassesPage() {
   const activeClasses = liveClasses.filter((c) => c.is_active);
   const scheduledClasses = liveClasses.filter((c) => !c.is_active);
 
-  const filteredClasses =
+  const classesByStatus =
     filter === "active"
       ? activeClasses
       : filter === "scheduled"
       ? scheduledClasses
       : liveClasses;
+  const filteredClasses = selectedCourseId === "all"
+    ? classesByStatus
+    : classesByStatus.filter((liveClass) => liveClass.course_id === selectedCourseId);
+
+  const courseOptions = Array.from(
+    new Map(
+      liveClasses.map((liveClass) => [
+        liveClass.course_id,
+        { id: liveClass.course_id, title: liveClass.course_title || "ไม่ระบุรายวิชา" },
+      ])
+    ).values()
+  );
+
+  const groupedClasses = Array.from(
+    filteredClasses.reduce((groups, liveClass) => {
+      const courseId = liveClass.course_id;
+      const group = groups.get(courseId) || {
+        id: courseId,
+        title: liveClass.course_title || "ไม่ระบุรายวิชา",
+        liveClasses: [],
+      };
+      group.liveClasses.push(liveClass);
+      groups.set(courseId, group);
+      return groups;
+    }, new Map<string, { id: string; title: string; liveClasses: LiveClassData[] }>()).values()
+  );
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: tx.base, color: tx.primary }}>
@@ -244,7 +271,7 @@ export default function TeacherLiveClassesPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-2 border-b pb-3" style={{ borderColor: tx.borderS }}>
+        <div className="flex flex-wrap items-center gap-2 border-b pb-3" style={{ borderColor: tx.borderS }}>
           <button
             onClick={() => setFilter("all")}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
@@ -276,6 +303,21 @@ export default function TeacherLiveClassesPage() {
           >
             ยังไม่เริ่ม / นัดหมาย ({scheduledClasses.length})
           </button>
+          <label className="ml-0 sm:ml-auto flex items-center gap-2 text-xs font-bold" style={{ color: tx.secondary }}>
+            <BookOpen className="h-4 w-4 text-indigo-500" />
+            รายวิชา
+            <select
+              value={selectedCourseId}
+              onChange={(event) => setSelectedCourseId(event.target.value)}
+              className="min-w-48 rounded-xl border px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/40"
+              style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}
+            >
+              <option value="all">ทุกวิชา ({courseOptions.length})</option>
+              {courseOptions.map((course) => (
+                <option key={course.id} value={course.id}>{course.title}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
         {/* Live Classes Grid */}
@@ -300,8 +342,28 @@ export default function TeacherLiveClassesPage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredClasses.map((lc) => (
+          <div className="space-y-8">
+            {groupedClasses.map((group) => (
+              <section key={group.id} className="space-y-4" aria-labelledby={`course-${group.id}`}>
+                <div className="flex items-center justify-between gap-4 border-b pb-3" style={{ borderColor: tx.borderS }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-9 w-9 shrink-0 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+                      <BookOpen className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 id={`course-${group.id}`} className="font-extrabold truncate" style={{ color: tx.primary }}>
+                        {group.title}
+                      </h2>
+                      <p className="text-xs" style={{ color: tx.muted }}>ห้องเรียนสดของรายวิชานี้</p>
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-bold text-indigo-500">
+                    {group.liveClasses.length} ห้องเรียน
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {group.liveClasses.map((lc) => (
               <LiveClassCard
                 key={lc.id}
                 liveClass={lc}
@@ -310,7 +372,10 @@ export default function TeacherLiveClassesPage() {
                 onStart={handleStartClass}
                 onEnd={handleEndClass}
                 onDelete={handleDeleteClass}
-              />
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
