@@ -25,20 +25,21 @@ export async function GET(request: NextRequest) {
     const params: (string | boolean)[] = [];
 
     if (auth.role === "student") {
-      // Students see live classes for courses they are enrolled in or open courses
+      // Students only see live classes for courses they have enrolled in.
       if (courseId) {
         query += `
-          WHERE lc.course_id = $2 AND (
-            EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.course_id = lc.course_id AND ce.student_id = $1)
-            OR c.is_open = true
-          )
+          WHERE lc.course_id = $2
+            AND EXISTS (
+              SELECT 1 FROM course_enrollments ce
+              WHERE ce.course_id = lc.course_id AND ce.student_id = $1
+            )
         `;
         params.push(auth.userId, courseId);
       } else {
         query += `
-          WHERE (
-            EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.course_id = lc.course_id AND ce.student_id = $1)
-            OR c.is_open = true
+          WHERE EXISTS (
+            SELECT 1 FROM course_enrollments ce
+            WHERE ce.course_id = lc.course_id AND ce.student_id = $1
           )
         `;
         params.push(auth.userId);
@@ -134,4 +135,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

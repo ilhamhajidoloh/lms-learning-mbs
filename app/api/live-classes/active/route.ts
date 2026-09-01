@@ -14,12 +14,10 @@ export async function GET(request: NextRequest) {
     const courseId = searchParams.get("course_id");
 
     if (courseId) {
-      // Check enrollment or open course if student
+      // Students can only access live classes for courses they have enrolled in.
       if (auth.role === "student") {
         const accessCheck = await pool.query(
-          `SELECT 1 FROM course_enrollments WHERE course_id = $1 AND student_id = $2
-           UNION
-           SELECT 1 FROM courses WHERE id = $1 AND is_open = true`,
+          `SELECT 1 FROM course_enrollments WHERE course_id = $1 AND student_id = $2`,
           [courseId, auth.userId]
         );
         if (accessCheck.rows.length === 0) {
@@ -43,7 +41,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ activeLiveClass: rows[0] || null });
     }
 
-    // No course_id param: return all active live classes accessible to user
+    // No course_id param: return all active live classes the user can access.
     let query = `
       SELECT lc.id, lc.course_id, lc.lesson_id, lc.room_name, lc.title, lc.description,
              lc.scheduled_at, lc.duration_minutes, lc.host_id, lc.is_active, lc.created_at, lc.updated_at,
@@ -56,10 +54,11 @@ export async function GET(request: NextRequest) {
 
     if (auth.role === "student") {
       query += `
-        WHERE lc.is_active = true AND (
-          EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.course_id = lc.course_id AND ce.student_id = $1)
-          OR c.is_open = true
-        )
+        WHERE lc.is_active = true
+          AND EXISTS (
+            SELECT 1 FROM course_enrollments ce
+            WHERE ce.course_id = lc.course_id AND ce.student_id = $1
+          )
       `;
       params.push(auth.userId);
     } else if (auth.role === "teacher") {
@@ -81,4 +80,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
