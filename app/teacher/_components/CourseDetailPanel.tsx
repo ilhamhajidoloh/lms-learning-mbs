@@ -141,6 +141,7 @@ export function CourseDetailPanel({
       {/* Tab 1: Assignments */}
       {detailTab === "assignments" && (
         <AssignmentsPanel
+          courseId={selectedCourse.id}
           courseAssignments={courseAssignments}
           assignments={assignments}
           submissions={submissions}

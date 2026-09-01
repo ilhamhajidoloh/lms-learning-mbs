@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Plus, ArrowLeft, Users, Eye, EyeOff, BookOpen, Clock, PencilLine, Undo2, RotateCcw, Settings, X, Lock, Unlock, Check, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { tx, card } from "../../lib/theme";
@@ -11,6 +11,7 @@ import { EditAssignmentModal } from "./EditAssignmentModal";
 import { QuizEditorPanel } from "./QuizEditorPanel";
 
 interface AssignmentsPanelProps {
+  courseId: string;
   courseAssignments: Assignment[];
   assignments: Assignment[];
   submissions: StudentSubmission[];
@@ -285,6 +286,7 @@ function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlMod
 }
 
 export function AssignmentsPanel({
+  courseId,
   courseAssignments,
   assignments,
   submissions,
@@ -298,6 +300,19 @@ export function AssignmentsPanel({
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [editingQuiz, setEditingQuiz] = useState<Assignment | null>(null);
   const [isCreatingQuiz, setIsCreatingQuiz] = useState<boolean>(false);
+
+  // Keep the lesson selector in the work tab identical to this course's lesson tree.
+  // The old selector received every lesson in the system, including lessons from other courses.
+  const courseLessons = useMemo(() => {
+    const courseChapterIds = new Set(
+      chapters.filter((chapter) => chapter.courseId === courseId).map((chapter) => chapter.id)
+    );
+    const courseTopics = topics.filter((topic) => courseChapterIds.has(topic.chapterId));
+
+    return courseTopics.flatMap((topic) =>
+      lessons.filter((lesson) => lesson.topicId === topic.id)
+    );
+  }, [chapters, courseId, lessons, topics]);
 
   const groupedAssignments = React.useMemo(() => {
     const map = new Map<string, Assignment[]>();
@@ -322,7 +337,7 @@ export function AssignmentsPanel({
     }[] = [];
 
     map.forEach((items, lessonId) => {
-      const l = lessons.find((item) => item.id === lessonId);
+      const l = courseLessons.find((item) => item.id === lessonId);
       const lessonTitle = l ? l.title : "บทเรียน (ID: " + lessonId + ")";
 
       let breadcrumb = "";
@@ -427,9 +442,9 @@ export function AssignmentsPanel({
     return (
       <QuizEditorPanel
         isNew={true}
-        courseId={courseAssignments[0]?.courseId || ""}
+        courseId={courseId}
         onBack={() => setIsCreatingQuiz(false)}
-        lessons={lessons}
+        lessons={courseLessons}
       />
     );
   }
@@ -439,7 +454,7 @@ export function AssignmentsPanel({
       <QuizEditorPanel
         assignment={editingQuiz}
         onBack={() => setEditingQuiz(null)}
-        lessons={lessons}
+        lessons={courseLessons}
       />
     );
   }
@@ -827,7 +842,7 @@ export function AssignmentsPanel({
           key={editingAssignment.id}
           assignment={editingAssignment}
           onClose={() => setEditingAssignment(null)}
-          lessons={lessons}
+          lessons={courseLessons}
         />
       )}
     </div>
