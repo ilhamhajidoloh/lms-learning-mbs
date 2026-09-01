@@ -1,6 +1,7 @@
 import React from "react";
 import { X } from "lucide-react";
 import { tx } from "../lib/theme";
+import { Portal } from "./Portal";
 
 interface ModalShellProps {
   onClose: () => void;
@@ -14,7 +15,8 @@ interface ModalShellProps {
 
 export function ModalShell({ onClose, title, subtitle, maxWidth = "max-w-3xl", children, footer, className = "" }: ModalShellProps) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
+    <Portal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
       <div
         className={`w-full ${maxWidth} rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border animate-scaleIn ${className}`}
         style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}
@@ -40,5 +42,6 @@ export function ModalShell({ onClose, title, subtitle, maxWidth = "max-w-3xl", c
         )}
       </div>
     </div>
+    </Portal>
   );
 }

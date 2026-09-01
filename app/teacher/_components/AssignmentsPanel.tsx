@@ -9,6 +9,7 @@ import { toast } from "@/lib/swal";
 import { formatThaiDate, formatThaiDateTime, isoToDateInput, isoToLocalInput } from "../../lib/date";
 import { EditAssignmentModal } from "./EditAssignmentModal";
 import { QuizEditorPanel } from "./QuizEditorPanel";
+import { Portal } from "@/app/components/Portal";
 
 interface AssignmentsPanelProps {
   courseId: string;
@@ -82,8 +83,9 @@ function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-      <div className="w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-5 animate-scaleIn overflow-y-auto max-h-[90vh] text-left" style={card.style}>
+    <Portal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
+        <div className="w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-5 animate-scaleIn overflow-y-auto max-h-[90vh] text-left border" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
         {/* Modal Header */}
         <div className="flex justify-between items-center border-b pb-3" style={{ borderColor: tx.borderS }}>
           <div className="flex items-center gap-2.5">
@@ -282,6 +284,7 @@ function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlMod
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 
@@ -571,7 +574,7 @@ export function AssignmentsPanel({
                     {activeAssignment.type === 'file' ? 'ประเภทการส่ง' : 'คะแนนเฉลี่ย'}
                   </p>
                   <p className="text-2xl font-black text-purple-500 mt-1">
-                    {activeAssignment.type === 'file' ? 'ไฟล์ PDF / รูปภาพ' : (classAverage !== null ? `${classAverage} / ${activeAssignment.questions?.length ?? activeAssignment.points}` : '-')}
+                    {activeAssignment.type === 'file' ? 'ไฟล์ PDF / รูปภาพ' : (classAverage !== null ? `${classAverage} / ${activeAssignment.points}` : '-')}
                   </p>
                 </div>
               </div>
@@ -623,7 +626,7 @@ export function AssignmentsPanel({
                                        {sub.score !== undefined && sub.score !== null ? (
                                          <>
                                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
-                                             {sub.score} / {activeAssignment.points} คะแนน
+                                             {sub.score.toFixed(2)} / {activeAssignment.points} คะแนน
                                            </span>
                                            <button
                                              type="button"
@@ -666,7 +669,7 @@ export function AssignmentsPanel({
                                 ) : (
                                    <div className="flex items-center gap-2.5 flex-wrap">
                                      <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
-                                       {sub.score ?? 0} / {activeAssignment.points} คะแนน
+                                       {(sub.score ?? 0).toFixed(2)} / {activeAssignment.points} คะแนน
                                      </span>
                                      <button
                                        type="button"

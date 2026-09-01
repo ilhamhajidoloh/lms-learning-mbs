@@ -295,8 +295,10 @@ export function StudyTab({
       {/* Navigation Back & Refresh Button */}
       <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
         <button onClick={() => { setSelectedCourseId(null); setActiveLessonId(null); setSelectedAssignmentId(null); }}
-          className="flex items-center gap-2 font-bold hover:text-indigo-500 dark:hover:text-indigo-400 transition-all active:scale-95 group">
-          <ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" /> กลับหน้ารายการคอร์สเรียน
+          className="flex items-center gap-2 font-bold hover:text-indigo-500 dark:hover:text-indigo-400 transition-all active:scale-95 group text-sm md:text-base">
+          <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 transition-transform group-hover:-translate-x-1" />
+          <span className="hidden sm:inline">กลับหน้ารายการคอร์สเรียน</span>
+          <span className="sm:hidden">กลับ</span>
         </button>
         <button
           type="button"
@@ -307,17 +309,18 @@ export function StudyTab({
           title="คลิกเพื่อดึงข้อมูลบทเรียนและงานล่าสุดจากเซิร์ฟเวอร์"
         >
           <RefreshCw className={`h-3.5 w-3.5 text-indigo-500 ${refreshing ? "animate-spin" : ""}`} />
-          <span>{refreshing ? "กำลังอัปเดต..." : "รีเฟรชข้อมูล"}</span>
+          <span className="hidden sm:inline">{refreshing ? "กำลังอัปเดต..." : "รีเฟรชข้อมูล"}</span>
+          <span className="sm:hidden">{refreshing ? "อัปเดต..." : "รีเฟรช"}</span>
         </button>
       </div>
 
       {/* Active Live Class Banner */}
       {activeLiveClass && (
-        <div className="rounded-3xl p-6 sm:p-7 border-2 border-red-500/60 bg-gradient-to-r from-red-950/50 via-slate-900/80 to-red-950/50 shadow-xl shadow-red-500/10 animate-slideInUp relative overflow-hidden text-white">
+        <div className="rounded-3xl p-5 sm:p-6 md:p-7 border-2 border-red-500/60 bg-gradient-to-r from-red-950/50 via-slate-900/80 to-red-950/50 shadow-xl shadow-red-500/10 animate-slideInUp relative overflow-hidden text-white">
           <div className="absolute top-0 right-0 -mr-16 -mt-16 w-36 h-36 bg-red-500/20 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative z-10">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-5 relative z-10">
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-xs font-black animate-pulse">
                   <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
                   🔴 กำลังสอนสดอยู่ตอนนี้
@@ -328,7 +331,7 @@ export function StudyTab({
                   </span>
                 )}
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white">{activeLiveClass.title}</h2>
+              <h2 className="text-lg sm:text-xl md:text-2xl font-black text-white">{activeLiveClass.title}</h2>
               {activeLiveClass.description && (
                 <p className="text-xs sm:text-sm text-slate-300 line-clamp-2">{activeLiveClass.description}</p>
               )}
@@ -348,18 +351,18 @@ export function StudyTab({
       )}
 
       {/* Course Banner */}
-      <div className="rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden shadow-xl text-white bg-gradient-to-r from-indigo-900 via-purple-950 to-slate-950 animate-slideInUp">
+      <div className="rounded-3xl p-5 sm:p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 relative overflow-hidden shadow-xl text-white bg-gradient-to-r from-indigo-900 via-purple-950 to-slate-950 animate-slideInUp">
         <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-300 via-purple-900 to-indigo-950" />
         <div className="relative z-10 space-y-2">
-          <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm self-start">
+          <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm self-start inline-block">
             {currentCourse.levelLabel}
           </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{currentCourse.title}</h1>
-          <p className="text-indigo-200 text-sm">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight">{currentCourse.title}</h1>
+          <p className="text-indigo-200 text-xs md:text-sm">
             ผู้สอน: {currentCourse.instructor}
           </p>
         </div>
-        <div className="relative z-10 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 text-center text-xs">
+        <div className="relative z-10 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 text-center text-xs self-end md:self-auto">
           <p className="font-bold">Progress ความคืบหน้า</p>
           <p className="text-lg font-black mt-0.5">{realTimeProgress}%</p>
         </div>
@@ -367,14 +370,14 @@ export function StudyTab({
 
       {/* Course Live Classes List (Active & Upcoming) */}
       {courseLiveClasses.length > 0 && (
-        <div className="rounded-3xl p-5 border space-y-3 animate-slideInUp" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
+        <div className="rounded-3xl p-4 md:p-5 border space-y-3 animate-slideInUp" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center">
-                <Video className="h-4 w-4" />
+              <div className="h-6 w-6 md:h-7 md:w-7 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center">
+                <Video className="h-3.5 w-3.5 md:h-4 md:w-4" />
               </div>
-              <h3 className="font-extrabold text-sm tracking-tight" style={{ color: tx.primary }}>
-                ห้องเรียนสดประจำวิชานี้ (Live Classroom Sessions)
+              <h3 className="font-extrabold text-xs md:text-sm tracking-tight" style={{ color: tx.primary }}>
+                ห้องเรียนสดประจำวิชานี้
               </h3>
             </div>
             <span className="text-xs font-bold" style={{ color: tx.muted }}>
@@ -433,12 +436,12 @@ export function StudyTab({
       )}
 
       {/* Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
 
         {/* Left side: Lessons selection */}
         <div className="space-y-4 animate-slideInLeft">
-          <div className="p-4 rounded-2xl border flex flex-col space-y-3" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
-            <h3 className="font-extrabold text-sm uppercase tracking-wider" style={{ color: tx.muted }}>บทเรียนทั้งหมด ({courseLessons.length})</h3>
+          <div className="p-3 md:p-4 rounded-2xl border flex flex-col space-y-3" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
+            <h3 className="font-extrabold text-xs md:text-sm uppercase tracking-wider" style={{ color: tx.muted }}>บทเรียนทั้งหมด ({courseLessons.length})</h3>
             {courseLessons.length === 0 ? (
               <EmptyState
                 illustration="clipboard"
@@ -447,7 +450,7 @@ export function StudyTab({
                 title="วิชานี้ยังไม่มีหัวข้อบทเรียน"
               />
             ) : courseChapters.length === 0 ? (
-              <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[350px] md:max-h-[450px] overflow-y-auto pr-1">
                 {courseLessons.map((l, index) => {
                   const isActive = activeLesson && l.id === activeLesson.id;
                   const isCompleted = checkLessonCompleted(l, index);
@@ -462,7 +465,7 @@ export function StudyTab({
                         setActiveLessonId(l.id);
                         setSelectedAssignmentId(null);
                       }}
-                      className={`w-full text-left p-3.5 rounded-xl border text-xs font-bold flex gap-3 items-center transition-all duration-200 active:scale-[0.98] ${isActive ? "animate-borderGlow" : ""} ${isLocked ? "opacity-60 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed" : ""}`}
+                      className={`w-full text-left p-2.5 md:p-3.5 rounded-xl border text-xs font-bold flex gap-2 md:gap-3 items-center transition-all duration-200 active:scale-[0.98] ${isActive ? "animate-borderGlow" : ""} ${isLocked ? "opacity-60 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed" : ""}`}
                       style={isActive
                         ? { borderColor: tx.accent, backgroundColor: tx.accentBg, color: tx.accent }
                         : { borderColor: tx.borderS, color: tx.secondary }}>
@@ -475,18 +478,18 @@ export function StudyTab({
                       }`}>
                         {isLocked ? <Lock className="h-3 w-3" /> : isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
                       </span>
-                      <span className="truncate">{l.title}</span>
+                      <span className="truncate text-[11px] md:text-xs">{l.title}</span>
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[400px] md:max-h-[500px] overflow-y-auto pr-1">
                 {courseChapters.map((chap, cIdx) => {
                   const chapTopics = topics.filter(t => t.chapterId === chap.id);
                   return (
-                    <div key={chap.id} className="rounded-xl border p-3 space-y-2" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
-                      <div className="flex items-center justify-between text-xs font-extrabold text-indigo-600 dark:text-indigo-400 border-b pb-1.5" style={{ borderColor: tx.borderS }}>
+                    <div key={chap.id} className="rounded-xl border p-2.5 md:p-3 space-y-2" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
+                      <div className="flex items-center justify-between text-[11px] md:text-xs font-extrabold text-indigo-600 dark:text-indigo-400 border-b pb-1.5" style={{ borderColor: tx.borderS }}>
                         <span className="truncate">หน่วยที่ {cIdx + 1}: {chap.title}</span>
                       </div>
 
@@ -494,8 +497,8 @@ export function StudyTab({
                         {chapTopics.map((top, tIdx) => {
                           const topicLessons = lessons.filter(l => l.topicId === top.id && l.isPublished !== false);
                           return (
-                            <div key={top.id} className="space-y-1.5 border-l-2 border-indigo-500/30 pl-2.5">
-                              <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate">
+                            <div key={top.id} className="space-y-1.5 border-l-2 border-indigo-500/30 pl-2">
+                              <div className="text-[10px] md:text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate">
                                 {cIdx + 1}.{tIdx + 1} {top.title}
                               </div>
 
@@ -514,7 +517,7 @@ export function StudyTab({
                                         setActiveLessonId(l.id);
                                         setSelectedAssignmentId(null);
                                       }}
-                                      className={`w-full text-left p-2.5 rounded-lg border text-xs font-semibold flex gap-2.5 items-center transition-all duration-200 ${isActive ? "shadow-sm border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 font-bold" : "hover:bg-slate-100 dark:hover:bg-slate-800"} ${isLocked ? "opacity-60 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed" : ""}`}
+                                      className={`w-full text-left p-2 md:p-2.5 rounded-lg border text-[11px] md:text-xs font-semibold flex gap-2 md:gap-2.5 items-center transition-all duration-200 ${isActive ? "shadow-sm border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 font-bold" : "hover:bg-slate-100 dark:hover:bg-slate-800"} ${isLocked ? "opacity-60 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed" : ""}`}
                                       style={!isActive ? { borderColor: tx.borderS, color: tx.secondary } : {}}>
                                       <span className={`flex h-4 w-4 rounded-full items-center justify-center text-[9px] font-mono shrink-0 ${
                                         isLocked
@@ -543,7 +546,7 @@ export function StudyTab({
         </div>
 
         {/* Right side: Video player & Subtabs */}
-        <div className="lg:col-span-2 space-y-6 animate-slideInRight">
+        <div className="md:col-span-2 space-y-6 animate-slideInRight">
           {!activeLesson ? (
             courseLessons.length === 0 ? (
               <EmptyState
@@ -555,14 +558,14 @@ export function StudyTab({
               />
             ) : (
               <div
-                className="rounded-3xl p-10 shadow-sm border text-center space-y-4 animate-scaleIn"
+                className="rounded-3xl p-6 md:p-10 shadow-sm border text-center space-y-4 animate-scaleIn"
                 style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}
               >
-                <div className="h-16 w-16 mx-auto rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-                  <Lock className="h-8 w-8" />
+                <div className="h-12 w-12 md:h-16 md:w-16 mx-auto rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                  <Lock className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-xl font-bold" style={{ color: tx.primary }}>
+                  <h3 className="text-lg md:text-xl font-bold" style={{ color: tx.primary }}>
                     บทเรียนถูกล็อกอยู่ 🔒
                   </h3>
                   <p className="text-xs max-w-md mx-auto" style={{ color: tx.muted }}>
@@ -575,7 +578,7 @@ export function StudyTab({
             <div className="space-y-6" key={activeLesson.id}>
 
               {/* Active Lesson details */}
-              <div className="rounded-3xl p-6 shadow-sm border space-y-4 animate-scaleIn" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
+              <div className="rounded-3xl p-4 md:p-6 shadow-sm border space-y-4 animate-scaleIn" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
                 <LessonOverviewPanel
                   activeLesson={activeLesson}
                   studyTab={studyTab}

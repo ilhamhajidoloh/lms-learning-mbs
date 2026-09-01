@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { tx } from "../../lib/theme";
 import type { Lesson, QuizQuestion } from "../../context/UserContext";
 import { QuestionEditor } from "./QuestionEditor";
+import { Portal } from "@/app/components/Portal";
 
 interface AssignmentFormModalProps {
   setShowForm: (show: boolean) => void;
@@ -52,8 +53,9 @@ export function AssignmentFormModal({
   handleUpdateQuestion,
 }: AssignmentFormModalProps) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
-      <div className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
+    <Portal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
+        <div className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
         <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
           <h2 className="text-xl font-bold">สร้างงาน / ควิซใหม่</h2>
           <button type="button" onClick={() => setShowForm(false)} className="btn-icon p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer">
@@ -162,5 +164,6 @@ export function AssignmentFormModal({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

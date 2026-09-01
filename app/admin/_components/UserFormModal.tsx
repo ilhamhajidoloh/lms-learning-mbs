@@ -3,6 +3,7 @@ import { UserPlus, Pencil, X, Check, AlertTriangle } from "lucide-react";
 import { tx } from "../../lib/theme";
 import type { AppUser, Role } from "../../context/UserContext";
 import { ROLE_CONFIG } from "./RoleBadge";
+import { Portal } from "@/app/components/Portal";
 
 interface UserFormModalProps {
   editingUser: AppUser | null;
@@ -26,12 +27,13 @@ export function UserFormModal({
   hasOtherAdmin,
 }: UserFormModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl animate-fadeIn"
-        style={{ backgroundColor: tx.surface, border: `1px solid ${tx.borderS}`, color: tx.primary }}
-      >
+    <Portal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-md rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl animate-scaleIn border"
+          style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}
+        >
         {/* Header */}
         <div className="flex justify-between items-center pb-4" style={{ borderBottom: `1px solid ${tx.borderS}` }}>
           <h3 className="text-lg font-bold flex items-center gap-2">
@@ -131,5 +133,6 @@ export function UserFormModal({
         </div>
       </form>
     </div>
+    </Portal>
   );
 }

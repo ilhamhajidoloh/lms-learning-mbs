@@ -107,10 +107,13 @@ export function TaskListPanel({
             if (!showScores) {
               subStatusLabel = "ส่งแล้ว (รอประกาศคะแนน)";
             } else if (sub.type === "quiz") {
-              subStatusLabel = `ทำแล้วครั้งที่ ${attemptCount} (${sub.score !== undefined && sub.score !== null ? sub.score : "รอตรวจ"}/${a.points})`;
+              const scoreText = sub.score !== undefined && sub.score !== null
+                ? (typeof sub.score === "number" ? sub.score.toFixed(2) : sub.score)
+                : "รอตรวจ";
+              subStatusLabel = `ทำแล้วครั้งที่ ${attemptCount} (${scoreText}/${a.points})`;
             } else {
               if (sub.score !== undefined && sub.score !== null) {
-                subStatusLabel = `ส่งแล้ว (${sub.score}/${a.points} คะแนน)`;
+                subStatusLabel = `ส่งแล้ว (${sub.score.toFixed(2)}/${a.points} คะแนน)`;
               } else if (sub.previousScore !== undefined && sub.previousScore !== null) {
                 subStatusLabel = "ส่งแล้ว (แก้ไขไฟล์ - รอตรวจคะแนนใหม่)";
               } else {
@@ -127,8 +130,8 @@ export function TaskListPanel({
               : "";
 
           return (
-            <div key={a.id} className={`p-4 rounded-xl border flex flex-col gap-4 text-xs ${isOpen ? "" : "opacity-70"}`} style={{ borderColor: tx.borderS }}>
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div key={a.id} className={`p-3 md:p-4 rounded-xl border flex flex-col gap-3 md:gap-4 text-xs ${isOpen ? "" : "opacity-70"}`} style={{ borderColor: tx.borderS }}>
+              <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3 md:gap-4">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
@@ -136,7 +139,7 @@ export function TaskListPanel({
                     }`}>
                       {a.type === 'file' ? 'ส่งไฟล์' : 'Quiz'}
                     </span>
-                    <span className="font-bold" style={{ color: tx.primary }}>{a.title}</span>
+                    <span className="font-bold text-[11px] md:text-xs" style={{ color: tx.primary }}>{a.title}</span>
                     {!isOpen && (
                       <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold flex items-center gap-1 ${
                         alreadyClosed
@@ -165,7 +168,7 @@ export function TaskListPanel({
                   {windowLabel && <p className="text-[10px] font-bold" style={{ color: notOpenYet ? tx.secondary : "#ef4444" }}>{windowLabel}</p>}
                 </div>
 
-                <div className="flex items-center gap-3 self-end sm:self-center flex-wrap">
+                <div className="flex items-center gap-2 md:gap-3 self-end sm:self-start flex-wrap">
                   <span className={`px-2 py-1 rounded-[8px] text-[10px] font-bold ${
                     sub ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50" : "bg-amber-100 text-amber-700 dark:bg-amber-950/50"
                   }`}>
@@ -178,8 +181,9 @@ export function TaskListPanel({
               {a.type === "quiz" ? (
                 <div className="flex flex-wrap items-center gap-2">
                   {sub && quizReviewMode !== "none" && (
-                    <button onClick={() => { setSelectedAssignmentId(a.id); setCurrentQuizQuestionIndex(0); }} className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-indigo-500 font-bold transition-all text-[11px] cursor-pointer btn-press">
-                      {quizReviewMode === "answers_only" ? "ดูคำตอบของฉัน" : "ดูผลคะแนน & เฉลย"}
+                    <button onClick={() => { setSelectedAssignmentId(a.id); setCurrentQuizQuestionIndex(0); }} className="px-3 md:px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-indigo-500 font-bold transition-all text-[11px] cursor-pointer btn-press">
+                      <span className="hidden sm:inline">{quizReviewMode === "answers_only" ? "ดูคำตอบของฉัน" : "ดูผลคะแนน & เฉลย"}</span>
+                      <span className="sm:hidden">ดูผลคะแนน</span>
                     </button>
                   )}
                   {sub && isOpen && !quizExhausted ? (
@@ -188,47 +192,51 @@ export function TaskListPanel({
                       setQuizRetakingId(a.id);
                       setCurrentQuizQuestionIndex(0);
                       setQuizAnswers({});
-                    }} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-[11px] cursor-pointer shadow-md btn-press flex items-center gap-1.5">
-                      <RotateCcw className="h-3 w-3" /> ทำข้อสอบอีกครั้ง ({attemptLimit > 0 ? `${attemptCount}/${attemptLimit}` : `ครั้งที่ ${attemptCount + 1}`})
+                    }} className="px-3 md:px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-[11px] cursor-pointer shadow-md btn-press flex items-center gap-1.5">
+                      <RotateCcw className="h-3 w-3" />
+                      <span className="hidden sm:inline">ทำข้อสอบอีกครั้ง ({attemptLimit > 0 ? `${attemptCount}/${attemptLimit}` : `ครั้งที่ ${attemptCount + 1}`})</span>
+                      <span className="sm:hidden">ทำอีกครั้ง</span>
                     </button>
                   ) : !sub && isOpen ? (
                     <button onClick={() => {
                       setSelectedAssignmentId(a.id);
                       setCurrentQuizQuestionIndex(0);
                       setQuizAnswers({});
-                    }} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-[11px] cursor-pointer shadow-md btn-press">
+                    }} className="px-3 md:px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-[11px] cursor-pointer shadow-md btn-press">
                       เริ่มทำข้อสอบ
                     </button>
                   ) : !isOpen ? (
-                    <span className="px-3.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-500 text-[11px] font-bold flex items-center gap-1.5">
+                    <span className="px-3 md:px-3.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-500 text-[11px] font-bold flex items-center gap-1.5">
                       <Lock className="h-3 w-3" /> งานปิด
                     </span>
                   ) : null}
                 </div>
               ) : (
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2">
                   {sub && (
-                    <span className="text-[10px]" style={{ color: tx.muted }}>ส่งไฟล์: <span className="font-mono">{sub.fileName}</span></span>
+                    <span className="text-[10px] break-all" style={{ color: tx.muted }}>ส่งไฟล์: <span className="font-mono">{sub.fileName}</span></span>
                   )}
-                  {sub && isOpen && a.allowEditSubmission && (
-                    <button onClick={() => { setSelectedAssignmentId(a.id); setFileNameInput(sub.fileName ?? ""); }} className="px-3.5 py-2 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 hover:bg-indigo-200 text-indigo-600 dark:text-indigo-300 font-bold transition-all text-[11px] cursor-pointer btn-press flex items-center gap-1.5">
-                      <PencilLine className="h-3 w-3" /> แก้ไขไฟล์
-                    </button>
-                  )}
-                  {sub && isOpen && a.allowCancelSubmission && (
-                    <button onClick={() => handleCancelFile(a, sub)} className="px-3.5 py-2 rounded-xl bg-rose-100 dark:bg-rose-900/40 hover:bg-rose-200 text-rose-600 dark:text-rose-300 font-bold transition-all text-[11px] cursor-pointer btn-press flex items-center gap-1.5">
-                      <Undo2 className="h-3 w-3" /> ยกเลิกการส่ง
-                    </button>
-                  )}
-                  {!sub && isOpen ? (
-                    <button onClick={() => { setSelectedAssignmentId(a.id); setFileNameInput(""); }} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-[11px] cursor-pointer shadow-md btn-press">
-                      อัพโหลดส่งการบ้าน
-                    </button>
-                  ) : !isOpen ? (
-                    <span className="px-3.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-500 text-[11px] font-bold flex items-center gap-1.5">
-                      <Lock className="h-3 w-3" /> งานปิด
-                    </span>
-                  ) : null}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {sub && isOpen && a.allowEditSubmission && (
+                      <button onClick={() => { setSelectedAssignmentId(a.id); setFileNameInput(sub.fileName ?? ""); }} className="px-3 md:px-3.5 py-2 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 hover:bg-indigo-200 text-indigo-600 dark:text-indigo-300 font-bold transition-all text-[11px] cursor-pointer btn-press flex items-center gap-1.5">
+                        <PencilLine className="h-3 w-3" /> แก้ไขไฟล์
+                      </button>
+                    )}
+                    {sub && isOpen && a.allowCancelSubmission && (
+                      <button onClick={() => handleCancelFile(a, sub)} className="px-3 md:px-3.5 py-2 rounded-xl bg-rose-100 dark:bg-rose-900/40 hover:bg-rose-200 text-rose-600 dark:text-rose-300 font-bold transition-all text-[11px] cursor-pointer btn-press flex items-center gap-1.5">
+                        <Undo2 className="h-3 w-3" /> ยกเลิกการส่ง
+                      </button>
+                    )}
+                    {!sub && isOpen ? (
+                      <button onClick={() => { setSelectedAssignmentId(a.id); setFileNameInput(""); }} className="px-3 md:px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all text-[11px] cursor-pointer shadow-md btn-press">
+                        อัพโหลดส่งการบ้าน
+                      </button>
+                    ) : !isOpen ? (
+                      <span className="px-3 md:px-3.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-500 text-[11px] font-bold flex items-center gap-1.5">
+                        <Lock className="h-3 w-3" /> งานปิด
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               )}
             </div>

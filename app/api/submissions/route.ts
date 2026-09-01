@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { assignmentId, type, fileName, score, answers, submittedAt } = await request.json();
+  const { assignmentId, type, fileName, score, questionScores, answers, submittedAt } = await request.json();
 
   // Check assignment open window if student is submitting
   if (auth.role === "student") {
@@ -64,9 +64,11 @@ export async function POST(request: Request) {
     }
   }
 
+  const normalizedQuestionScores = Array.isArray(questionScores) ? JSON.stringify(questionScores.map(Number)) : null;
+
   const { rows } = await pool.query(
-    `INSERT INTO submissions (assignment_id, student_id, type, file_name, score, answers, submitted_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO submissions (assignment_id, student_id, type, file_name, score, question_scores, answers, submitted_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id`,
     [
       assignmentId,
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
       type,
       fileName ?? null,
       score ?? null,
+      normalizedQuestionScores,
       answers ? JSON.stringify(answers) : null,
       submittedAt ? new Date(submittedAt).toISOString() : new Date().toISOString(),
     ]

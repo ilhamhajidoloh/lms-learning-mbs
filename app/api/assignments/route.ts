@@ -1,5 +1,6 @@
 import pool, { ensureTables } from "@/lib/db";
 import { authenticate } from "@/lib/auth";
+import { calculateQuestionScore } from "@/lib/quizScoring";
 
 export async function POST(request: Request) {
   await ensureTables();
@@ -37,10 +38,14 @@ export async function POST(request: Request) {
       const qPoints = q.points !== undefined && q.points !== null && !isNaN(Number(q.points)) ? Number(q.points) : 1;
 
       if (questionType === "multiple_choice") {
+        const correctIndices = q.correctIndices && Array.isArray(q.correctIndices) && q.correctIndices.length > 0
+          ? q.correctIndices
+          : (q.correctIndex !== undefined && q.correctIndex !== null ? [q.correctIndex] : [0]);
+
         await pool.query(
-          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, options, correct_index, explanation, points, is_required, sort_order)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [id, q.question, questionType, JSON.stringify(q.options || []), q.correctIndex ?? 0, q.explanation || "", qPoints, q.required !== false, i]
+          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, options, correct_index, correct_indices, explanation, points, is_required, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [id, q.question, questionType, JSON.stringify(q.options || []), correctIndices[0] ?? 0, JSON.stringify(correctIndices), q.explanation || "", qPoints, q.required !== false, i]
         );
       } else if (questionType === "fill_blank") {
         await pool.query(
@@ -143,10 +148,14 @@ export async function PUT(request: Request) {
       const qPoints = q.points !== undefined && q.points !== null && !isNaN(Number(q.points)) ? Number(q.points) : 1;
 
       if (questionType === "multiple_choice") {
+        const correctIndices = q.correctIndices && Array.isArray(q.correctIndices) && q.correctIndices.length > 0
+          ? q.correctIndices
+          : (q.correctIndex !== undefined && q.correctIndex !== null ? [q.correctIndex] : [0]);
+
         await pool.query(
-          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, options, correct_index, explanation, points, is_required, sort_order)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [id, q.question, questionType, JSON.stringify(q.options || []), q.correctIndex ?? 0, q.explanation || "", qPoints, q.required !== false, i]
+          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, options, correct_index, correct_indices, explanation, points, is_required, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [id, q.question, questionType, JSON.stringify(q.options || []), correctIndices[0] ?? 0, JSON.stringify(correctIndices), q.explanation || "", qPoints, q.required !== false, i]
         );
       } else if (questionType === "fill_blank") {
         await pool.query(
@@ -165,6 +174,34 @@ export async function PUT(request: Request) {
           `INSERT INTO quiz_questions (assignment_id, question_text, question_type, correct_answer, explanation, points, is_required, sort_order)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [id, q.question, questionType, q.correctAnswer || null, q.explanation || "", qPoints, q.required !== false, i]
+        );
+      }
+    }
+
+    // Recalculate scores for all auto-graded submissions of this quiz
+    const existingSubs = await pool.query(
+      `SELECT id, answers, question_scores FROM submissions WHERE assignment_id = $1 AND type = 'quiz'`,
+      [id]
+    ).catch(() => ({ rows: [] }));
+
+    for (const sub of existingSubs.rows) {
+      if (!sub.question_scores) {
+        let parsedAnswers = sub.answers;
+        if (typeof parsedAnswers === "string") {
+          try { parsedAnswers = JSON.parse(parsedAnswers); } catch {}
+        }
+        let total = 0;
+        for (let idx = 0; idx < questions.length; idx++) {
+          const q = questions[idx];
+          const ans = Array.isArray(parsedAnswers)
+            ? parsedAnswers[idx]
+            : (parsedAnswers as Record<number, any> | undefined)?.[idx];
+          const result = calculateQuestionScore(q, ans);
+          total += result.score;
+        }
+        await pool.query(
+          `UPDATE submissions SET score = $1 WHERE id = $2`,
+          [total, sub.id]
         );
       }
     }

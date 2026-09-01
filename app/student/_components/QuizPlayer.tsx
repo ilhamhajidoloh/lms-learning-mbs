@@ -9,6 +9,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { formatThaiDateTime } from "../../lib/date";
 import { QuizQuestionRenderer } from "./QuizQuestionRenderer";
 import { QuizReviewItem } from "./QuizReviewItem";
+import { calculateQuestionScore } from "@/lib/quizScoring";
 import { toast } from "@/lib/swal";
 
 interface QuizPlayerProps {
@@ -16,8 +17,8 @@ interface QuizPlayerProps {
   sub: StudentSubmission | undefined;
   currentQuizQuestionIndex: number;
   setCurrentQuizQuestionIndex: React.Dispatch<React.SetStateAction<number>>;
-  quizAnswers: Record<number, number | string | Record<number, number>>;
-  setQuizAnswers: React.Dispatch<React.SetStateAction<Record<number, number | string | Record<number, number>>>>;
+  quizAnswers: Record<number, number | number[] | string | Record<number, number>>;
+  setQuizAnswers: React.Dispatch<React.SetStateAction<Record<number, number | number[] | string | Record<number, number>>>>;
   setSelectedAssignmentId: React.Dispatch<React.SetStateAction<string | null>>;
   addSubmission: (submission: StudentSubmission) => void;
   currentUserId: string | null;
@@ -42,29 +43,13 @@ function formatCountdown(seconds: number): string {
 
 function getAutomaticQuestionScore(
   question: QuizQuestion,
-  answer: number | string | Record<number, number> | undefined,
+  answer: number | number[] | string | Record<number, number> | undefined,
 ): number | undefined {
-  const points = question.points !== undefined && Number.isFinite(Number(question.points))
-    ? Number(question.points)
-    : 1;
   const type = question.questionType || "multiple_choice";
-
-  if (type === "multiple_choice") {
-    return answer === question.correctIndex ? points : 0;
+  if (type === "essay" || (type === "fill_blank" && !question.correctAnswer?.trim())) {
+    return undefined;
   }
-  if (type === "fill_blank") {
-    if (!question.correctAnswer?.trim()) return undefined;
-    return typeof answer === "string" && answer.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()
-      ? points
-      : 0;
-  }
-  if (type === "matching") {
-    if (!question.matchingPairs) return 0;
-    const isAllCorrect = typeof answer === "object" && answer !== null && !Array.isArray(answer) &&
-      question.matchingPairs.every((_, pairIndex) => answer[pairIndex] === pairIndex);
-    return isAllCorrect ? points : 0;
-  }
-  return undefined; // Essay questions are scored manually.
+  return calculateQuestionScore(question, answer).score;
 }
 
 export function QuizPlayer({
@@ -112,30 +97,17 @@ export function QuizPlayer({
   const submitQuiz = useCallback(async (timedOut = false) => {
     let finalScore = 0;
     let hasManualGraded = false;
+    const questionScoresList: number[] = [];
 
     questions.forEach((question, index) => {
-      const questionType = question.questionType || "multiple_choice";
-      const questionPoints = question.points !== undefined && !isNaN(Number(question.points)) ? Number(question.points) : 1;
-      const answer = quizAnswers[index];
-
-      if (questionType === "multiple_choice") {
-        if (answer === question.correctIndex) finalScore += questionPoints;
-      } else if (questionType === "fill_blank") {
-        if (question.correctAnswer?.trim()) {
-          if (typeof answer === "string" && answer.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()) {
-            finalScore += questionPoints;
-          }
-        } else {
-          hasManualGraded = true;
-        }
-      } else if (questionType === "matching") {
-        if (typeof answer === "object" && !Array.isArray(answer) && question.matchingPairs) {
-          const allCorrect = question.matchingPairs.every((_, pairIndex) => answer[pairIndex] === pairIndex);
-          if (allCorrect) finalScore += questionPoints;
-        }
-      } else if (questionType === "essay") {
+      const qType = question.questionType || "multiple_choice";
+      if (qType === "essay" || (qType === "fill_blank" && !question.correctAnswer?.trim())) {
         hasManualGraded = true;
       }
+      const answer = quizAnswers[index];
+      const result = calculateQuestionScore(question, answer);
+      questionScoresList.push(result.score);
+      finalScore += result.score;
     });
 
     const submissionAnswers = questions.map((_, index) => quizAnswers[index] !== undefined ? quizAnswers[index] : -1);
@@ -146,6 +118,7 @@ export function QuizPlayer({
       assignmentId: activeTask.id,
       type: "quiz",
       score: finalScore,
+      questionScores: questionScoresList,
       answers: submissionAnswers,
       submittedAt: Date.now(),
     });
@@ -276,7 +249,7 @@ export function QuizPlayer({
                   : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-600 dark:text-amber-400"
               }`}>
                 <span className="text-[10px] font-bold block uppercase tracking-wider">คะแนนที่ได้</span>
-                <span className="text-base sm:text-lg font-black">{scoreGot} / {totalPts} คะแนน</span>
+                <span className="text-base sm:text-lg font-black">{scoreGot.toFixed(2)} / {totalPts} คะแนน</span>
               </div>
             )}
             <button

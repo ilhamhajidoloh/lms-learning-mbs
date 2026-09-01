@@ -40,7 +40,8 @@ export interface QuizQuestion {
   required?: boolean;
   // For multiple choice
   options?: string[];
-  correctIndex?: number;
+  correctIndex?: number; // Legacy: single correct answer
+  correctIndices?: number[]; // New: supports multiple correct answers
   // For fill in the blank & essay
   correctAnswer?: string;
   // For matching
@@ -82,7 +83,7 @@ export interface StudentSubmission {
   score?: number;
   questionScores?: number[];
   previousScore?: number;
-  answers?: Record<number, number | string | Record<number, number>> | (number | string | Record<number, number>)[];
+  answers?: Record<number, number | number[] | string | Record<number, number>> | (number | number[] | string | Record<number, number>)[];
 }
 
 export interface Chapter {
@@ -600,6 +601,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           type: submission.type,
           fileName: submission.fileName,
           score: submission.score,
+          questionScores: submission.questionScores,
           answers: submission.answers,
           submittedAt: submission.submittedAt,
         }),

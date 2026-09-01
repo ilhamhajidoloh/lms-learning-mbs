@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/swal";
 import type { Course } from "../context/UserContext";
 import type { LiveClassData } from "./LiveClassCard";
+import { Portal } from "./Portal";
 
 interface CreateLiveClassModalProps {
   isOpen: boolean;
@@ -26,15 +27,16 @@ export function CreateLiveClassModal({
   const [courseId, setCourseId] = useState(initialCourseId || (courses[0]?.id ?? ""));
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-
-  // Default to current time formatted as YYYY-MM-DDTHH:mm
-  const now = new Date();
-  const defaultDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-
-  const [scheduledAt, setScheduledAt] = useState(defaultDateTime);
-  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [scheduledAt, setScheduledAt] = useState(() => {
+    // Default to tomorrow 10:00 AM
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(10, 0, 0, 0);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T${pad(tomorrow.getHours())}:${pad(tomorrow.getMinutes())}`;
+  });
+  const [expectedDurationMin, setExpectedDurationMin] = useState(60);
+  const [maxParticipants, setMaxParticipants] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -42,11 +44,15 @@ export function CreateLiveClassModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!courseId) {
-      toast.error("กรุณาเลือกคอร์สเรียน");
+      toast.warning("กรุณาเลือกคอร์สเรียน");
       return;
     }
     if (!title.trim()) {
-      toast.error("กรุณาระบุชื่อห้องเรียนสด");
+      toast.warning("กรุณาระบุหัวข้อการสอนสด");
+      return;
+    }
+    if (!scheduledAt) {
+      toast.warning("กรุณาระบุวัน-เวลาที่เริ่มสอน");
       return;
     }
 
@@ -59,19 +65,18 @@ export function CreateLiveClassModal({
           title: title.trim(),
           description: description.trim() || undefined,
           scheduled_at: new Date(scheduledAt).toISOString(),
-          duration_minutes: Number(durationMinutes),
+          duration_minutes: Number(expectedDurationMin) || 60,
         }),
       });
 
       if (error || !data) {
-        toast.error("สร้างห้องเรียนสดไม่สำเร็จ: " + (error || "Unknown error"));
-        return;
+        throw new Error(error || "สร้างห้องเรียนสดไม่สำเร็จ");
       }
 
       toast.success("สร้างห้องเรียนสดสำเร็จแล้ว!");
       onCreated(data.liveClass);
       onClose();
-    } catch (err: unknown) {
+    } catch (err) {
       const msg = err instanceof Error ? err.message : "เกิดข้อผิดพลาด";
       toast.error("สร้างห้องเรียนสดไม่สำเร็จ: " + msg);
     } finally {
@@ -80,11 +85,12 @@ export function CreateLiveClassModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div
-        className="w-full max-w-lg rounded-3xl border shadow-2xl p-6 sm:p-8 space-y-6 animate-scaleIn relative"
-        style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}
-      >
+    <Portal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
+        <div
+          className="w-full max-w-lg rounded-3xl border shadow-2xl p-6 sm:p-8 space-y-6 animate-scaleIn relative"
+          style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}
+        >
         {/* Modal Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -191,8 +197,8 @@ export function CreateLiveClassModal({
                   type="number"
                   min={10}
                   max={300}
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                  value={expectedDurationMin}
+                  onChange={(e) => setExpectedDurationMin(Number(e.target.value))}
                   className="w-full px-3 py-2.5 rounded-xl border text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   style={{ backgroundColor: tx.elevated, borderColor: tx.border, color: tx.primary }}
                 />
@@ -231,6 +237,7 @@ export function CreateLiveClassModal({
         </form>
       </div>
     </div>
+    </Portal>
   );
 }
 

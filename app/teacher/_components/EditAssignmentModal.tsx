@@ -7,6 +7,7 @@ import { useUser, type Assignment, type Lesson, type QuizQuestion } from "../../
 import { QuestionEditor } from "./QuestionEditor";
 import { isoToDateInput } from "../../lib/date";
 import Swal from "sweetalert2";
+import { Portal } from "@/app/components/Portal";
 
 interface EditAssignmentModalProps {
   assignment: Assignment;
@@ -102,11 +103,12 @@ export function EditAssignmentModal({ assignment: a, onClose, lessons }: EditAss
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
-      <div
-        className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border text-left"
-        style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}
-      >
+    <Portal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
+        <div
+          className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border text-left"
+          style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}
+        >
         {/* Modal Header */}
         <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
           <div>
@@ -292,5 +294,6 @@ export function EditAssignmentModal({ assignment: a, onClose, lessons }: EditAss
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

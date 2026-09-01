@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, CheckSquare, Square } from "lucide-react";
 import type { QuizQuestion } from "../../context/UserContext";
+import { getQuestionCorrectIndices, getStudentSelectedIndices } from "@/lib/quizScoring";
 
 interface QuizQuestionRendererProps {
   question: QuizQuestion;
   questionIndex?: number;
-  userAnswer: number | string | Record<number, number> | undefined;
-  onAnswerChange: (answer: number | string | Record<number, number>) => void;
+  userAnswer: number | number[] | string | Record<number, number> | undefined;
+  onAnswerChange: (answer: number | number[] | string | Record<number, number>) => void;
 }
 
 interface MatchingOption {
@@ -49,10 +50,15 @@ function MatchingQuestionRenderer({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
-        จับคู่รายการซ้ายกับรายการขวา (คลิกซ้ายก่อน แล้วคลิกขวาเพื่อจับคู่)
-      </p>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+          จับคู่รายการซ้ายกับรายการขวา (คลิกซ้ายก่อน แล้วคลิกขวาเพื่อจับคู่)
+        </p>
+        <span className="text-[10px] text-indigo-500 font-semibold bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded">
+          * ให้คะแนนตามสัดส่วนคู่ที่จับคู่ถูกต้อง
+        </span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Left column */}
         <div className="space-y-2">
           {leftItems.map((item, idx) => {
@@ -61,6 +67,7 @@ function MatchingQuestionRenderer({
             return (
               <button
                 key={idx}
+                type="button"
                 onClick={() => {
                   if (isMatched) {
                     const newAnswer = { ...userAnswer };
@@ -71,7 +78,7 @@ function MatchingQuestionRenderer({
                     setSelectedLeft(idx);
                   }
                 }}
-                className={`w-full text-left p-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`w-full text-left p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   isSelected
                     ? "border-purple-500 bg-purple-500/20 text-purple-600 dark:text-purple-400 shadow-lg"
                     : isMatched
@@ -102,6 +109,7 @@ function MatchingQuestionRenderer({
             return (
               <button
                 key={idx}
+                type="button"
                 onClick={() => {
                   if (selectedLeft !== null && !isMatched) {
                     onAnswerChange({ ...userAnswer, [selectedLeft]: item.originalIndex });
@@ -140,30 +148,83 @@ export function QuizQuestionRenderer({
   const qType = question.questionType || "multiple_choice";
 
   if (qType === "multiple_choice") {
-    const chosenIndex = typeof userAnswer === "number" ? userAnswer : undefined;
+    const correctIndices = getQuestionCorrectIndices(question);
+    const isMultiSelect = correctIndices.length > 1;
+    const selectedIndices = getStudentSelectedIndices(userAnswer);
+
+    const handleOptionClick = (oIdx: number) => {
+      if (isMultiSelect) {
+        let nextSelected: number[];
+        if (selectedIndices.includes(oIdx)) {
+          nextSelected = selectedIndices.filter((idx) => idx !== oIdx);
+        } else {
+          nextSelected = [...selectedIndices, oIdx].sort((a, b) => a - b);
+        }
+        onAnswerChange(nextSelected);
+      } else {
+        onAnswerChange(oIdx);
+      }
+    };
+
     return (
-      <div className="grid grid-cols-1 gap-2.5">
-        {(question.options || []).map((opt, oIdx) => {
-          const isSelected = chosenIndex === oIdx;
-          return (
-            <button
-              key={oIdx}
-              onClick={() => onAnswerChange(oIdx)}
-              className={`w-full text-left p-3.5 rounded-2xl border text-xs sm:text-sm font-bold flex items-center justify-between active:scale-[0.98] cursor-pointer ${
-                isSelected
-                  ? "border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 animate-borderGlow shadow-sm"
-                  : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-              } transition-all duration-200`}
-            >
-              <span>{String.fromCharCode(65 + oIdx)}. {opt}</span>
-              {isSelected && (
-                <div className="h-5 w-5 rounded-full bg-indigo-500 flex items-center justify-center shrink-0 animate-scaleIn">
-                  <Check className="h-3 w-3 text-white" />
+      <div className="space-y-2.5 text-left">
+        {isMultiSelect && (
+          <div className="p-2.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/50 flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+              ☑️ ข้อนี้มีคำตอบที่ถูกต้อง {correctIndices.length} ข้อ (เลือกคำตอบที่ถูกต้องทั้งหมด)
+            </span>
+            <span className="text-[10px] font-semibold text-slate-500">
+              *ให้คะแนนตามสัดส่วน
+            </span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-2.5">
+          {(question.options || []).map((opt, oIdx) => {
+            const isSelected = selectedIndices.includes(oIdx);
+            return (
+              <button
+                key={oIdx}
+                type="button"
+                onClick={() => handleOptionClick(oIdx)}
+                className={`w-full text-left p-3.5 rounded-2xl border text-xs sm:text-sm font-bold flex items-center justify-between active:scale-[0.98] cursor-pointer ${
+                  isSelected
+                    ? "border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 animate-borderGlow shadow-sm"
+                    : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                } transition-all duration-200`}
+              >
+                <div className="flex items-center gap-3">
+                  {isMultiSelect ? (
+                    isSelected ? (
+                      <CheckSquare className="h-4 w-4 text-indigo-500 shrink-0" />
+                    ) : (
+                      <Square className="h-4 w-4 text-slate-400 shrink-0" />
+                    )
+                  ) : (
+                    <span
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                        isSelected
+                          ? "bg-indigo-500 text-white"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      }`}
+                    >
+                      {String.fromCharCode(65 + oIdx)}
+                    </span>
+                  )}
+                  <span>
+                    {!isMultiSelect && <span className="font-mono mr-1.5">{String.fromCharCode(65 + oIdx)}.</span>}
+                    {opt}
+                  </span>
                 </div>
-              )}
-            </button>
-          );
-        })}
+                {isSelected && !isMultiSelect && (
+                  <div className="h-5 w-5 rounded-full bg-indigo-500 flex items-center justify-center shrink-0 animate-scaleIn">
+                    <Check className="h-3 w-3 text-white" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -171,7 +232,7 @@ export function QuizQuestionRenderer({
   if (qType === "fill_blank") {
     const answerText = typeof userAnswer === "string" ? userAnswer : "";
     return (
-      <div className="space-y-2">
+      <div className="space-y-2 text-left">
         <label className="text-xs font-bold text-slate-600 dark:text-slate-400">
           กรอกคำตอบของคุณ:
         </label>

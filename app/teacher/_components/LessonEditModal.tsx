@@ -2,6 +2,7 @@ import React from "react";
 import { X, Video } from "lucide-react";
 import { tx } from "../../lib/theme";
 import type { Lesson } from "../../context/UserContext";
+import { Portal } from "@/app/components/Portal";
 
 interface LessonEditModalProps {
   editingLesson: Lesson;
@@ -27,8 +28,9 @@ export function LessonEditModal({
   updateLesson,
 }: LessonEditModalProps) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
-      <div className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
+    <Portal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
+        <div className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
         <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
           <h3 className="text-xl font-bold">แก้ไขรายละเอียดหัวข้อเรียน</h3>
           <button
@@ -116,5 +118,6 @@ export function LessonEditModal({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

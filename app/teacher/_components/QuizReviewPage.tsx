@@ -6,29 +6,9 @@ import { useRouter } from "next/navigation";
 import LoadingScreen from "../../components/LoadingScreen";
 import { QuizReviewItem } from "../../student/_components/QuizReviewItem";
 import { useUser, type QuizQuestion } from "../../context/UserContext";
+import { calculateQuestionScore } from "@/lib/quizScoring";
 import { tx } from "../../lib/theme";
 import { TeacherHeader } from "./TeacherHeader";
-
-function automaticQuestionScore(
-  question: QuizQuestion,
-  answer: number | string | Record<number, number> | undefined,
-): number {
-  const points = Number(question.points ?? 1);
-  const type = question.questionType ?? "multiple_choice";
-
-  if (type === "multiple_choice") {
-    return typeof answer === "number" && answer === question.correctIndex ? points : 0;
-  }
-  if (type === "fill_blank" && question.correctAnswer?.trim()) {
-    return typeof answer === "string" && answer.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()
-      ? points
-      : 0;
-  }
-  if (type === "matching" && question.matchingPairs && typeof answer === "object" && answer !== null && !Array.isArray(answer)) {
-    return question.matchingPairs.every((_, index) => answer[index] === index) ? points : 0;
-  }
-  return 0;
-}
 
 export function QuizReviewPage({ submissionId }: { submissionId: string }) {
   const router = useRouter();
@@ -51,14 +31,16 @@ export function QuizReviewPage({ submissionId }: { submissionId: string }) {
   const questionScores = useMemo(() => {
     if (!submission || questions.length === 0) return [];
 
-    const savedScores = submission.questionScores?.length === questions.length
+    const autoScores = questions.map((question, index) => {
+      const answer = Array.isArray(submission.answers)
+        ? submission.answers[index]
+        : (submission.answers as Record<number, any> | undefined)?.[index];
+      return calculateQuestionScore(question, answer).score;
+    });
+
+    const savedScores = submission.questionScores && Array.isArray(submission.questionScores) && submission.questionScores.length === questions.length
       ? submission.questionScores
-      : questions.map((question, index) => {
-          const answer = Array.isArray(submission.answers)
-            ? submission.answers[index]
-            : submission.answers?.[index];
-          return automaticQuestionScore(question, answer);
-        });
+      : autoScores;
     const overrides = questionScoreOverrides[submission.id] ?? {};
 
     return savedScores.map((score, index) => overrides[index] ?? score);
@@ -141,7 +123,7 @@ export function QuizReviewPage({ submissionId }: { submissionId: string }) {
 
           <div className="rounded-2xl border px-5 py-3 text-right min-w-44" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
             <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: tx.muted }}>คะแนนรวม</p>
-            <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{totalScore} <span className="text-sm">/ {assignment.points}</span></p>
+            <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{totalScore.toFixed(2)} <span className="text-sm">/ {assignment.points}</span></p>
           </div>
         </div>
 
@@ -184,6 +166,8 @@ export function QuizReviewPage({ submissionId }: { submissionId: string }) {
               questionIndex={questionIndex}
               studentAnswer={studentAnswer}
               showCorrectAnswer={true}
+              showScore={true}
+              earnedPoints={questionScores[questionIndex]}
               isTeacher={true}
             />
             <div className="flex items-center justify-between gap-4 rounded-xl border px-4 py-3" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
@@ -213,7 +197,7 @@ export function QuizReviewPage({ submissionId }: { submissionId: string }) {
             disabled={isSaving || questionScores.length !== questions.length}
             className="btn-primary flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold cursor-pointer disabled:opacity-50"
           >
-            <Save className="h-4 w-4" /> {isSaving ? "กำลังบันทึก..." : `บันทึกคะแนนรวม ${totalScore}/${assignment.points}`}
+            <Save className="h-4 w-4" /> {isSaving ? "กำลังบันทึก..." : `บันทึกคะแนนรวม ${totalScore.toFixed(2)}/${assignment.points}`}
           </button>
         </div>
       </main>

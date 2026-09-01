@@ -97,11 +97,11 @@ export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTa
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-slideInUp">
-        <h2 className="text-xl font-extrabold">{activeLesson.title}</h2>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4 animate-slideInUp">
+        <h2 className="text-lg md:text-xl font-extrabold">{activeLesson.title}</h2>
         {hasTasks ? (
           <div
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold shadow-sm border ${
+            className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-[11px] md:text-xs font-bold shadow-sm border ${
               isCompleted
                 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-400"
                 : "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:bg-amber-950/30 dark:text-amber-400"
@@ -110,13 +110,15 @@ export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTa
           >
             {isCompleted ? (
               <>
-                <CheckCircle2 className="h-4 w-4 text-emerald-500 animate-scaleIn" />
-                <span>เรียนเสร็จแล้ว (ทำภาระงานครบ)</span>
+                <CheckCircle2 className="h-3.5 w-3.5 md:h-4 md:w-4 text-emerald-500 animate-scaleIn" />
+                <span className="hidden sm:inline">เรียนเสร็จแล้ว (ทำภาระงานครบ)</span>
+                <span className="sm:hidden">เสร็จแล้ว</span>
               </>
             ) : (
               <>
-                <Lock className="h-3.5 w-3.5 text-amber-500" />
-                <span>ต้องส่งงาน / ทำควิซในบทนี้ก่อน</span>
+                <Lock className="h-3 w-3 md:h-3.5 md:w-3.5 text-amber-500" />
+                <span className="hidden sm:inline">ต้องส่งงาน / ทำควิซในบทนี้ก่อน</span>
+                <span className="sm:hidden">ต้องส่งงาน</span>
               </>
             )}
           </div>
@@ -128,21 +130,22 @@ export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTa
                 toast.success("บันทึกว่าเรียนบทเรียนนี้แล้ว!");
               }
             }}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm border ${
+            className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-[11px] md:text-xs font-bold transition-all active:scale-95 shadow-sm border ${
               isCompleted
                 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-400"
                 : "bg-indigo-50/70 hover:bg-indigo-100 text-indigo-600 border-indigo-500/10 dark:bg-indigo-950/30 dark:text-indigo-400"
             }`}
           >
-            <CheckCircle2 className={`h-4 w-4 ${isCompleted ? "text-emerald-500 animate-scaleIn" : ""}`} />
-            {isCompleted ? "เรียนเสร็จแล้ว" : "ทำเครื่องหมายว่าเรียนแล้ว"}
+            <CheckCircle2 className={`h-3.5 w-3.5 md:h-4 md:w-4 ${isCompleted ? "text-emerald-500 animate-scaleIn" : ""}`} />
+            <span className="hidden sm:inline">{isCompleted ? "เรียนเสร็จแล้ว" : "ทำเครื่องหมายว่าเรียนแล้ว"}</span>
+            <span className="sm:hidden">{isCompleted ? "เรียนแล้ว" : "ทำเครื่องหมาย"}</span>
           </button>
         )}
       </div>
 
       {/* Video player embedded */}
       {ytId ? (
-        <div className="aspect-video w-full rounded-2xl overflow-hidden shadow-lg border relative group/video" style={{ borderColor: tx.borderS }}>
+        <div className="aspect-video w-full rounded-xl md:rounded-2xl overflow-hidden shadow-lg border relative group/video" style={{ borderColor: tx.borderS }}>
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover/video:opacity-100 transition-opacity duration-300 pointer-events-none z-10" />
           <iframe
             id={`yt-player-${activeLesson.id}`}
@@ -155,23 +158,25 @@ export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTa
         </div>
       ) : (
         activeLesson.videoUrl && (
-          <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs animate-slideInUp">
+          <div className="p-3 md:p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs animate-slideInUp">
             ลิงก์ภายนอก: <a href={activeLesson.videoUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-500 underline break-all hover:text-indigo-600 transition-colors">{activeLesson.videoUrl}</a>
           </div>
         )
       )}
 
       {/* Subtabs selection */}
-      <div className="flex space-x-6 border-b pb-2 pt-2" style={{ borderColor: tx.borderS }}>
+      <div className="flex space-x-4 md:space-x-6 border-b pb-2 pt-2 overflow-x-auto" style={{ borderColor: tx.borderS }}>
         <button onClick={() => setStudyTab("overview")}
-          className="text-xs font-bold pb-2 border-b-2 transition-all duration-200 px-1 active:scale-95"
+          className="text-[11px] md:text-xs font-bold pb-2 border-b-2 transition-all duration-200 px-1 active:scale-95 whitespace-nowrap"
           style={studyTab === "overview" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
-          รายละเอียดบทเรียน (Overview)
+          <span className="hidden sm:inline">รายละเอียดบทเรียน (Overview)</span>
+          <span className="sm:hidden">รายละเอียด</span>
         </button>
         <button onClick={() => setStudyTab("tasks")}
-          className="text-xs font-bold pb-2 border-b-2 transition-all duration-200 px-1 active:scale-95"
+          className="text-[11px] md:text-xs font-bold pb-2 border-b-2 transition-all duration-200 px-1 active:scale-95 whitespace-nowrap"
           style={studyTab === "tasks" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
-          งาน & ควิซแบบทดสอบ (Tasks)
+          <span className="hidden sm:inline">งาน & ควิซแบบทดสอบ (Tasks)</span>
+          <span className="sm:hidden">งาน & ควิซ</span>
         </button>
       </div>
 

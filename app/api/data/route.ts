@@ -1,5 +1,6 @@
 import pool, { ensureTables } from "@/lib/db";
 import { authenticate } from "@/lib/auth";
+import { calculateQuestionScore } from "@/lib/quizScoring";
 
 export async function GET(request: Request) {
   await ensureTables();
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
 
   const quizQuestionsQuery = pool.query(`
     SELECT qq.id, qq.assignment_id, qq.question_text, qq.question_type, qq.options,
-           qq.correct_index, qq.correct_answer, qq.matching_pairs, qq.explanation, qq.points, qq.is_required, qq.sort_order
+           qq.correct_index, qq.correct_indices, qq.correct_answer, qq.matching_pairs, qq.explanation, qq.points, qq.is_required, qq.sort_order
     FROM quiz_questions qq
     ORDER BY qq.assignment_id, qq.sort_order
   `);
@@ -228,6 +229,11 @@ export async function GET(request: Request) {
           questionType: q.question_type || "multiple_choice",
           options: q.options,
           correctIndex: q.correct_index,
+          correctIndices: Array.isArray(q.correct_indices)
+            ? q.correct_indices
+            : (typeof q.correct_indices === "string"
+                ? (() => { try { return JSON.parse(q.correct_indices); } catch { return undefined; } })()
+                : (q.correct_indices || (q.correct_index !== null && q.correct_index !== undefined ? [q.correct_index] : undefined))),
           correctAnswer: q.correct_answer,
           matchingPairs: q.matching_pairs,
           explanation: q.explanation,
@@ -247,8 +253,53 @@ export async function GET(request: Request) {
   }));
 
   const submissions = submissionsRes.rows.map((s) => {
-    const score = s.score === null || s.score === undefined ? undefined : Number(s.score);
+    let questionScores: number[] | undefined = Array.isArray(s.question_scores)
+      ? s.question_scores.map(Number)
+      : (typeof s.question_scores === "string"
+          ? (() => { try { const p = JSON.parse(s.question_scores); return Array.isArray(p) ? p.map(Number) : undefined; } catch { return undefined; } })()
+          : undefined);
+
+    let score = s.score === null || s.score === undefined ? undefined : Number(s.score);
     const previousScore = s.previous_score === null || s.previous_score === undefined ? undefined : Number(s.previous_score);
+
+    // If quiz submission has no manual question_scores override and contains only auto-gradable questions,
+    // ensure score is strictly in sync with the current quiz questions and points
+    if (s.type === "quiz" && !questionScores) {
+      const qList = questionsByAssignment[s.assignment_id];
+      const hasManualQuestions = qList?.some(
+        (q) => q.question_type === "essay" || (q.question_type === "fill_blank" && !q.correct_answer?.trim())
+      );
+      if (!hasManualQuestions && qList && qList.length > 0) {
+        let answers = s.answers;
+        if (typeof answers === "string") {
+          try { answers = JSON.parse(answers); } catch {}
+        }
+        if (answers !== undefined && answers !== null) {
+          let calculatedTotal = 0;
+          for (let i = 0; i < qList.length; i++) {
+            const rawQ = qList[i];
+            const qObj = {
+              question: rawQ.question_text,
+              questionType: rawQ.question_type || "multiple_choice",
+              options: rawQ.options,
+              correctIndex: rawQ.correct_index,
+              correctIndices: Array.isArray(rawQ.correct_indices)
+                ? rawQ.correct_indices
+                : (typeof rawQ.correct_indices === "string"
+                    ? (() => { try { return JSON.parse(rawQ.correct_indices); } catch { return undefined; } })()
+                    : (rawQ.correct_indices || (rawQ.correct_index !== null && rawQ.correct_index !== undefined ? [rawQ.correct_index] : undefined))),
+              correctAnswer: rawQ.correct_answer,
+              matchingPairs: rawQ.matching_pairs,
+              explanation: rawQ.explanation,
+              points: rawQ.points !== null && rawQ.points !== undefined ? Number(rawQ.points) : 1,
+            };
+            const ans = Array.isArray(answers) ? answers[i] : (answers as Record<number, any>)?.[i];
+            calculatedTotal += calculateQuestionScore(qObj, ans).score;
+          }
+          score = calculatedTotal;
+        }
+      }
+    }
 
     return {
       id: s.id,
@@ -259,7 +310,7 @@ export async function GET(request: Request) {
       type: s.type,
       fileName: s.file_name || undefined,
       score: Number.isFinite(score) ? score : undefined,
-      questionScores: Array.isArray(s.question_scores) ? s.question_scores.map(Number) : undefined,
+      questionScores,
       previousScore: Number.isFinite(previousScore) ? previousScore : undefined,
       answers: s.answers || undefined,
     };

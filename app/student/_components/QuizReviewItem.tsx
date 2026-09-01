@@ -1,11 +1,12 @@
 import React from "react";
 import { tx } from "../../lib/theme";
 import type { QuizQuestion } from "../../context/UserContext";
+import { calculateQuestionScore, getQuestionCorrectIndices, getStudentSelectedIndices } from "@/lib/quizScoring";
 
 interface QuizReviewItemProps {
   question: QuizQuestion;
   questionIndex: number;
-  studentAnswer: number | string | Record<number, number> | undefined;
+  studentAnswer: number | number[] | string | Record<number, number> | undefined;
   showCorrectAnswer: boolean;
   showScore?: boolean;
   earnedPoints?: number;
@@ -21,78 +22,50 @@ export function QuizReviewItem({
   earnedPoints,
   isTeacher = false,
 }: QuizReviewItemProps) {
-  let isCorrect: boolean | null = null;
-  let answerDisplay = "ไม่ได้ตอบ";
-  let correctAnswerDisplay = "";
-
   const qType = question.questionType || "multiple_choice";
   const pts = question.points !== undefined ? question.points : 1;
 
-  // Calculate correctness and displays based on question type
-  if (qType === "multiple_choice" && question.options && question.correctIndex !== undefined) {
-    if (typeof studentAnswer === "number") {
-      isCorrect = studentAnswer === question.correctIndex;
-      const optText = question.options[studentAnswer];
-      answerDisplay = optText ? `${String.fromCharCode(65 + studentAnswer)}. ${optText}` : "ไม่ได้ตอบ";
-    }
-    const correctOptText = question.options[question.correctIndex];
-    correctAnswerDisplay = correctOptText ? `${String.fromCharCode(65 + question.correctIndex)}. ${correctOptText}` : "";
-  } else if (qType === "fill_blank") {
-    if (typeof studentAnswer === "string") {
-      answerDisplay = studentAnswer;
-    }
-    if (question.correctAnswer && question.correctAnswer.trim()) {
-      if (typeof studentAnswer === "string") {
-        isCorrect = studentAnswer.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase();
-      } else {
-        isCorrect = false;
-      }
-      correctAnswerDisplay = question.correctAnswer;
-    } else {
-      isCorrect = null; // Manual grading
-      correctAnswerDisplay = "ผู้สอนเป็นผู้ตรวจและให้คะแนน";
-    }
-  } else if (qType === "matching" && question.matchingPairs) {
-    if (typeof studentAnswer === "object" && !Array.isArray(studentAnswer)) {
-      const totalPairs = question.matchingPairs.length;
-      let correctCount = 0;
-      let answeredCount = 0;
+  const scoreResult = calculateQuestionScore(question, studentAnswer);
+  const hasManualScore = typeof earnedPoints === "number" && Number.isFinite(earnedPoints);
+  const displayEarned = hasManualScore ? earnedPoints : scoreResult.score;
+  const isGraded = hasManualScore || scoreResult.isCorrect !== null;
 
-      for (let i = 0; i < totalPairs; i++) {
-        if (typeof studentAnswer[i] === "number") {
-          answeredCount++;
-        }
-        if (studentAnswer[i] === i) {
-          correctCount++;
-        }
-      }
+  const isCorrect = scoreResult.isCorrect !== null
+    ? scoreResult.isCorrect
+    : (hasManualScore ? displayEarned >= pts : null);
 
-      isCorrect = correctCount === totalPairs;
-      // In "answers only" mode, never disclose correctness. Show only what the
-      // student submitted; the detailed neutral list below shows each pairing.
-      answerDisplay = showCorrectAnswer
-        ? `จับคู่ถูกต้อง ${correctCount}/${totalPairs} คู่`
-        : `จับคู่แล้ว ${answeredCount}/${totalPairs} คู่`;
-    }
-    correctAnswerDisplay = question.matchingPairs.map((p, i) => `${i + 1}. ${p.left} ⇄ ${p.right}`).join(", ");
-  } else if (qType === "essay") {
+  const isPartial = scoreResult.isPartial || (hasManualScore && displayEarned > 0 && displayEarned < pts);
+
+  let answerDisplay = scoreResult.studentAnswerText;
+  let correctAnswerDisplay = scoreResult.correctAnswerText;
+
+  if (qType === "essay") {
     if (typeof studentAnswer === "string") {
       answerDisplay = studentAnswer || "ไม่ได้ตอบ";
     }
-    isCorrect = null; // Manual grading
-    correctAnswerDisplay = question.correctAnswer ? `แนวทางเฉลย: ${question.correctAnswer}` : "รอผู้สอนตรวจให้คะแนน";
+    correctAnswerDisplay = question.correctAnswer
+      ? `แนวทางเฉลย: ${question.correctAnswer}`
+      : (isGraded ? `ผู้สอนตรวจให้คะแนนแล้ว (${displayEarned.toFixed(2)} / ${pts} คะแนน)` : "รอผู้สอนตรวจให้คะแนน");
+  } else if (qType === "fill_blank" && !question.correctAnswer?.trim()) {
+    correctAnswerDisplay = isGraded
+      ? `ผู้สอนตรวจให้คะแนนแล้ว (${displayEarned.toFixed(2)} / ${pts} คะแนน)`
+      : "รอผู้สอนตรวจให้คะแนน";
   }
 
-  const borderColor = showCorrectAnswer && isCorrect !== null ? (isCorrect ? "#10b981" : "#f43f5e") : undefined;
+  const borderColor = showCorrectAnswer && isGraded
+    ? (isCorrect ? "#10b981" : isPartial ? "#f59e0b" : "#f43f5e")
+    : undefined;
 
   return (
     <div
       className={`p-4 rounded-2xl border text-xs space-y-3 animate-slideInUp stagger-${Math.min(questionIndex + 1, 6)} ${
-        showCorrectAnswer && isCorrect === true
+        showCorrectAnswer && isGraded && isCorrect === true
           ? "bg-emerald-50/20 dark:bg-emerald-950/10"
-          : showCorrectAnswer && isCorrect === false
-            ? "bg-rose-50/20 dark:bg-rose-950/10"
-            : ""
+          : showCorrectAnswer && isGraded && isPartial
+            ? "bg-amber-50/20 dark:bg-amber-950/10"
+            : showCorrectAnswer && isGraded && isCorrect === false
+              ? "bg-rose-50/20 dark:bg-rose-950/10"
+              : ""
       }`}
       style={{ borderColor: borderColor ?? tx.borderS }}
     >
@@ -103,7 +76,7 @@ export function QuizReviewItem({
           </span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
             {qType === "multiple_choice"
-              ? "ปรนัย"
+              ? (getQuestionCorrectIndices(question).length > 1 ? "ปรนัย (หลายคำตอบ)" : "ปรนัย")
               : qType === "fill_blank"
                 ? "เติมคำ"
                 : qType === "matching"
@@ -112,17 +85,26 @@ export function QuizReviewItem({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {showCorrectAnswer && isCorrect !== null && (
+          {showCorrectAnswer && isGraded && (
             <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-              isCorrect ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400"
+              isCorrect
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
+                : isPartial
+                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                  : "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400"
             }`}>
-              {isCorrect ? "✓ ถูกต้อง" : "✗ ไม่ถูกต้อง"}
+              {isCorrect ? "✓ ถูกต้อง (เต็ม)" : isPartial ? "⚡ ได้คะแนนบางส่วน" : "✗ ไม่ถูกต้อง / 0 คะแนน"}
+            </span>
+          )}
+          {!isGraded && !isTeacher && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+              ⏳ รอผู้สอนตรวจ
             </span>
           )}
           {showScore && (
             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
-              {typeof earnedPoints === "number" && Number.isFinite(earnedPoints)
-                ? `${earnedPoints} / ${pts} คะแนน`
+              {isGraded
+                ? `${displayEarned.toFixed(2)} / ${pts} คะแนน`
                 : isTeacher
                   ? `${pts} คะแนน`
                   : `รอตรวจ / ${pts} คะแนน`}
@@ -139,6 +121,9 @@ export function QuizReviewItem({
       <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 space-y-1">
         <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
           <span>{isTeacher ? "คำตอบที่นักเรียนส่ง:" : "คำตอบของคุณ:"}</span>
+          {showCorrectAnswer && scoreResult.detailText && (
+            <span className="text-[10px] font-bold text-indigo-500">{scoreResult.detailText}</span>
+          )}
         </div>
         {qType === "essay" ? (
           <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm font-sans whitespace-pre-wrap leading-relaxed">
@@ -147,11 +132,11 @@ export function QuizReviewItem({
         ) : (
           <p
             className={
-              showCorrectAnswer && isCorrect !== null
-                ? (isCorrect ? "text-emerald-600 font-bold" : "text-rose-600 font-bold")
+              showCorrectAnswer && isGraded
+                ? (isCorrect ? "text-emerald-600 font-bold" : isPartial ? "text-amber-600 font-bold" : "text-rose-600 font-bold")
                 : "font-semibold"
             }
-            style={!showCorrectAnswer || isCorrect === null ? { color: tx.secondary } : {}}
+            style={!showCorrectAnswer || !isGraded ? { color: tx.secondary } : {}}
           >
             {answerDisplay}
           </p>

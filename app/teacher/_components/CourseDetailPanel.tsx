@@ -78,8 +78,10 @@ export function CourseDetailPanel({
     <div className="space-y-6 animate-fadeIn text-left">
       {/* Back Button & Refresh Button */}
       <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
-        <button onClick={() => { setSelectedCourseId(null); setShowForm(false); }} className="flex items-center gap-2 font-bold hover:text-indigo-500 dark:hover:text-indigo-400 transition-all duration-200 active:scale-95">
-          <ArrowLeft className="h-5 w-5" /> กลับหน้าคอร์สเรียนทั้งหมด
+        <button onClick={() => { setSelectedCourseId(null); setShowForm(false); }} className="flex items-center gap-2 font-bold hover:text-indigo-500 dark:hover:text-indigo-400 transition-all duration-200 active:scale-95 text-sm md:text-base">
+          <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
+          <span className="hidden sm:inline">กลับหน้าคอร์สเรียนทั้งหมด</span>
+          <span className="sm:hidden">กลับ</span>
         </button>
         <button
           type="button"
@@ -90,7 +92,8 @@ export function CourseDetailPanel({
           title="คลิกเพื่อดึงข้อมูลบทเรียนและงานล่าสุดจากเซิร์ฟเวอร์"
         >
           <RefreshCw className={`h-3.5 w-3.5 text-indigo-500 ${refreshing ? "animate-spin" : ""}`} />
-          <span>{refreshing ? "กำลังอัปเดต..." : "รีเฟรชข้อมูล"}</span>
+          <span className="hidden sm:inline">{refreshing ? "กำลังอัปเดต..." : "รีเฟรชข้อมูล"}</span>
+          <span className="sm:hidden">{refreshing ? "อัปเดต..." : "รีเฟรช"}</span>
         </button>
       </div>
 
@@ -123,16 +126,18 @@ export function CourseDetailPanel({
 
 
       {/* Tabs */}
-      <div className="flex space-x-6 border-b pb-3 mb-6" style={{ borderColor: tx.borderS }}>
-        <button onClick={() => setDetailTab("assignments")} className="text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0 btn-press"
+      <div className="flex space-x-3 md:space-x-6 border-b pb-3 mb-6 overflow-x-auto" style={{ borderColor: tx.borderS }}>
+        <button onClick={() => setDetailTab("assignments")} className="text-xs md:text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0 btn-press whitespace-nowrap"
           style={detailTab === "assignments" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
-          งาน & แบบทดสอบ (Assignments & Quizzes)
+          <span className="hidden sm:inline">งาน & แบบทดสอบ (Assignments & Quizzes)</span>
+          <span className="sm:hidden">งาน & แบบทดสอบ</span>
         </button>
-        <button onClick={() => setDetailTab("lessons")} className="text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0 btn-press"
+        <button onClick={() => setDetailTab("lessons")} className="text-xs md:text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0 btn-press whitespace-nowrap"
           style={detailTab === "lessons" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
-          โครงสร้างวิชา (Lessons)
+          <span className="hidden sm:inline">โครงสร้างวิชา (Lessons)</span>
+          <span className="sm:hidden">โครงสร้างวิชา</span>
         </button>
-        <button onClick={() => setDetailTab("students")} className="text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0 btn-press"
+        <button onClick={() => setDetailTab("students")} className="text-xs md:text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0 btn-press whitespace-nowrap"
           style={detailTab === "students" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
           รายชื่อนักเรียน
         </button>

@@ -3,6 +3,7 @@ import { Plus, Video, Edit2, Trash2, FolderPlus, BookOpen, Layers, ChevronDown, 
 import { tx, card } from "@/app/lib/theme";
 import { alert } from "@/lib/swal";
 import { useUser, type Chapter, type Lesson, type Topic } from "@/app/context/UserContext";
+import { Portal } from "@/app/components/Portal";
 
 interface LessonsPanelProps {
   lessons: Lesson[];
@@ -135,47 +136,51 @@ export function LessonsPanel({
   };
 
   return (
-    <div className="rounded-3xl p-6 shadow-sm border space-y-6" style={card.style}>
+    <div className="rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm border space-y-4 md:space-y-6" style={card.style}>
       {/* Panel Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 gap-3" style={{ borderColor: tx.borderS }}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 md:pb-4 gap-3" style={{ borderColor: tx.borderS }}>
         <div>
-          <h3 className="font-bold text-lg flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-indigo-500" />
+          <h3 className="font-bold text-base md:text-lg flex items-center gap-2">
+            <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-indigo-500" />
             โครงสร้างบทเรียนหลักสูตร
           </h3>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className="text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
               {courseChapters.length} หน่วยเรียน
             </span>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300">
+            <span className="text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300">
               {courseLessons.length} บทเรียน
             </span>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setShowAddChapterModal(true)}
-            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3 md:px-3.5 py-2 text-[11px] md:text-xs font-bold rounded-xl border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <FolderPlus className="h-4 w-4" /> + เพิ่มหน่วยเรียน (Chapter)
+            <FolderPlus className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">+ เพิ่มหน่วยเรียน (Chapter)</span>
+            <span className="sm:hidden">+ หน่วยเรียน</span>
           </button>
           <button
             type="button"
             onClick={() => setShowAddLessonModal(true)}
-            className="btn-primary px-4 py-2 text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer"
+            className="btn-primary px-3 md:px-4 py-2 text-[11px] md:text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer"
           >
-            <Plus className="h-4 w-4" /> เพิ่มบทเรียนใหม่
+            <Plus className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">เพิ่มบทเรียนใหม่</span>
+            <span className="sm:hidden">+ บทเรียน</span>
           </button>
         </div>
       </div>
 
       {/* Chapters Tree List */}
       {courseChapters.length === 0 ? (
-        <div className="p-10 text-center rounded-2xl border border-dashed space-y-3" style={{ borderColor: tx.border }}>
-          <Layers className="h-10 w-10 mx-auto text-slate-400" />
-          <p className="text-sm font-semibold" style={{ color: tx.muted }}>
+        <div className="p-6 md:p-10 text-center rounded-2xl border border-dashed space-y-3" style={{ borderColor: tx.border }}>
+          <Layers className="h-8 w-8 md:h-10 md:w-10 mx-auto text-slate-400" />
+          <p className="text-xs md:text-sm font-semibold" style={{ color: tx.muted }}>
             ยังไม่มีหน่วยเรียนในหลักสูตรนี้
           </p>
           <button
@@ -187,7 +192,7 @@ export function LessonsPanel({
           </button>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-3 md:space-y-5">
           {courseChapters.map((chap, chapIdx) => {
             const chapTopics = topics.filter((t) => t.chapterId === chap.id);
             const isCollapsed = collapsedChapters[chap.id];
@@ -195,19 +200,19 @@ export function LessonsPanel({
             return (
               <div
                 key={chap.id}
-                className="rounded-2xl border overflow-hidden transition-all shadow-sm"
+                className="rounded-xl md:rounded-2xl border overflow-hidden transition-all shadow-sm"
                 style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}
               >
                 {/* Chapter Header */}
                 <div
-                  className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b"
+                  className="p-3 md:p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 md:gap-3 border-b"
                   style={{ backgroundColor: tx.elevated, borderColor: tx.borderS }}
                 >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-1 min-w-0 w-full">
                     <button
                       type="button"
                       onClick={() => toggleChapterCollapse(chap.id)}
-                      className="p-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/40 text-slate-500 cursor-pointer"
+                      className="p-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/40 text-slate-500 cursor-pointer shrink-0"
                     >
                       {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </button>
@@ -218,31 +223,31 @@ export function LessonsPanel({
                           type="text"
                           value={editChapterTitle}
                           onChange={(e) => setEditChapterTitle(e.target.value)}
-                          className="px-3 py-1.5 rounded-lg border text-sm font-bold w-full bg-transparent"
+                          className="px-2 md:px-3 py-1.5 rounded-lg border text-xs md:text-sm font-bold w-full bg-transparent"
                           style={{ borderColor: tx.border }}
                           autoFocus
                         />
                         <button
                           type="button"
                           onClick={() => handleUpdateChapterSubmit(chap.id)}
-                          className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold cursor-pointer"
+                          className="px-2 md:px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] md:text-xs font-bold cursor-pointer shrink-0"
                         >
                           บันทึก
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditingChapterId(null)}
-                          className="px-2 py-1.5 text-xs text-slate-400 cursor-pointer"
+                          className="px-2 py-1.5 text-[10px] md:text-xs text-slate-400 cursor-pointer shrink-0"
                         >
                           ยกเลิก
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      <div className="flex items-center gap-2 truncate min-w-0 flex-1">
+                        <span className="text-[10px] md:text-xs font-mono font-bold px-1.5 md:px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0">
                           หน่วยที่ {chapIdx + 1}
                         </span>
-                        <h4 className="font-bold text-base text-slate-800 dark:text-slate-100 truncate">
+                        <h4 className="font-bold text-sm md:text-base text-slate-800 dark:text-slate-100 truncate">
                           {chap.title}
                         </h4>
                       </div>
@@ -250,17 +255,18 @@ export function LessonsPanel({
                   </div>
 
                   {/* Chapter Actions */}
-                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                  <div className="flex items-center gap-1 md:gap-1.5 shrink-0 self-end sm:self-auto">
                     <button
                       type="button"
                       onClick={() => {
                         setAddingTopicChapterId(addingTopicChapterId === chap.id ? null : chap.id);
                         setNewTopicTitle("");
                       }}
-                      className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 text-xs font-bold hover:bg-indigo-100 cursor-pointer flex items-center gap-1"
+                      className="px-2 md:px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 text-[10px] md:text-xs font-bold hover:bg-indigo-100 cursor-pointer flex items-center gap-1"
                       title="เพิ่มเรื่องย่อย"
                     >
-                      <Plus className="h-3.5 w-3.5" /> เพิ่มเรื่อง
+                      <Plus className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                      <span className="hidden sm:inline">เพิ่มเรื่อง</span>
                     </button>
                     <button
                       type="button"
@@ -268,25 +274,25 @@ export function LessonsPanel({
                         setEditingChapterId(chap.id);
                         setEditChapterTitle(chap.title);
                       }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                      className="p-1 md:p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                       title="แก้ไขชื่อหน่วยเรียน"
                     >
-                      <Edit2 className="h-3.5 w-3.5" />
+                      <Edit2 className="h-3 w-3 md:h-3.5 md:w-3.5" />
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteChapter(chap.id, chap.title)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                      className="p-1 md:p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                       title="ลบหน่วยเรียน"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-3 w-3 md:h-3.5 md:w-3.5" />
                     </button>
                   </div>
                 </div>
 
                 {/* Inline Add Topic Form */}
                 {addingTopicChapterId === chap.id && (
-                  <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border-b flex items-center gap-2" style={{ borderColor: tx.borderS }}>
+                  <div className="p-2 md:p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border-b flex flex-col sm:flex-row items-stretch sm:items-center gap-2" style={{ borderColor: tx.borderS }}>
                     <input
                       type="text"
                       value={newTopicTitle}
@@ -296,26 +302,28 @@ export function LessonsPanel({
                       style={{ borderColor: tx.border }}
                       autoFocus
                     />
-                    <button
-                      type="button"
-                      onClick={() => handleAddTopicSubmit(chap.id)}
-                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold cursor-pointer"
-                    >
-                      เพิ่มเรื่อง
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAddingTopicChapterId(null)}
-                      className="px-2 py-1.5 text-xs text-slate-400 cursor-pointer"
-                    >
-                      ยกเลิก
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAddTopicSubmit(chap.id)}
+                        className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold cursor-pointer flex-1 sm:flex-none"
+                      >
+                        เพิ่มเรื่อง
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAddingTopicChapterId(null)}
+                        className="px-2 py-1.5 text-xs text-slate-400 cursor-pointer"
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {/* Chapter Body (Topics & Lessons) */}
                 {!isCollapsed && (
-                  <div className="p-4 space-y-4">
+                  <div className="p-3 md:p-4 space-y-3 md:space-y-4">
                     {chapTopics.length === 0 ? (
                       <p className="text-xs text-slate-400 italic text-center py-2">
                         ยังไม่มีหัวข้อ/เรื่องในหน่วยนี้ (กด &ldquo;+ เพิ่มเรื่อง&rdquo; ด้านบนเพื่อเพิ่ม)
@@ -325,56 +333,56 @@ export function LessonsPanel({
                         const topicLessons = lessons.filter((l) => l.topicId === top.id);
 
                         return (
-                          <div key={top.id} className="space-y-2 border-l-2 border-indigo-500/30 pl-3 sm:pl-4">
+                          <div key={top.id} className="space-y-2 border-l-2 border-indigo-500/30 pl-2 md:pl-3 sm:pl-4">
                             {/* Topic Sub-header */}
-                            <div className="flex items-center justify-between gap-2 py-1">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 py-1">
                               {editingTopicId === top.id ? (
-                                <div className="flex items-center gap-2 flex-1 max-w-md">
+                                <div className="flex items-center gap-2 flex-1 max-w-md w-full">
                                   <input
                                     type="text"
                                     value={editTopicTitle}
                                     onChange={(e) => setEditTopicTitle(e.target.value)}
-                                    className="px-3 py-1 rounded-lg border text-xs font-bold w-full bg-transparent"
+                                    className="px-2 md:px-3 py-1 rounded-lg border text-xs font-bold w-full bg-transparent"
                                     style={{ borderColor: tx.border }}
                                     autoFocus
                                   />
                                   <button
                                     type="button"
                                     onClick={() => handleUpdateTopicSubmit(top.id)}
-                                    className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold cursor-pointer"
+                                    className="px-2 md:px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-[10px] md:text-xs font-bold cursor-pointer shrink-0"
                                   >
                                     บันทึก
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => setEditingTopicId(null)}
-                                    className="px-2 py-1 text-xs text-slate-400 cursor-pointer"
+                                    className="px-2 py-1 text-[10px] md:text-xs text-slate-400 cursor-pointer shrink-0"
                                   >
                                     ยกเลิก
                                   </button>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <span className="text-[10px] md:text-xs font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
                                     เรื่องที่ {chapIdx + 1}.{topIdx + 1}
                                   </span>
-                                  <h5 className="font-bold text-sm text-slate-700 dark:text-slate-200 truncate">
+                                  <h5 className="font-bold text-xs md:text-sm text-slate-700 dark:text-slate-200 truncate">
                                     {top.title}
                                   </h5>
-                                  <span className="text-[10px] px-2 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                  <span className="text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
                                     {topicLessons.length} บทเรียน
                                   </span>
                                 </div>
                               )}
 
                               {/* Topic Actions */}
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setShowAddLessonModal(true);
                                   }}
-                                  className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-0.5 cursor-pointer"
+                                  className="text-[10px] md:text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-0.5 cursor-pointer"
                                 >
                                   + บทเรียน
                                 </button>
@@ -413,14 +421,14 @@ export function LessonsPanel({
                                   return (
                                     <div
                                       key={l.id}
-                                      className={`p-3.5 rounded-xl border text-left flex flex-col sm:flex-row justify-between sm:items-center gap-3 transition-all ${
+                                      className={`p-2.5 md:p-3.5 rounded-xl border text-left flex flex-col gap-2 md:gap-3 transition-all ${
                                         isPub ? "hover:border-indigo-500/30" : "opacity-60 bg-slate-50 dark:bg-slate-900/50"
                                       }`}
                                       style={{ borderColor: tx.borderS, backgroundColor: isPub ? tx.surface : undefined }}
                                     >
                                       <div className="space-y-1 flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                          <h6 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100">
+                                          <h6 className="font-bold text-xs md:text-sm text-slate-800 dark:text-slate-100 break-words">
                                             {l.title}
                                           </h6>
                                           {!isPub && (
@@ -435,14 +443,14 @@ export function LessonsPanel({
                                           )}
                                         </div>
                                         {l.description && (
-                                          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: tx.muted }}>
+                                          <p className="text-[10px] md:text-[11px] leading-relaxed line-clamp-2" style={{ color: tx.muted }}>
                                             {l.description}
                                           </p>
                                         )}
                                         {l.videoUrl && (
                                           <div className="flex items-center gap-1.5 mt-1">
                                             <Video className="h-3 w-3 text-red-500 shrink-0" />
-                                            <span className="text-[10px] font-mono truncate max-w-[250px]" style={{ color: tx.faint }}>
+                                            <span className="text-[10px] font-mono truncate max-w-[200px] md:max-w-[250px]" style={{ color: tx.faint }}>
                                               {l.videoUrl}
                                             </span>
                                           </div>
@@ -450,31 +458,31 @@ export function LessonsPanel({
                                       </div>
 
                                       {/* Lesson Control Actions */}
-                                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                      <div className="flex items-center gap-1 md:gap-2 shrink-0 flex-wrap">
                                         <button
                                           type="button"
                                           onClick={() => toggleLessonLocked(l.id, !isLocked)}
-                                          className={`p-1.5 rounded-lg border text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                                          className={`p-1.5 rounded-lg border text-[10px] md:text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
                                             isLocked
                                               ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
                                               : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-400"
                                           }`}
                                           title={isLocked ? "คลิกเพื่อปลดล็อกบทเรียน" : "คลิกเพื่อล็อกบทเรียน (นักเรียนจะเข้าดูไม่ได้)"}
                                         >
-                                          {isLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+                                          {isLocked ? <Lock className="h-3 w-3 md:h-3.5 md:w-3.5" /> : <LockOpen className="h-3 w-3 md:h-3.5 md:w-3.5" />}
                                           <span className="hidden sm:inline">{isLocked ? "ล็อกอยู่" : "ล็อก"}</span>
                                         </button>
                                         <button
                                           type="button"
                                           onClick={() => toggleLessonPublished(l.id, !isPub)}
-                                          className={`p-1.5 rounded-lg border text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                                          className={`p-1.5 rounded-lg border text-[10px] md:text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
                                             isPub
                                               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                                               : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-400"
                                           }`}
                                           title={isPub ? "คลิกเพื่อซ่อนบทเรียน" : "คลิกเพื่อเปิดให้มองเห็น"}
                                         >
-                                          {isPub ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                                          {isPub ? <Eye className="h-3 w-3 md:h-3.5 md:w-3.5" /> : <EyeOff className="h-3 w-3 md:h-3.5 md:w-3.5" />}
                                           <span className="hidden sm:inline">{isPub ? "เปิดอยู่" : "ซ่อน"}</span>
                                         </button>
                                         <button
@@ -485,17 +493,17 @@ export function LessonsPanel({
                                             setEditLessonDescription(l.description);
                                             setEditLessonVideoUrl(l.videoUrl || "");
                                           }}
-                                          className="py-1 px-2.5 rounded-lg border border-indigo-500/30 text-indigo-500 hover:bg-indigo-500/10 font-bold text-xs transition-all cursor-pointer"
+                                          className="py-1 px-2 md:px-2.5 rounded-lg border border-indigo-500/30 text-indigo-500 hover:bg-indigo-500/10 font-bold text-[10px] md:text-xs transition-all cursor-pointer"
                                         >
                                           แก้ไข
                                         </button>
                                         <button
                                           type="button"
                                           onClick={() => handleDeleteLesson(l.id, l.title)}
-                                          className="py-1 px-2 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 font-bold text-xs transition-all cursor-pointer"
+                                          className="p-1 md:p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer"
                                           title="ลบบทเรียน"
                                         >
-                                          <Trash2 className="h-3.5 w-3.5" />
+                                          <Trash2 className="h-3 w-3 md:h-3.5 md:w-3.5" />
                                         </button>
                                       </div>
                                     </div>
@@ -517,47 +525,49 @@ export function LessonsPanel({
 
       {/* Create Chapter Modal */}
       {showAddChapterModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
-          <div
-            className="w-full max-w-md rounded-2xl shadow-2xl p-6 border space-y-4"
-            style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}
-          >
-            <h4 className="text-lg font-bold">เพิ่มหน่วยเรียนใหม่ (Chapter)</h4>
-            <form onSubmit={handleAddChapterSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>
-                  ชื่อหน่วยเรียน <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newChapterTitle}
-                  onChange={(e) => setNewChapterTitle(e.target.value)}
-                  required
-                  placeholder="เช่น หน่วยการเรียนรู้ที่ 1: แคลคูลัสเบื้องต้น"
-                  className="w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm"
-                  style={{ borderColor: tx.border, color: tx.primary }}
-                  autoFocus
-                />
-              </div>
+        <Portal>
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
+            <div
+              className="w-full max-w-md rounded-2xl shadow-2xl p-6 border space-y-4"
+              style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}
+            >
+              <h4 className="text-lg font-bold">เพิ่มหน่วยเรียนใหม่ (Chapter)</h4>
+              <form onSubmit={handleAddChapterSubmit} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>
+                    ชื่อหน่วยเรียน <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newChapterTitle}
+                    onChange={(e) => setNewChapterTitle(e.target.value)}
+                    required
+                    placeholder="เช่น หน่วยการเรียนรู้ที่ 1: แคลคูลัสเบื้องต้น"
+                    className="w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm"
+                    style={{ borderColor: tx.border, color: tx.primary }}
+                    autoFocus
+                  />
+                </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddChapterModal(false)}
-                  className="btn-cancel py-2 px-4 rounded-xl font-bold text-xs cursor-pointer"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary py-2 px-5 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  เพิ่มหน่วยเรียน
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddChapterModal(false)}
+                    className="btn-cancel py-2 px-4 rounded-xl font-bold text-xs cursor-pointer"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary py-2 px-5 rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    เพิ่มหน่วยเรียน
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </Portal>
       )}
     </div>
   );

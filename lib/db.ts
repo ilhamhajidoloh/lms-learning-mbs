@@ -197,6 +197,7 @@ export async function ensureTables() {
       question_type TEXT NOT NULL DEFAULT 'multiple_choice' CHECK (question_type IN ('multiple_choice', 'fill_blank', 'matching', 'essay')),
       options       JSONB NOT NULL DEFAULT '[]',
       correct_index INT   CHECK (correct_index >= 0),
+      correct_indices JSONB,
       correct_answer TEXT,
       matching_pairs JSONB,
       explanation   TEXT  NOT NULL DEFAULT '',
@@ -211,6 +212,7 @@ export async function ensureTables() {
     await pool.query(`ALTER TABLE quiz_questions DROP CONSTRAINT IF EXISTS quiz_questions_question_type_check`);
     await pool.query(`ALTER TABLE quiz_questions ADD CONSTRAINT quiz_questions_question_type_check CHECK (question_type IN ('multiple_choice', 'fill_blank', 'matching', 'essay'))`);
     await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS points NUMERIC NOT NULL DEFAULT 1`);
+    await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS correct_indices JSONB`);
   } catch (err) {
     console.error("Failed to update quiz_questions columns/constraints:", err);
   }

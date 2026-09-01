@@ -5,6 +5,7 @@ import { alert as swalAlert, toast } from "../../../lib/swal";
 import { tx } from "../../lib/theme";
 import type { Course, CourseLevelOption } from "../../context/UserContext";
 import { EmptyState } from "../../components/EmptyState";
+import { Portal } from "@/app/components/Portal";
 
 interface CourseLevelsPanelProps {
   courses: Course[];
@@ -262,87 +263,78 @@ export function CourseLevelsPanel({ courses, levels, addLevel, deleteLevel, refr
       </div>
 
       {selectedCourse && form && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md">
-          <div className="w-full max-w-2xl rounded-3xl shadow-2xl border overflow-hidden" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
-            <div className="px-6 py-4 border-b" style={{ borderColor: tx.borderS }}>
-              <h3 className="text-lg font-bold">แก้ไขประเภทชั้นเรียน</h3>
-              <p className="text-xs mt-1" style={{ color: tx.muted }}>{selectedCourse.title}</p>
-            </div>
+        <Portal>
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
+            <div className="w-full max-w-2xl rounded-3xl shadow-2xl border overflow-hidden" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
+              <div className="px-6 py-4 border-b" style={{ borderColor: tx.borderS }}>
+                <h3 className="text-lg font-bold">แก้ไขประเภทชั้นเรียน</h3>
+                <p className="text-xs mt-1" style={{ color: tx.muted }}>{selectedCourse.title}</p>
+              </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-5">
-              {error && (
-                <div className="p-3 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20">
-                  {error}
-                </div>
-              )}
+              <form onSubmit={handleSave} className="p-6 space-y-5">
+                {error && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20">
+                    {error}
+                  </div>
+                )}
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ระดับหลัก</label>
-                {levels.length === 0 ? (
-                  <p className="text-xs p-3 rounded-xl bg-amber-500/10 text-amber-600 font-bold">
-                    ยังไม่มีระดับชั้นเรียนในระบบ กรุณาเพิ่มระดับด้านบนก่อน
-                  </p>
-                ) : (
-                  <div className="relative">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ระดับหลัก</label>
+                  {levels.length === 0 ? (
+                    <p className="text-xs p-3 rounded-xl bg-amber-500/10 text-amber-600 font-bold">
+                      ยังไม่มีระดับชั้นเรียนในระบบ กรุณาเพิ่มระดับด้านบนก่อน
+                    </p>
+                  ) : (
                     <select
                       value={form.level}
-                      onChange={(e) => handleLevelChange(e.target.value)}
-                      className="w-full appearance-none px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm"
+                      onChange={(e) => setForm({ ...form, level: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm font-medium"
                       style={{ borderColor: tx.border, color: tx.primary }}
                     >
-                      {!levels.some((lvl) => lvl.value === form.level) && (
-                        <option value={form.level} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                          {form.levelLabel} (ไม่อยู่ในรายการ)
-                        </option>
-                      )}
                       {levels.map((lvl) => (
-                        <option key={lvl.id} value={lvl.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                          {lvl.label}
+                        <option key={lvl.id} value={lvl.value}>
+                          {lvl.label} ({lvl.value})
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: tx.faint }} />
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ชื่อที่แสดง</label>
-                <input
-                  type="text"
-                  value={form.levelLabel}
-                  onChange={(e) => setForm((current) => current ? { ...current, levelLabel: e.target.value } : current)}
-                  className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm"
-                  style={{ borderColor: tx.border, color: tx.primary }}
-                  placeholder="เช่น ม.4, ม.5, ม.6 หรือชื่อระดับที่กำหนดเอง"
-                />
-              </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ป้ายกำกับที่แสดง (Label)</label>
+                  <input
+                    type="text"
+                    value={form.levelLabel}
+                    onChange={(e) => setForm({ ...form, levelLabel: e.target.value })}
+                    placeholder="เช่น ม.4, ประถมปลาย"
+                    className="w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm font-medium"
+                    style={{ borderColor: tx.border, color: tx.primary }}
+                  />
+                  <p className="text-[11px]" style={{ color: tx.muted }}>
+                    หากเว้นว่าง ระบบจะใช้ชื่อป้ายกำกับเริ่มต้นของระดับหลัก
+                  </p>
+                </div>
 
-              <div className="rounded-2xl p-4 border" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ตัวอย่างผลลัพธ์</p>
-                <p className="mt-2 font-bold">{form.levelLabel || "-"}</p>
-                <p className="text-xs mt-1" style={{ color: tx.muted }}>รหัสระดับ: {form.level || "-"}</p>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeEditor}
-                  className="btn-cancel px-4 py-2.5 rounded-xl text-sm font-bold"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="btn-primary px-5 py-2.5 rounded-xl text-sm disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-                >
-                  <Check className="h-4 w-4" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeEditor}
+                    className="btn-cancel px-4 py-2.5 rounded-xl text-sm font-bold"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="btn-primary px-5 py-2.5 rounded-xl text-sm disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Check className="h-4 w-4" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </Portal>
       )}
     </div>
   );

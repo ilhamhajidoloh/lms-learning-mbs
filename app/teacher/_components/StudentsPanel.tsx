@@ -87,7 +87,7 @@ export function StudentsPanel({
                                 onClick={() => router.push(`/teacher/review/${sub.id}`)}
                                 className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40 cursor-pointer transition-all active:scale-95"
                               >
-                                🔍 ตรวจคำตอบรายข้อ ({sub.score ?? 0}/{a.points} คะแนน)
+                                🔍 ตรวจคำตอบรายข้อ ({(sub.score ?? 0).toFixed(2)}/{a.points} คะแนน)
                               </button>
                             )
                           )}
