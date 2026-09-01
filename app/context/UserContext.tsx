@@ -1159,27 +1159,38 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const { data: user, error } = await apiFetch<{
-        id: string;
-        username: string;
-        displayName: string;
-        role: Role;
-        passwordChanged: boolean;
-      }>("/api/auth/me");
+      try {
+        const { data: user, error } = await apiFetch<{
+          id: string;
+          username: string;
+          displayName: string;
+          role: Role;
+          passwordChanged: boolean;
+        }>("/api/auth/me");
 
-      if (error || !user) {
+        if (error || !user) {
+          console.error("Session restore failed:", error);
+          removeToken();
+          setLoadingData(false);
+          // Redirect to login if session is invalid
+          if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+            window.location.href = "/login";
+          }
+          return;
+        }
+
+        setRole(user.role);
+        setDisplayName(user.displayName);
+        setCurrentUsername(user.username);
+        setUserId(user.id);
+        setPasswordChanged(user.passwordChanged);
+        setIsAuthenticated(true);
+        await fetchAllData();
+      } catch (err) {
+        console.error("Session restore error:", err);
         removeToken();
         setLoadingData(false);
-        return;
       }
-
-      setRole(user.role);
-      setDisplayName(user.displayName);
-      setCurrentUsername(user.username);
-      setUserId(user.id);
-      setPasswordChanged(user.passwordChanged);
-      setIsAuthenticated(true);
-      await fetchAllData();
     };
 
     restoreSession();

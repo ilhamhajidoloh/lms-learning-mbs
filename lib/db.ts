@@ -3,7 +3,27 @@ import { Pool } from "pg";
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false },
+  max: 20, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+  allowExitOnIdle: true, // Allow the pool to close connections when idle (important for serverless)
 });
+
+// Keep-alive ping to prevent cold starts
+let lastPing = 0;
+const PING_INTERVAL = 60000; // 1 minute
+
+async function keepAlive() {
+  const now = Date.now();
+  if (now - lastPing > PING_INTERVAL) {
+    try {
+      await pool.query("SELECT 1");
+      lastPing = now;
+    } catch (err) {
+      console.error("Keep-alive ping failed:", err);
+    }
+  }
+}
 
 let migrated = false;
 
@@ -38,7 +58,10 @@ async function checkDatabaseConnection(): Promise<boolean> {
 
 export async function ensureTables() {
   if (migrated) return;
-  
+
+  // Keep-alive ping
+  await keepAlive();
+
   // ตรวจสอบการเชื่อมต่อ
   const isConnected = await checkDatabaseConnection();
   if (!isConnected) {

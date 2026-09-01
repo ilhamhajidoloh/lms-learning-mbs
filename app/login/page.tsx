@@ -23,6 +23,14 @@ export default function LoginPage() {
 
   const clearError = () => setError(null);
 
+  // Warm up the serverless function on component mount
+  React.useEffect(() => {
+    // Ping health endpoint to wake up serverless functions
+    fetch("/api/health").catch(() => {
+      // Ignore errors - this is just a warm-up ping
+    });
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);

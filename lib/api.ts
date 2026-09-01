@@ -25,13 +25,31 @@ export async function apiFetch<T = unknown>(
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   try {
-    const res = await fetch(path, { ...options, headers });
+    const res = await fetch(path, {
+      ...options,
+      headers,
+      // Add timeout and retry logic for better Vercel performance
+      signal: AbortSignal.timeout(30000), // 30 second timeout
+    });
+
+    // Handle 401 Unauthorized - token expired
+    if (res.status === 401) {
+      removeToken();
+      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+        window.location.href = "/login";
+      }
+      return { data: null, error: "Session expired. Please login again." };
+    }
+
     const json = await res.json();
     if (!res.ok) {
       return { data: null, error: json.error || `HTTP ${res.status}` };
     }
     return { data: json as T, error: null };
   } catch (err: unknown) {
+    if (err instanceof Error && err.name === "TimeoutError") {
+      return { data: null, error: "Request timeout. Please try again." };
+    }
     const message = err instanceof Error ? err.message : "Network error";
     return { data: null, error: message };
   }
