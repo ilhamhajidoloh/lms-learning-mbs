@@ -242,9 +242,23 @@ export async function ensureTables() {
     `);
 
     if (columnInfo.rows[0]?.data_type === 'integer') {
-      // Drop constraint, change type, then add constraint back
-      await pool.query(`ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_score_check`);
+      // Find all constraints on score column and drop them
+      const constraintsRes = await pool.query(`
+        SELECT conname
+        FROM pg_constraint
+        WHERE conrelid = 'submissions'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) LIKE '%score%'
+      `);
+
+      for (const row of constraintsRes.rows) {
+        await pool.query(`ALTER TABLE submissions DROP CONSTRAINT IF EXISTS ${row.conname}`);
+      }
+
+      // Now change type to NUMERIC
       await pool.query(`ALTER TABLE submissions ALTER COLUMN score TYPE NUMERIC`);
+
+      // Add constraint back
       await pool.query(`ALTER TABLE submissions ADD CONSTRAINT submissions_score_check CHECK (score >= 0)`);
     }
 
