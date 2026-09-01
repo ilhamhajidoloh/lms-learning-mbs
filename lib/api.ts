@@ -40,8 +40,24 @@ export async function apiFetch<T = unknown>(
       signal: AbortSignal.timeout(30000), // 30 second timeout
     });
 
-    // Handle 401 Unauthorized - token expired
+    let json: any = null;
+    try {
+      json = await res.json();
+    } catch {
+      // Body is not JSON or is empty
+    }
+
+    // Handle 401 Unauthorized
     if (res.status === 401) {
+      const isAuthEndpoint = path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register");
+      const hasSpecificError = json?.error && json.error !== "Unauthorized";
+
+      // If it's an auth endpoint or has a specific error message (e.g., wrong credentials or wrong old password), return it directly
+      if (isAuthEndpoint || hasSpecificError) {
+        return { data: null, error: json?.error || "Username หรือ Password ไม่ถูกต้อง" };
+      }
+
+      // Otherwise session token is expired / unauthorized for protected resources
       removeToken();
       if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
         window.location.href = "/login";
@@ -49,9 +65,8 @@ export async function apiFetch<T = unknown>(
       return { data: null, error: "Session expired. Please login again." };
     }
 
-    const json = await res.json();
     if (!res.ok) {
-      return { data: null, error: json.error || `HTTP ${res.status}` };
+      return { data: null, error: json?.error || `HTTP ${res.status}` };
     }
     return { data: json as T, error: null };
   } catch (err: unknown) {
