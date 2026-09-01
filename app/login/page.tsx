@@ -61,12 +61,16 @@ export default function LoginPage() {
 
     setToken(data.token);
     login(data.user.role, data.user.displayName, data.user.username, data.user.id, data.user.passwordChanged);
-    await refreshData();
+
     loadingToast.close();
     toast.success("เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ " + data.user.displayName);
 
+    // Redirect first, then load data in background
     const dest = !data.user.passwordChanged ? "/change-password" : data.user.role === "admin" ? "/admin" : data.user.role === "teacher" ? "/teacher" : "/student";
     router.push(dest);
+
+    // Load data after navigation
+    refreshData().catch(console.error);
   };
 
   return (

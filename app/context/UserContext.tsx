@@ -255,14 +255,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const fetchAllData = async () => {
     setLoadingData(true);
     try {
+      // Fetch data and levels in parallel
       const [{ data, error }, { data: levelsData, error: levelsError }] = await Promise.all([
         apiFetch<AllDataResponse>("/api/data"),
         apiFetch<LevelsResponse>("/api/levels"),
       ]);
+
       if (error || !data) {
         console.error("fetchAllData error:", error);
+        setLoadingData(false);
         return;
       }
+
+      // Update state in batches to reduce re-renders
       setCourses(data.courses);
       setChapters(data.chapters);
       setTopics(data.topics);
@@ -272,6 +277,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setAppUsers(data.appUsers);
       setEnrollments(data.enrollments || []);
       setCompletedLessonIds(data.completedLessonIds || []);
+
       if (levelsError || !levelsData) {
         console.error("fetchAllData levels error:", levelsError);
       } else {

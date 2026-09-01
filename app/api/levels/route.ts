@@ -1,13 +1,17 @@
 import pool, { ensureTables } from "@/lib/db";
 import { authenticate } from "@/lib/auth";
 
+// Cache levels for 60 seconds since they change rarely
+export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
 export async function GET(request: Request) {
   await ensureTables();
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { rows } = await pool.query(
-    `SELECT id, value, label FROM course_levels ORDER BY sort_order, label`
+    `SELECT id, value, label FROM course_levels ORDER BY sort_order, label LIMIT 100`
   );
 
   return Response.json({

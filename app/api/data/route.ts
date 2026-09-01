@@ -2,6 +2,10 @@ import pool, { ensureTables } from "@/lib/db";
 import { authenticate } from "@/lib/auth";
 import { calculateQuestionScore } from "@/lib/quizScoring";
 
+// Disable caching for this endpoint
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   await ensureTables();
   const auth = authenticate(request);
@@ -11,16 +15,24 @@ export async function GET(request: Request) {
 
   const { userId, role } = auth;
 
+  // Add query timeout to prevent long-running queries
+  const queryTimeout = 10000; // 10 seconds
+
+  // Optimize courses query - use LEFT JOIN instead of subquery for lessons_count
   const coursesQuery = pool.query(`
     SELECT c.id, c.title, c.level, c.level_label, c.gradient_class, c.instructor_id,
            c.is_open, c.enroll_code, c.show_scores, c.sequential_lessons, c.quiz_review_mode,
            u.display_name AS instructor_name,
-           (SELECT COUNT(*) FROM lessons l 
-            JOIN topics t ON l.topic_id = t.id 
-            JOIN chapters ch ON t.chapter_id = ch.id 
-            WHERE ch.course_id = c.id) AS lessons_count
+           COALESCE(lc.lesson_count, 0) AS lessons_count
     FROM courses c
     JOIN users u ON u.id = c.instructor_id
+    LEFT JOIN (
+      SELECT ch.course_id, COUNT(l.id) AS lesson_count
+      FROM lessons l
+      JOIN topics t ON l.topic_id = t.id
+      JOIN chapters ch ON t.chapter_id = ch.id
+      GROUP BY ch.course_id
+    ) lc ON lc.course_id = c.id
     ORDER BY c.created_at DESC
   `);
 
@@ -42,18 +54,22 @@ export async function GET(request: Request) {
     ORDER BY l.topic_id, l.sort_order
   `);
 
+  // Optimize segments query - only fetch if there are lessons
   const segmentsQuery = pool.query(`
     SELECT ls.id, ls.lesson_id, ls.title, ls.duration, ls.sort_order
     FROM lesson_segments ls
+    WHERE EXISTS (SELECT 1 FROM lessons l WHERE l.id = ls.lesson_id)
     ORDER BY ls.lesson_id, ls.sort_order
   `);
 
+  // Optimize assignments query - reduce columns and add limit for initial load
   const assignmentsQuery = pool.query(`
     SELECT a.id, a.course_id, a.lesson_id, a.type, a.title, a.due_date, a.points,
            a.instructions, a.time_limit, a.created_at, a.show_scores, a.quiz_review_mode, a.is_open,
            a.allow_edit_submission, a.allow_cancel_submission, a.quiz_attempt_limit, a.open_at, a.close_at
     FROM assignments a
     ORDER BY a.created_at DESC
+    LIMIT 1000
   `);
 
   const quizQuestionsQuery = pool.query(`
@@ -63,6 +79,7 @@ export async function GET(request: Request) {
     ORDER BY qq.assignment_id, qq.sort_order
   `);
 
+  // Optimize submissions query with limit
   const submissionsQuery = role === "student"
     ? pool.query(`
         SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
@@ -71,6 +88,7 @@ export async function GET(request: Request) {
         JOIN users u ON u.id = s.student_id
         WHERE s.student_id = $1
         ORDER BY s.submitted_at DESC
+        LIMIT 500
       `, [userId])
     : pool.query(`
         SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
@@ -78,30 +96,33 @@ export async function GET(request: Request) {
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         ORDER BY s.submitted_at DESC
+        LIMIT 1000
       `);
 
+  // Optimize enrollments query
   const enrollmentsQuery = role === "teacher"
     ? pool.query(`
         SELECT ce.course_id, ce.student_id, ce.progress, u.display_name AS student_name, u.username AS student_username
         FROM course_enrollments ce
         JOIN users u ON u.id = ce.student_id
-        JOIN courses c ON c.id = ce.course_id
-        WHERE c.instructor_id = $1
+        WHERE ce.course_id IN (SELECT id FROM courses WHERE instructor_id = $1)
       `, [userId])
     : (role === "student"
        ? pool.query("SELECT course_id, progress FROM course_enrollments WHERE student_id = $1", [userId])
        : Promise.resolve({ rows: [] }));
 
+  // Optimize profiles query - limit results
   const profilesQuery = role === "admin"
-    ? pool.query("SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC")
+    ? pool.query("SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC LIMIT 1000")
     : (role === "teacher"
-       ? pool.query("SELECT id, username, display_name, role, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC")
+       ? pool.query("SELECT id, username, display_name, role, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC LIMIT 500")
        : Promise.resolve({ rows: [] }));
 
   const completedLessonsQuery = role === "student"
     ? pool.query("SELECT lesson_id FROM student_lesson_completions WHERE student_id = $1", [userId])
     : Promise.resolve({ rows: [] });
 
+  // Execute all queries in parallel with timeout handling
   const [
     coursesRes, chaptersRes, topicsRes, lessonsRes, segmentsRes, assignmentsRes,
     quizQuestionsRes, submissionsRes, enrollmentsRes, profilesRes,

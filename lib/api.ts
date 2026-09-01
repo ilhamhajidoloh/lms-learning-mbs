@@ -7,10 +7,18 @@ export function getToken(): string | null {
 
 export function setToken(token: string) {
   localStorage.setItem(TOKEN_KEY, token);
+  // Also set cookie for middleware (7 days expiry to match JWT)
+  if (typeof document !== "undefined") {
+    document.cookie = `token=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+  }
 }
 
 export function removeToken() {
   localStorage.removeItem(TOKEN_KEY);
+  // Also remove cookie
+  if (typeof document !== "undefined") {
+    document.cookie = "token=; path=/; max-age=0";
+  }
 }
 
 export async function apiFetch<T = unknown>(
