@@ -9,7 +9,6 @@ import { TeacherHeader } from "./_components/TeacherHeader";
 import { CourseCreationModal } from "./_components/CourseCreationModal";
 import { DashboardTab } from "./_components/DashboardTab";
 import { CoursesTab } from "./_components/CoursesTab";
-import { QuizReviewModal } from "./_components/QuizReviewModal";
 import { LessonEditModal } from "./_components/LessonEditModal";
 import { AssignmentFormModal } from "./_components/AssignmentFormModal";
 import { CourseEnrollSettingsModal } from "./_components/CourseEnrollSettingsModal";
@@ -102,7 +101,6 @@ export default function TeacherDashboard() {
   const [detailTab, setDetailTab] = useState<"assignments" | "lessons" | "students">("assignments");
   const [viewingAssignmentId, setViewingAssignmentId] = useState<string | null>(null);
   const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
-  const [viewingQuizSub, setViewingQuizSub] = useState<StudentSubmission | null>(null);
 
   // Lesson Edit states
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
@@ -115,58 +113,53 @@ export default function TeacherDashboard() {
   const [assignType, setAssignType] = useState<"file" | "quiz">("file");
   const [assignTitle, setAssignTitle] = useState("");
   const [assignPoints, setAssignPoints] = useState(10);
-  const [assignDueDate, setAssignDueDate] = useState("2026-06-15");
+  const [assignDueDate, setAssignDueDate] = useState(() => {
+    const d = new Date(Date.now() + 7 * 86400000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  });
   const [assignInstructions, setAssignInstructions] = useState("");
   const [assignTimeLimit, setAssignTimeLimit] = useState(15);
   const [assignLessonId, setAssignLessonId] = useState("");
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([
-    { question: "", options: ["", "", "", ""], correctIndex: 0, explanation: "" }
+    { question: "", questionType: "multiple_choice" as const, options: ["", "", "", ""], correctIndex: 0, explanation: "", points: 1, required: true }
   ]);
 
-  const handleUpdateQuestionText = (index: number, val: string) => {
+  const handleUpdateQuestion = (index: number, updatedQuestion: QuizQuestion) => {
     setQuizQuestions(prev => {
       const copy = [...prev];
-      copy[index] = { ...copy[index], question: val };
-      return copy;
-    });
-  };
-
-  const handleUpdateOptionText = (qIndex: number, optIndex: number, val: string) => {
-    setQuizQuestions(prev => {
-      const copy = [...prev];
-      const qCopy = { ...copy[qIndex] };
-      qCopy.options = [...qCopy.options];
-      qCopy.options[optIndex] = val;
-      copy[qIndex] = qCopy;
-      return copy;
-    });
-  };
-
-  const handleUpdateCorrectIndex = (qIndex: number, val: number) => {
-    setQuizQuestions(prev => {
-      const copy = [...prev];
-      copy[qIndex] = { ...copy[qIndex], correctIndex: val };
-      return copy;
-    });
-  };
-
-  const handleUpdateExplanation = (qIndex: number, val: string) => {
-    setQuizQuestions(prev => {
-      const copy = [...prev];
-      copy[qIndex] = { ...copy[qIndex], explanation: val };
+      copy[index] = updatedQuestion;
+      if (assignType === "quiz") {
+        const total = copy.reduce((sum, q) => sum + (q.points !== undefined && !isNaN(Number(q.points)) ? Number(q.points) : 1), 0);
+        setAssignPoints(total);
+      }
       return copy;
     });
   };
 
   const handleAddQuestion = () => {
-    setQuizQuestions(prev => [
-      ...prev,
-      { question: "", options: ["", "", "", ""], correctIndex: 0, explanation: "" }
-    ]);
+    setQuizQuestions(prev => {
+      const next: QuizQuestion[] = [
+        ...prev,
+        { question: "", questionType: "multiple_choice", options: ["", "", "", ""], correctIndex: 0, explanation: "", points: 1, required: true }
+      ];
+      if (assignType === "quiz") {
+        const total = next.reduce((sum, q) => sum + (q.points !== undefined && !isNaN(Number(q.points)) ? Number(q.points) : 1), 0);
+        setAssignPoints(total);
+      }
+      return next;
+    });
   };
 
   const handleRemoveQuestion = (index: number) => {
-    setQuizQuestions(prev => prev.filter((_, idx) => idx !== index));
+    setQuizQuestions(prev => {
+      const next = prev.filter((_, idx) => idx !== index);
+      if (assignType === "quiz") {
+        const total = next.reduce((sum, q) => sum + (q.points !== undefined && !isNaN(Number(q.points)) ? Number(q.points) : 1), 0);
+        setAssignPoints(total);
+      }
+      return next;
+    });
   };
 
   const teacherCourses = courses.filter(c => c.instructorId === currentUserId);
@@ -216,11 +209,13 @@ export default function TeacherDashboard() {
     // Reset Form
     setAssignTitle("");
     setAssignPoints(10);
-    setAssignDueDate("2026-06-15");
+    const nextWeek = new Date(Date.now() + 7 * 86400000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setAssignDueDate(`${nextWeek.getFullYear()}-${pad(nextWeek.getMonth() + 1)}-${pad(nextWeek.getDate())}`);
     setAssignInstructions("");
     setAssignTimeLimit(15);
     setAssignLessonId("");
-    setQuizQuestions([{ question: "", options: ["", "", "", ""], correctIndex: 0, explanation: "" }]);
+    setQuizQuestions([{ question: "", questionType: "multiple_choice", options: ["", "", "", ""], correctIndex: 0, explanation: "", required: true }]);
     setShowForm(false);
   };
 
@@ -302,7 +297,6 @@ export default function TeacherDashboard() {
             submissions={submissions}
             viewingAssignmentId={viewingAssignmentId}
             setViewingAssignmentId={setViewingAssignmentId}
-            setViewingQuizSub={setViewingQuizSub}
             lessons={lessons}
             chapters={chapters}
             topics={topics}
@@ -324,15 +318,6 @@ export default function TeacherDashboard() {
       <footer className="py-6 mt-12 border-t text-center text-xs" style={{ borderColor: tx.borderS, color: tx.faint }}>
         <p>© 2026 Math by Seng — Teacher Workspace Console</p>
       </footer>
-
-      {/* Quiz Answers Review Modal */}
-      {viewingQuizSub && (
-        <QuizReviewModal
-          viewingQuizSub={viewingQuizSub}
-          assignments={assignments}
-          setViewingQuizSub={setViewingQuizSub}
-        />
-      )}
 
       {/* Lesson Edit Modal */}
       {editingLesson && (
@@ -372,10 +357,7 @@ export default function TeacherDashboard() {
           handleCreateAssignment={handleCreateAssignment}
           handleAddQuestion={handleAddQuestion}
           handleRemoveQuestion={handleRemoveQuestion}
-          handleUpdateQuestionText={handleUpdateQuestionText}
-          handleUpdateOptionText={handleUpdateOptionText}
-          handleUpdateCorrectIndex={handleUpdateCorrectIndex}
-          handleUpdateExplanation={handleUpdateExplanation}
+          handleUpdateQuestion={handleUpdateQuestion}
         />
       )}
 

@@ -30,6 +30,20 @@ export const toast = {
       title: message,
     });
   },
+  warning: (message: string) => {
+    if (!ToastMixin) return;
+    ToastMixin.fire({
+      icon: "warning",
+      title: message,
+    });
+  },
+  info: (message: string) => {
+    if (!ToastMixin) return;
+    ToastMixin.fire({
+      icon: "info",
+      title: message,
+    });
+  },
   loading: (message: string) => {
     if (typeof window === "undefined") return { close: () => {} };
 

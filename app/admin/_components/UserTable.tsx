@@ -3,6 +3,7 @@ import { tx } from "../../lib/theme";
 import type { AppUser, Role } from "../../context/UserContext";
 import { RoleBadge } from "./RoleBadge";
 import { EmptyState } from "../../components/EmptyState";
+import { formatThaiDate } from "../../lib/date";
 
 interface UserTableProps {
   dbUsers: AppUser[];
@@ -127,7 +128,7 @@ export function UserTable({
                 <td className="px-6 py-4 font-semibold">{u.displayName}</td>
                 <td className="px-6 py-4"><RoleBadge role={u.role} /></td>
                 <td className="px-6 py-4 text-xs" style={{ color: tx.muted }}>
-                  {new Date(u.createdAt).toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" })}
+                  {formatThaiDate(u.createdAt)}
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">

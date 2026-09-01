@@ -1,7 +1,8 @@
 import React, { type FormEvent } from "react";
-import { X, Trash2 } from "lucide-react";
+import { X } from "lucide-react";
 import { tx } from "../../lib/theme";
 import type { Lesson, QuizQuestion } from "../../context/UserContext";
+import { QuestionEditor } from "./QuestionEditor";
 
 interface AssignmentFormModalProps {
   setShowForm: (show: boolean) => void;
@@ -24,10 +25,7 @@ interface AssignmentFormModalProps {
   handleCreateAssignment: (e: FormEvent) => void;
   handleAddQuestion: () => void;
   handleRemoveQuestion: (index: number) => void;
-  handleUpdateQuestionText: (index: number, val: string) => void;
-  handleUpdateOptionText: (qIndex: number, optIndex: number, val: string) => void;
-  handleUpdateCorrectIndex: (qIndex: number, val: number) => void;
-  handleUpdateExplanation: (qIndex: number, val: string) => void;
+  handleUpdateQuestion: (index: number, question: QuizQuestion) => void;
 }
 
 export function AssignmentFormModal({
@@ -51,10 +49,7 @@ export function AssignmentFormModal({
   handleCreateAssignment,
   handleAddQuestion,
   handleRemoveQuestion,
-  handleUpdateQuestionText,
-  handleUpdateOptionText,
-  handleUpdateCorrectIndex,
-  handleUpdateExplanation,
+  handleUpdateQuestion,
 }: AssignmentFormModalProps) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
@@ -142,45 +137,14 @@ export function AssignmentFormModal({
                   </div>
 
                   {quizQuestions.map((q, idx) => (
-                    <div key={idx} className="p-5 rounded-2xl border space-y-4 text-left" style={{ borderColor: tx.borderS }}>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-indigo-500 dark:text-indigo-400">ข้อสอบข้อที่ {idx + 1}</span>
-                        {quizQuestions.length > 1 && (
-                          <button type="button" onClick={() => handleRemoveQuestion(idx)} className="text-xs text-rose-500 font-bold hover:underline flex items-center gap-1">
-                            <Trash2 className="h-4 w-4" /> ลบข้อสอบข้อนี้
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold" style={{ color: tx.muted }}>โจทย์ข้อสอบ</label>
-                        <input type="text" value={q.question} onChange={(e) => handleUpdateQuestionText(idx, e.target.value)} required className="w-full px-3 py-2 rounded-xl border bg-transparent text-xs" style={{ borderColor: tx.border, color: tx.primary }} placeholder="เช่น lim(x->2) (x-2) มีค่าเท่ากับเท่าใด?" />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {q.options.map((opt, oIdx) => (
-                          <div key={oIdx} className="space-y-1">
-                            <label className="text-[10px] font-bold" style={{ color: tx.muted }}>ตัวเลือก {oIdx + 1} ({String.fromCharCode(65 + oIdx)})</label>
-                            <input type="text" value={opt} onChange={(e) => handleUpdateOptionText(idx, oIdx, e.target.value)} required className="w-full px-3 py-2 rounded-xl border bg-transparent text-xs" style={{ borderColor: tx.border, color: tx.primary }} placeholder={`ตัวเลือก ${oIdx + 1}`} />
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-xs font-bold" style={{ color: tx.muted }}>เฉลยตัวเลือกที่ถูกต้อง</label>
-                          <select value={q.correctIndex} onChange={(e) => handleUpdateCorrectIndex(idx, Number(e.target.value))} className="w-full px-3 py-2 rounded-xl border bg-transparent text-xs" style={{ borderColor: tx.border, color: tx.primary }}>
-                            {q.options.map((_, oIdx) => (
-                              <option key={oIdx} value={oIdx}>ตัวเลือกที่ {oIdx + 1} ({String.fromCharCode(65 + oIdx)})</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-bold" style={{ color: tx.muted }}>คำเฉลยอธิบายเพิ่มเติม</label>
-                          <input type="text" value={q.explanation} onChange={(e) => handleUpdateExplanation(idx, e.target.value)} className="w-full px-3 py-2 rounded-xl border bg-transparent text-xs" style={{ borderColor: tx.border, color: tx.primary }} placeholder="เช่น เพราะต้องหาลิมิตซ้ายขวา..." />
-                        </div>
-                      </div>
-                    </div>
+                    <QuestionEditor
+                      key={idx}
+                      question={q}
+                      index={idx}
+                      canRemove={quizQuestions.length > 1}
+                      onRemove={handleRemoveQuestion}
+                      onUpdateQuestion={handleUpdateQuestion}
+                    />
                   ))}
                 </div>
               </div>

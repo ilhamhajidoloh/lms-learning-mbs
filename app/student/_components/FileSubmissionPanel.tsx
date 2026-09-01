@@ -3,6 +3,7 @@ import { Upload, FileText, Check, PencilLine, Undo2, Lock, Clock } from "lucide-
 import { tx, card } from "../../lib/theme";
 import { useUser, type Assignment, type StudentSubmission } from "../../context/UserContext";
 import Swal from "sweetalert2";
+import { formatThaiDateTime } from "../../lib/date";
 
 interface FileSubmissionPanelProps {
   activeTask: Assignment;
@@ -75,7 +76,13 @@ export function FileSubmissionPanel({
       {!isOpen && (
         <div className="p-3 rounded-xl border bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
           {notOpenYet ? <Clock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-          <span>{notOpenYet ? `งานนี้จะเปิดรับส่งในวันที่ ${new Date(activeTask.openAt!).toLocaleString("th-TH")}` : "งานนี้ปิดรับการส่งแล้ว (หมดเวลาส่ง หรือผู้สอนปิดการรับส่ง)"}</span>
+          <span>
+            {notOpenYet
+              ? `งานนี้จะเปิดรับส่งในวันที่ ${formatThaiDateTime(activeTask.openAt)}`
+              : alreadyClosed
+                ? `งานนี้ปิดรับการส่งแล้ว (หมดเวลาส่งเมื่อ ${formatThaiDateTime(activeTask.closeAt)})`
+                : "งานนี้ปิดรับการส่งแล้ว (ผู้สอนปิดการรับส่ง)"}
+          </span>
         </div>
       )}
 

@@ -12,6 +12,7 @@ import { FileSubmissionPanel } from "./FileSubmissionPanel";
 import { QuizPlayer } from "./QuizPlayer";
 import { EmptyState } from "../../components/EmptyState";
 import { JoinLiveClassButton } from "../../components/JoinLiveClassButton";
+import { formatThaiShortDateTime } from "../../lib/date";
 
 type StudentTab = "dashboard" | "courses" | "study" | "profile";
 type StudyTabId = "overview" | "resources" | "tasks";
@@ -45,8 +46,8 @@ interface StudyTabProps {
 
   currentQuizQuestionIndex: number;
   setCurrentQuizQuestionIndex: React.Dispatch<React.SetStateAction<number>>;
-  quizAnswers: Record<number, number>;
-  setQuizAnswers: React.Dispatch<React.SetStateAction<Record<number, number>>>;
+  quizAnswers: Record<number, number | string | Record<number, number>>;
+  setQuizAnswers: React.Dispatch<React.SetStateAction<Record<number, number | string | Record<number, number>>>>;
 }
 
 export function StudyTab({
@@ -131,7 +132,7 @@ export function StudyTab({
       : [];
   }, [lessons, courseTopics, selectedCourseId]);
 
-  // Auto-sync lesson completion when all tasks for a lesson are submitted
+  // Auto-sync lesson completion when all tasks for a lesson are submitted or unsubmitted
   useEffect(() => {
     if (!currentUserId || !selectedCourseId || courseLessons.length === 0) return;
 
@@ -148,6 +149,8 @@ export function StudyTab({
         );
         if (allDone && !completedLessonIds.includes(l.id)) {
           toggleLessonComplete(l.id, true);
+        } else if (!allDone && completedLessonIds.includes(l.id)) {
+          toggleLessonComplete(l.id, false);
         }
       }
     });
@@ -206,6 +209,20 @@ export function StudyTab({
   const currentCourse = courses.find(c => c.id === selectedCourseId);
   if (!currentCourse) return null;
 
+  const checkLessonCompleted = (lesson: Lesson, index: number) => {
+    const lAssignments = assignments.filter((a) => {
+      if (a.courseId !== selectedCourseId) return false;
+      if (a.lessonId) return a.lessonId === lesson.id;
+      return index === 0;
+    });
+    if (lAssignments.length > 0) {
+      return lAssignments.every((a) =>
+        submissions.some((s) => s.assignmentId === a.id && s.studentId === currentUserId)
+      );
+    }
+    return completedLessonIds.includes(lesson.id);
+  };
+
   const isLessonLocked = (lessonId: string) => {
     const lesson = courseLessons.find(l => l.id === lessonId);
     if (lesson?.isLocked === true) return true;
@@ -215,14 +232,7 @@ export function StudyTab({
 
     for (let i = 0; i < lessonIdx; i++) {
       const prevL = courseLessons[i];
-      const prevLAssignments = assignments.filter(a => {
-        if (a.courseId !== selectedCourseId) return false;
-        if (a.lessonId) return a.lessonId === prevL.id;
-        return i === 0;
-      });
-      const hasTasks = prevLAssignments.length > 0;
-      const tasksDone = hasTasks && prevLAssignments.every(a => submissions.some(s => s.assignmentId === a.id && s.studentId === currentUserId));
-      const prevCompleted = completedLessonIds.includes(prevL.id) || tasksDone;
+      const prevCompleted = checkLessonCompleted(prevL, i);
       if (!prevCompleted) {
         return true;
       }
@@ -231,23 +241,54 @@ export function StudyTab({
   };
 
   // Find active lesson (ensure not locked)
-  const activeLesson = lessons.find(l => l.id === activeLessonId && !isLessonLocked(l.id)) || courseLessons.find(l => !isLessonLocked(l.id)) || courseLessons[0];
+  const activeLesson = lessons.find(l => l.id === activeLessonId && !isLessonLocked(l.id)) || courseLessons.find(l => !isLessonLocked(l.id)) || null;
   const activeLessonIdResolved = activeLesson?.id || null;
-  const firstLessonId = courseLessons[0]?.id || null;
-  const courseAssignments = assignments.filter((assignment) => {
-    if (assignment.courseId !== selectedCourseId) return false;
-    if (assignment.lessonId) {
-      return assignment.lessonId === activeLessonIdResolved;
-    }
-    return activeLessonIdResolved !== null && activeLessonIdResolved === firstLessonId;
-  });
+  const firstUnlockedLessonId = courseLessons.find(l => !isLessonLocked(l.id))?.id || null;
+  const courseAssignments = activeLessonIdResolved
+    ? assignments.filter((assignment) => {
+        if (assignment.courseId !== selectedCourseId) return false;
+        if (assignment.lessonId) {
+          return assignment.lessonId === activeLessonIdResolved;
+        }
+        return activeLessonIdResolved === firstUnlockedLessonId;
+      })
+    : [];
 
   const activeLessonHasTasks = courseAssignments.length > 0;
   const activeLessonTasksCompleted = activeLessonHasTasks && courseAssignments.every(a => submissions.some(s => s.assignmentId === a.id && s.studentId === currentUserId));
 
   const courseLessonsCount = courseLessons.length;
-  const courseCompletedLessonsCount = courseLessons.filter(l => completedLessonIds.includes(l.id)).length;
+  const courseCompletedLessonsCount = courseLessons.filter((l, idx) => checkLessonCompleted(l, idx)).length;
   const realTimeProgress = courseLessonsCount > 0 ? Math.round((courseCompletedLessonsCount / courseLessonsCount) * 100) : 0;
+
+  // Check if student is actively taking or reviewing a Quiz -> Render Full-Page Quiz View
+  const activeQuizTask = selectedAssignmentId
+    ? courseAssignments.find(a => a.id === selectedAssignmentId && a.type === "quiz")
+    : null;
+
+  if (activeQuizTask) {
+    const sub = submissions.find(s => s.assignmentId === activeQuizTask.id && s.studentId === currentUserId);
+    const effectiveSub = quizRetakingId === activeQuizTask.id ? undefined : sub;
+
+    return (
+      <div className="space-y-6 text-left animate-fadeIn">
+        <QuizPlayer
+          key={activeQuizTask.id}
+          activeTask={activeQuizTask}
+          sub={effectiveSub}
+          currentQuizQuestionIndex={currentQuizQuestionIndex}
+          setCurrentQuizQuestionIndex={setCurrentQuizQuestionIndex}
+          quizAnswers={quizAnswers}
+          setQuizAnswers={setQuizAnswers}
+          setSelectedAssignmentId={setSelectedAssignmentId}
+          addSubmission={addSubmission}
+          currentUserId={currentUserId}
+          displayName={displayName}
+          activeLessonId={activeLessonIdResolved}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 text-left animate-fadeIn">
@@ -361,7 +402,7 @@ export function StudyTab({
                       </span>
                     ) : (
                       <span className="text-[10px] font-semibold text-slate-400">
-                        🕒 {lc.scheduled_at ? new Date(lc.scheduled_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "กำหนดการ"}
+                        🕒 {lc.scheduled_at ? formatThaiShortDateTime(lc.scheduled_at) : "กำหนดการ"}
                       </span>
                     )}
                     <span className="text-[10px]" style={{ color: tx.muted }}>
@@ -409,7 +450,7 @@ export function StudyTab({
               <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
                 {courseLessons.map((l, index) => {
                   const isActive = activeLesson && l.id === activeLesson.id;
-                  const isCompleted = completedLessonIds.includes(l.id);
+                  const isCompleted = checkLessonCompleted(l, index);
                   const isLocked = isLessonLocked(l.id);
                   return (
                     <button key={l.id}
@@ -461,7 +502,7 @@ export function StudyTab({
                               <div className="space-y-1">
                                 {topicLessons.map((l, index) => {
                                   const isActive = activeLesson && l.id === activeLesson.id;
-                                  const isCompleted = completedLessonIds.includes(l.id);
+                                  const isCompleted = checkLessonCompleted(l, index);
                                   const isLocked = isLessonLocked(l.id);
                                   return (
                                     <button key={l.id}
@@ -504,13 +545,32 @@ export function StudyTab({
         {/* Right side: Video player & Subtabs */}
         <div className="lg:col-span-2 space-y-6 animate-slideInRight">
           {!activeLesson ? (
-            <EmptyState
-              illustration="inbox"
-              variant="default"
-              accent="slate"
-              title="ไม่มีเนื้อหาบทเรียน"
-              description="หลักสูตรนี้กำลังอัพเดทเนื้อหาการสอนโดยครูผู้ดูแลระบบ"
-            />
+            courseLessons.length === 0 ? (
+              <EmptyState
+                illustration="inbox"
+                variant="default"
+                accent="slate"
+                title="ไม่มีเนื้อหาบทเรียน"
+                description="หลักสูตรนี้กำลังอัพเดทเนื้อหาการสอนโดยครูผู้ดูแลระบบ"
+              />
+            ) : (
+              <div
+                className="rounded-3xl p-10 shadow-sm border text-center space-y-4 animate-scaleIn"
+                style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}
+              >
+                <div className="h-16 w-16 mx-auto rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                  <Lock className="h-8 w-8" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold" style={{ color: tx.primary }}>
+                    บทเรียนถูกล็อกอยู่ 🔒
+                  </h3>
+                  <p className="text-xs max-w-md mx-auto" style={{ color: tx.muted }}>
+                    บทเรียนในวิชานี้ถูกตั้งค่าล็อกไว้โดยคุณครูผู้สอน หรือจำเป็นต้องเรียนบทเรียนก่อนหน้าให้สำเร็จก่อน จึงจะสามารถเปิดดูเนื้อหาได้ครับ
+                  </p>
+                </div>
+              </div>
+            )
           ) : (
             <div className="space-y-6" key={activeLesson.id}>
 
@@ -563,6 +623,7 @@ export function StudyTab({
                           // QUIZ TYPE
                           return (
                             <QuizPlayer
+                              key={activeTask.id}
                               activeTask={activeTask}
                               sub={effectiveSub}
                               currentQuizQuestionIndex={currentQuizQuestionIndex}

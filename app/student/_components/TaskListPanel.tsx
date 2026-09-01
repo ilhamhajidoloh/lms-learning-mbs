@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { tx, card } from "../../lib/theme";
 import type { Assignment, StudentSubmission } from "../../context/UserContext";
 import { useUser } from "../../context/UserContext";
 import { EmptyState } from "../../components/EmptyState";
 import { Lock, Clock, PencilLine, Undo2, RotateCcw, CheckCircle2 } from "lucide-react";
 import Swal from "sweetalert2";
+import { formatThaiDate, formatThaiDateTime } from "../../lib/date";
 
 interface TaskListPanelProps {
   courseAssignments: Assignment[];
@@ -12,23 +13,45 @@ interface TaskListPanelProps {
   currentUserId: string | null;
   setSelectedAssignmentId: React.Dispatch<React.SetStateAction<string | null>>;
   setCurrentQuizQuestionIndex: React.Dispatch<React.SetStateAction<number>>;
-  setQuizAnswers: React.Dispatch<React.SetStateAction<Record<number, number>>>;
+  setQuizAnswers: React.Dispatch<React.SetStateAction<Record<number, number | string | Record<number, number>>>>;
   setFileNameInput: React.Dispatch<React.SetStateAction<string>>;
   setQuizRetakingId: (id: string | null) => void;
+}
+
+function getSubmissionDeadlineMs(closeAt?: string, dueDate?: string): number | null {
+  if (closeAt) {
+    const closeAtMs = new Date(closeAt).getTime();
+    if (!Number.isNaN(closeAtMs)) return closeAtMs;
+  }
+  if (!dueDate) return null;
+
+  const date = dueDate.slice(0, 10);
+  const dueAtMs = new Date(`${date}T23:59:59`).getTime();
+  return Number.isNaN(dueAtMs) ? null : dueAtMs;
+}
+
+function formatRemainingTime(remainingMs: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) return `${days} วัน ${hours} ชม.`;
+  if (hours > 0) return `${hours} ชม. ${minutes} นาที`;
+  return `${minutes}:${String(seconds).padStart(2, "0")} นาที`;
 }
 
 export function TaskListPanel({
   courseAssignments, submissions, currentUserId, setSelectedAssignmentId, setCurrentQuizQuestionIndex, setQuizAnswers, setFileNameInput, setQuizRetakingId,
 }: TaskListPanelProps) {
   const { cancelFileSubmission } = useUser();
-  const [nowMs] = useState(() => Date.now());
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
-  const formatWindowTime = (iso?: string) => {
-    if (!iso) return "";
-    return new Date(iso).toLocaleString("th-TH", {
-      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-    });
-  };
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const handleCancelFile = async (a: Assignment, sub: StudentSubmission) => {
     const result = await Swal.fire({
@@ -59,7 +82,11 @@ export function TaskListPanel({
       ) : (
         courseAssignments.map((a) => {
           const mySubs = submissions.filter(s => s.assignmentId === a.id && s.studentId === currentUserId);
-          const sub = mySubs[mySubs.length - 1];
+          // Always show the most recent attempt, regardless of the API response order.
+          const sub = mySubs.reduce<StudentSubmission | undefined>(
+            (latest, candidate) => !latest || candidate.submittedAt >= latest.submittedAt ? candidate : latest,
+            undefined,
+          );
           const attemptCount = mySubs.length;
           // Per-assignment settings (fallback to show everything if not set)
           const showScores = a.showScores !== false;
@@ -68,11 +95,12 @@ export function TaskListPanel({
 
           // Scheduled open/close window
           const openAtMs = a.openAt ? new Date(a.openAt).getTime() : null;
-          const closeAtMs = a.closeAt ? new Date(a.closeAt).getTime() : null;
+          const deadlineMs = getSubmissionDeadlineMs(a.closeAt, a.dueDate);
           const notOpenYet = openAtMs !== null && nowMs < openAtMs;
-          const alreadyClosed = closeAtMs !== null && nowMs > closeAtMs;
+          const alreadyClosed = deadlineMs !== null && nowMs > deadlineMs;
           const isOpen = a.isOpen !== false && !notOpenYet && !alreadyClosed;
           const quizExhausted = a.type === "quiz" && attemptLimit > 0 && attemptCount >= attemptLimit;
+          const remainingMs = deadlineMs !== null ? deadlineMs - nowMs : null;
 
           let subStatusLabel = "ค้างส่งงาน";
           if (sub) {
@@ -91,10 +119,11 @@ export function TaskListPanel({
             }
           }
 
+          const displayDeadline = a.closeAt ? formatThaiDateTime(a.closeAt) : formatThaiDate(a.dueDate);
           const windowLabel = notOpenYet
-            ? `จะเปิดให้ทำวันที่ ${formatWindowTime(a.openAt)}`
+            ? `จะเปิดให้ทำวันที่ ${formatThaiDateTime(a.openAt)}`
             : alreadyClosed
-              ? "หมดเวลาส่งแล้ว"
+              ? `หมดเวลาส่งแล้ว (ปิดรับส่งเมื่อ ${a.closeAt ? formatThaiDateTime(a.closeAt) : formatThaiDate(a.dueDate)})`
               : "";
 
           return (
@@ -125,9 +154,14 @@ export function TaskListPanel({
                     )}
                   </div>
                   <p className="text-[10px]" style={{ color: tx.muted }}>
-                    กำหนดส่ง: {a.dueDate} · คะแนนเต็ม: {a.points} คะแนน
+                    กำหนดส่ง: {displayDeadline} · คะแนนเต็ม: {a.points} คะแนน
                     {attemptLimit > 0 && a.type === "quiz" && <span> · ทำได้ {attemptLimit} ครั้ง</span>}
                   </p>
+                  {remainingMs !== null && remainingMs > 0 && (
+                    <p className={`flex items-center gap-1 text-[10px] font-black ${remainingMs <= 3600000 ? "text-rose-500" : "text-amber-600 dark:text-amber-400"}`}>
+                      <Clock className="h-3 w-3" /> เหลือเวลา {formatRemainingTime(remainingMs)}
+                    </p>
+                  )}
                   {windowLabel && <p className="text-[10px] font-bold" style={{ color: notOpenYet ? tx.secondary : "#ef4444" }}>{windowLabel}</p>}
                 </div>
 
@@ -144,7 +178,7 @@ export function TaskListPanel({
               {a.type === "quiz" ? (
                 <div className="flex flex-wrap items-center gap-2">
                   {sub && quizReviewMode !== "none" && (
-                    <button onClick={() => { setSelectedAssignmentId(a.id); }} className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-indigo-500 font-bold transition-all text-[11px] cursor-pointer btn-press">
+                    <button onClick={() => { setSelectedAssignmentId(a.id); setCurrentQuizQuestionIndex(0); }} className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-indigo-500 font-bold transition-all text-[11px] cursor-pointer btn-press">
                       {quizReviewMode === "answers_only" ? "ดูคำตอบของฉัน" : "ดูผลคะแนน & เฉลย"}
                     </button>
                   )}

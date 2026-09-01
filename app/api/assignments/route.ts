@@ -31,19 +31,37 @@ export async function POST(request: Request) {
   );
 
   if (type === "quiz" && questions?.length) {
-    const values: unknown[] = [];
-    const placeholders: string[] = [];
-    let idx = 1;
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
-      placeholders.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`);
-      values.push(id, q.question, JSON.stringify(q.options), q.correctIndex, q.explanation, i);
+      const questionType = q.questionType || "multiple_choice";
+      const qPoints = q.points !== undefined && q.points !== null && !isNaN(Number(q.points)) ? Number(q.points) : 1;
+
+      if (questionType === "multiple_choice") {
+        await pool.query(
+          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, options, correct_index, explanation, points, is_required, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [id, q.question, questionType, JSON.stringify(q.options || []), q.correctIndex ?? 0, q.explanation || "", qPoints, q.required !== false, i]
+        );
+      } else if (questionType === "fill_blank") {
+        await pool.query(
+          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, correct_answer, explanation, points, is_required, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [id, q.question, questionType, q.correctAnswer || null, q.explanation || "", qPoints, q.required !== false, i]
+        );
+      } else if (questionType === "matching") {
+        await pool.query(
+          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, matching_pairs, explanation, points, is_required, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [id, q.question, questionType, JSON.stringify(q.matchingPairs || []), q.explanation || "", qPoints, q.required !== false, i]
+        );
+      } else if (questionType === "essay") {
+        await pool.query(
+          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, correct_answer, explanation, points, is_required, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [id, q.question, questionType, q.correctAnswer || null, q.explanation || "", qPoints, q.required !== false, i]
+        );
+      }
     }
-    await pool.query(
-      `INSERT INTO quiz_questions (assignment_id, question_text, options, correct_index, explanation, sort_order)
-       VALUES ${placeholders.join(", ")}`,
-      values
-    );
   }
 
   return Response.json({ success: true });
@@ -54,7 +72,26 @@ export async function PUT(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, showScores, quizReviewMode, isOpen, allowEditSubmission, allowCancelSubmission, quizAttemptLimit, openAt, closeAt } = await request.json();
+  const body = await request.json();
+  const {
+    id,
+    showScores,
+    quizReviewMode,
+    isOpen,
+    allowEditSubmission,
+    allowCancelSubmission,
+    quizAttemptLimit,
+    openAt,
+    closeAt,
+    dueDate,
+    title,
+    lessonId,
+    points,
+    instructions,
+    timeLimit,
+    questions,
+  } = body;
+
   if (!id) return Response.json({ error: "Missing assignment id" }, { status: 400 });
 
   await pool.query(
@@ -67,8 +104,14 @@ export async function PUT(request: Request) {
          quiz_attempt_limit = $6,
          open_at = $7,
          close_at = $8,
+         due_date = COALESCE($9, due_date),
+         title = COALESCE($10, title),
+         lesson_id = COALESCE($11, lesson_id),
+         points = COALESCE($12, points),
+         instructions = COALESCE($13, instructions),
+         time_limit = COALESCE($14, time_limit),
          updated_at = now()
-     WHERE id = $9`,
+     WHERE id = $15`,
     [
       showScores !== undefined ? showScores : null,
       quizReviewMode !== undefined ? quizReviewMode : null,
@@ -80,9 +123,52 @@ export async function PUT(request: Request) {
         : null,
       openAt !== undefined && openAt !== null && openAt !== "" ? new Date(openAt).toISOString() : null,
       closeAt !== undefined && closeAt !== null && closeAt !== "" ? new Date(closeAt).toISOString() : null,
+      dueDate !== undefined && dueDate !== null && dueDate !== "" ? dueDate : null,
+      title !== undefined ? title : null,
+      lessonId !== undefined ? lessonId : null,
+      points !== undefined ? Number(points) : null,
+      instructions !== undefined ? instructions : null,
+      timeLimit !== undefined ? Number(timeLimit) : null,
       id,
     ]
   );
+
+  // If questions are provided, replace existing questions for this quiz
+  if (Array.isArray(questions)) {
+    await pool.query("DELETE FROM quiz_questions WHERE assignment_id = $1", [id]);
+
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const questionType = q.questionType || "multiple_choice";
+      const qPoints = q.points !== undefined && q.points !== null && !isNaN(Number(q.points)) ? Number(q.points) : 1;
+
+      if (questionType === "multiple_choice") {
+        await pool.query(
+          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, options, correct_index, explanation, points, is_required, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [id, q.question, questionType, JSON.stringify(q.options || []), q.correctIndex ?? 0, q.explanation || "", qPoints, q.required !== false, i]
+        );
+      } else if (questionType === "fill_blank") {
+        await pool.query(
+          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, correct_answer, explanation, points, is_required, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [id, q.question, questionType, q.correctAnswer || null, q.explanation || "", qPoints, q.required !== false, i]
+        );
+      } else if (questionType === "matching") {
+        await pool.query(
+          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, matching_pairs, explanation, points, is_required, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [id, q.question, questionType, JSON.stringify(q.matchingPairs || []), q.explanation || "", qPoints, q.required !== false, i]
+        );
+      } else if (questionType === "essay") {
+        await pool.query(
+          `INSERT INTO quiz_questions (assignment_id, question_text, question_type, correct_answer, explanation, points, is_required, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [id, q.question, questionType, q.correctAnswer || null, q.explanation || "", qPoints, q.required !== false, i]
+        );
+      }
+    }
+  }
 
   return Response.json({ success: true });
 }

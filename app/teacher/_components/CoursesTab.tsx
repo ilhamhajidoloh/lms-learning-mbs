@@ -19,7 +19,6 @@ interface CoursesTabProps {
   submissions: StudentSubmission[];
   viewingAssignmentId: string | null;
   setViewingAssignmentId: (id: string | null) => void;
-  setViewingQuizSub: (sub: StudentSubmission | null) => void;
 
   lessons: Lesson[];
   chapters: Chapter[];
@@ -50,7 +49,6 @@ export function CoursesTab({
   submissions,
   viewingAssignmentId,
   setViewingAssignmentId,
-  setViewingQuizSub,
   lessons,
   chapters,
   topics,
@@ -81,7 +79,6 @@ export function CoursesTab({
           submissions={submissions}
           viewingAssignmentId={viewingAssignmentId}
           setViewingAssignmentId={setViewingAssignmentId}
-          setViewingQuizSub={setViewingQuizSub}
           lessons={lessons}
           chapters={chapters}
           topics={topics}

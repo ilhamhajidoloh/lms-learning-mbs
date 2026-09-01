@@ -43,7 +43,7 @@ declare global {
 
 export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTasks = false, tasksCompleted = false }: LessonOverviewPanelProps) {
   const { completedLessonIds, toggleLessonComplete } = useUser();
-  const isCompleted = completedLessonIds.includes(activeLesson.id) || tasksCompleted;
+  const isCompleted = hasTasks ? tasksCompleted : completedLessonIds.includes(activeLesson.id);
 
   const ytId = activeLesson.videoUrl ? extractYouTubeId(activeLesson.videoUrl) : null;
 

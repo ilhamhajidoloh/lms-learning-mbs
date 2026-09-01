@@ -10,6 +10,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/swal";
 import { tx } from "../../lib/theme";
 import LoadingScreen from "../../components/LoadingScreen";
+import { formatThaiDateTime } from "../../lib/date";
 
 interface LiveClassDetail {
   id: string;
@@ -295,7 +296,7 @@ export default function LiveClassPage({
                 </p>
                 {liveClass.scheduled_at && (
                   <p className="text-xs font-mono text-indigo-400 mt-3 bg-indigo-500/10 py-1.5 px-3 rounded-lg inline-block border border-indigo-500/20">
-                    เวลานัดหมาย: {new Date(liveClass.scheduled_at).toLocaleString("th-TH")}
+                    เวลานัดหมาย: {formatThaiDateTime(liveClass.scheduled_at)}
                   </p>
                 )}
               </div>

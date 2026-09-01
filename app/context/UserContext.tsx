@@ -27,11 +27,26 @@ export interface Course {
   quizReviewMode?: "full" | "answers_only" | "none";
 }
 
+export type QuestionType = "multiple_choice" | "fill_blank" | "matching" | "essay";
+
+export interface MatchingPair {
+  left: string;
+  right: string;
+}
+
 export interface QuizQuestion {
   question: string;
-  options: string[];
-  correctIndex: number;
+  questionType: QuestionType;
+  required?: boolean;
+  // For multiple choice
+  options?: string[];
+  correctIndex?: number;
+  // For fill in the blank & essay
+  correctAnswer?: string;
+  // For matching
+  matchingPairs?: MatchingPair[];
   explanation: string;
+  points?: number;
 }
 
 export interface Assignment {
@@ -65,8 +80,9 @@ export interface StudentSubmission {
   type: "file" | "quiz";
   fileName?: string;
   score?: number;
+  questionScores?: number[];
   previousScore?: number;
-  answers?: Record<number, number> | number[];
+  answers?: Record<number, number | string | Record<number, number>> | (number | string | Record<number, number>)[];
 }
 
 export interface Chapter {
@@ -157,9 +173,11 @@ interface UserContextProps {
   deleteTopic: (id: string) => Promise<{ success: boolean; error?: string }>;
   assignments: Assignment[];
   addAssignment: (assignment: Assignment) => void;
+  updateAssignment: (assignment: Assignment) => Promise<{ success: boolean; error?: string }>;
   updateAssignmentSettings: (assignmentId: string, showScores?: boolean, quizReviewMode?: "full" | "answers_only" | "none") => Promise<{ success: boolean; error?: string }>;
   toggleAssignmentOpen: (assignmentId: string, isOpen: boolean) => Promise<{ success: boolean; error?: string }>;
   updateAssignmentAdvancedSettings: (assignmentId: string, settings: {
+    dueDate?: string;
     allowEditSubmission?: boolean;
     allowCancelSubmission?: boolean;
     quizAttemptLimit?: number;
@@ -170,7 +188,7 @@ interface UserContextProps {
   cancelFileSubmission: (submissionId: string) => Promise<{ success: boolean; error?: string }>;
   submissions: StudentSubmission[];
   addSubmission: (submission: StudentSubmission) => void;
-  gradeSubmission: (submissionId: string, score: number) => Promise<{ success: boolean; error?: string }>;
+  gradeSubmission: (submissionId: string, score: number, questionScores?: number[]) => Promise<{ success: boolean; error?: string }>;
   cancelSubmissionScore: (submissionId: string) => Promise<{ success: boolean; error?: string }>;
   lessons: Lesson[];
   addLesson: (lesson: Omit<Lesson, "id">) => Promise<{ success: boolean; error?: string }>;
@@ -403,6 +421,38 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateAssignment = async (assignment: Assignment): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังบันทึกการแก้ไขงาน/แบบทดสอบ...");
+    try {
+      const { error } = await apiFetch("/api/assignments", {
+        method: "PUT",
+        body: JSON.stringify({
+          id: assignment.id,
+          title: assignment.title,
+          lessonId: assignment.lessonId,
+          points: assignment.points,
+          dueDate: assignment.dueDate,
+          instructions: assignment.instructions,
+          timeLimit: assignment.timeLimit,
+          questions: assignment.questions,
+        }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("บันทึกการแก้ไขไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("บันทึกการแก้ไขงาน/แบบทดสอบสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("บันทึกการแก้ไขไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
   const updateAssignmentSettings = async (
     assignmentId: string,
     showScores?: boolean,
@@ -461,6 +511,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const updateAssignmentAdvancedSettings = async (
     assignmentId: string,
     settings: {
+      dueDate?: string;
       allowEditSubmission?: boolean;
       allowCancelSubmission?: boolean;
       quizAttemptLimit?: number;
@@ -567,12 +618,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const gradeSubmission = async (submissionId: string, score: number): Promise<{ success: boolean; error?: string }> => {
+  const gradeSubmission = async (submissionId: string, score: number, questionScores?: number[]): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังบันทึกคะแนน...");
     try {
       const { error } = await apiFetch("/api/submissions", {
         method: "PUT",
-        body: JSON.stringify({ submissionId, score }),
+        body: JSON.stringify({ submissionId, score, ...(questionScores ? { questionScores } : {}) }),
       });
       loadingToast.close();
       if (error) {
@@ -1164,6 +1215,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         deleteTopic,
         assignments,
         addAssignment,
+        updateAssignment,
         updateAssignmentSettings,
         toggleAssignmentOpen,
         updateAssignmentAdvancedSettings,

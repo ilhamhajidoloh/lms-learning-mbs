@@ -1,17 +1,23 @@
-import React from "react";
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+"use client";
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Clock, Award, CheckCircle2, AlertCircle, HelpCircle } from "lucide-react";
 import Swal from "sweetalert2";
-import { tx } from "../../lib/theme";
-import { useUser, type Assignment, type StudentSubmission } from "../../context/UserContext";
+import { tx, card } from "../../lib/theme";
+import { useUser, type Assignment, type QuizQuestion, type StudentSubmission } from "../../context/UserContext";
 import { EmptyState } from "../../components/EmptyState";
+import { formatThaiDateTime } from "../../lib/date";
+import { QuizQuestionRenderer } from "./QuizQuestionRenderer";
+import { QuizReviewItem } from "./QuizReviewItem";
+import { toast } from "@/lib/swal";
 
 interface QuizPlayerProps {
   activeTask: Assignment;
   sub: StudentSubmission | undefined;
   currentQuizQuestionIndex: number;
   setCurrentQuizQuestionIndex: React.Dispatch<React.SetStateAction<number>>;
-  quizAnswers: Record<number, number>;
-  setQuizAnswers: React.Dispatch<React.SetStateAction<Record<number, number>>>;
+  quizAnswers: Record<number, number | string | Record<number, number>>;
+  setQuizAnswers: React.Dispatch<React.SetStateAction<Record<number, number | string | Record<number, number>>>>;
   setSelectedAssignmentId: React.Dispatch<React.SetStateAction<string | null>>;
   addSubmission: (submission: StudentSubmission) => void;
   currentUserId: string | null;
@@ -19,70 +25,272 @@ interface QuizPlayerProps {
   activeLessonId?: string | null;
 }
 
+function isQuestionAnswered(question: QuizQuestion, answer: unknown): boolean {
+  if (answer === undefined || answer === null || answer === -1) return false;
+  if (typeof answer === "string") return answer.trim().length > 0;
+  if (question.questionType === "matching") {
+    return typeof answer === "object" && !Array.isArray(answer) && Object.keys(answer).length === question.matchingPairs?.length;
+  }
+  return true;
+}
+
+function formatCountdown(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
 export function QuizPlayer({
-  activeTask, sub, currentQuizQuestionIndex, setCurrentQuizQuestionIndex, quizAnswers, setQuizAnswers,
-  setSelectedAssignmentId, addSubmission, currentUserId, displayName, activeLessonId,
+  activeTask,
+  sub,
+  currentQuizQuestionIndex,
+  setCurrentQuizQuestionIndex,
+  quizAnswers,
+  setQuizAnswers,
+  setSelectedAssignmentId,
+  addSubmission,
+  currentUserId,
+  displayName,
+  activeLessonId,
 }: QuizPlayerProps) {
   const { toggleLessonComplete } = useUser();
   const [nowMs] = React.useState(() => Date.now());
   const quizReviewMode = activeTask.quizReviewMode ?? "full";
+  const questions = useMemo(() => activeTask.questions ?? [], [activeTask.questions]);
+  const timeLimitSeconds = Math.max(0, Number(activeTask.timeLimit ?? 0) * 60);
+  const isTimedQuiz = timeLimitSeconds > 0;
+  const [timerDeadline] = useState(() => Date.now() + timeLimitSeconds * 1000);
+  const [remainingSeconds, setRemainingSeconds] = useState(timeLimitSeconds);
+  const autoSubmissionStarted = useRef(false);
+
+  const handleBackWithConfirm = async () => {
+    const answeredCount = Object.keys(quizAnswers).length;
+    if (answeredCount > 0 && !sub) {
+      const res = await Swal.fire({
+        title: "ออกจากแบบทดสอบ?",
+        text: `คุณได้ตอบไปแล้ว ${answeredCount} ข้อ หากออกตอนนี้คำตอบจะไม่ถูกส่ง คุณแน่ใจหรือไม่?`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "ออกจากแบบทดสอบ",
+        cancelButtonText: "ทำต่อ",
+        confirmButtonColor: "#e11d48",
+      });
+      if (!res.isConfirmed) return;
+    }
+    setQuizAnswers({});
+    setSelectedAssignmentId(null);
+  };
+
+  const submitQuiz = useCallback(async (timedOut = false) => {
+    let finalScore = 0;
+    let hasManualGraded = false;
+
+    questions.forEach((question, index) => {
+      const questionType = question.questionType || "multiple_choice";
+      const questionPoints = question.points !== undefined && !isNaN(Number(question.points)) ? Number(question.points) : 1;
+      const answer = quizAnswers[index];
+
+      if (questionType === "multiple_choice") {
+        if (answer === question.correctIndex) finalScore += questionPoints;
+      } else if (questionType === "fill_blank") {
+        if (question.correctAnswer?.trim()) {
+          if (typeof answer === "string" && answer.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()) {
+            finalScore += questionPoints;
+          }
+        } else {
+          hasManualGraded = true;
+        }
+      } else if (questionType === "matching") {
+        if (typeof answer === "object" && !Array.isArray(answer) && question.matchingPairs) {
+          const allCorrect = question.matchingPairs.every((_, pairIndex) => answer[pairIndex] === pairIndex);
+          if (allCorrect) finalScore += questionPoints;
+        }
+      } else if (questionType === "essay") {
+        hasManualGraded = true;
+      }
+    });
+
+    const submissionAnswers = questions.map((_, index) => quizAnswers[index] !== undefined ? quizAnswers[index] : -1);
+    await addSubmission({
+      id: Math.random().toString(),
+      studentId: currentUserId || "",
+      studentName: displayName,
+      assignmentId: activeTask.id,
+      type: "quiz",
+      score: finalScore,
+      answers: submissionAnswers,
+      submittedAt: Date.now(),
+    });
+
+    const targetLessonId = activeTask.lessonId || activeLessonId;
+    if (targetLessonId) {
+      toggleLessonComplete(targetLessonId, true);
+    }
+
+    setQuizAnswers({});
+    setSelectedAssignmentId(null);
+
+    if (timedOut) {
+      await Swal.fire({
+        icon: "info",
+        title: "หมดเวลาทำแบบทดสอบ",
+        text: "ระบบส่งคำตอบที่ทำไว้ให้โดยอัตโนมัติแล้ว",
+        confirmButtonColor: "#4f46e5",
+      });
+    } else if (hasManualGraded) {
+      await Swal.fire({
+        icon: "info",
+        title: "ส่งแบบทดสอบเรียบร้อยแล้ว",
+        text: "ระบบบันทึกคำตอบแล้ว โดยข้ออัตนัยจะได้รับการตรวจจากผู้สอนต่อไป",
+        confirmButtonColor: "#4f46e5",
+      });
+    }
+  }, [activeLessonId, activeTask.id, activeTask.lessonId, addSubmission, currentUserId, displayName, questions, quizAnswers, setQuizAnswers, setSelectedAssignmentId, toggleLessonComplete]);
+
+  useEffect(() => {
+    if (!isTimedQuiz || sub) return;
+
+    const interval = window.setInterval(() => {
+      setRemainingSeconds(Math.max(0, Math.ceil((timerDeadline - Date.now()) / 1000)));
+    }, 250);
+
+    return () => window.clearInterval(interval);
+  }, [isTimedQuiz, sub, timerDeadline]);
+
+  useEffect(() => {
+    if (!isTimedQuiz || sub || remainingSeconds > 0 || autoSubmissionStarted.current) return;
+
+    autoSubmissionStarted.current = true;
+    void submitQuiz(true);
+  }, [isTimedQuiz, remainingSeconds, sub, submitQuiz]);
 
   if (sub) {
-    // QUIZ REVIEW (SUBMITTED) - quizReviewMode controls what is shown
-    // "none" mode: this panel should never be opened (button is hidden in TaskListPanel)
-    // but guard here just in case
+    // QUIZ REVIEW (SUBMITTED)
     if (quizReviewMode === "none") {
       return (
-        <div className="p-4 rounded-xl border text-center space-y-2 animate-scaleIn" style={{ borderColor: tx.borderS }}>
-          <p className="text-sm font-bold" style={{ color: tx.muted }}>ผู้สอนไม่เปิดให้ดูผลควิซนี้</p>
-          <button onClick={() => setSelectedAssignmentId(null)} className="text-xs text-indigo-500 hover:underline font-bold active:scale-95 transition-transform">ย้อนกลับ</button>
+        <div className="max-w-4xl mx-auto p-8 rounded-3xl border text-center space-y-4 animate-scaleIn" style={card.style}>
+          <HelpCircle className="h-12 w-12 text-slate-400 mx-auto" />
+          <h4 className="text-lg font-bold" style={{ color: tx.primary }}>
+            ผู้สอนไม่เปิดให้ดูผลแบบทดสอบชุดนี้
+          </h4>
+          <p className="text-xs" style={{ color: tx.muted }}>
+            ระบบได้บันทึกคำตอบของคุณเรียบร้อยแล้ว
+          </p>
+          <button
+            type="button"
+            onClick={() => setSelectedAssignmentId(null)}
+            className="btn-primary px-6 py-2.5 rounded-xl text-xs font-bold cursor-pointer"
+          >
+            กลับไปยังบทเรียน
+          </button>
         </div>
       );
     }
 
+    const totalPts = activeTask.points;
+    const scoreGot = sub.score !== undefined && sub.score !== null ? sub.score : 0;
+    const isPassing = scoreGot >= (totalPts * 0.5);
+    const reviewQuestions = activeTask.questions ?? [];
+    const reviewQuestionIndex = Math.min(
+      currentQuizQuestionIndex,
+      Math.max(0, reviewQuestions.length - 1),
+    );
+    const reviewQuestion = reviewQuestions[reviewQuestionIndex];
+    const reviewStudentAnswer = reviewQuestion
+      ? (Array.isArray(sub.answers)
+          ? sub.answers[reviewQuestionIndex]
+          : (sub.answers as Record<number, number | string | Record<number, number>> | undefined)?.[reviewQuestionIndex])
+      : undefined;
+
     return (
-      <div className="p-4 rounded-xl border space-y-4 animate-scaleIn" style={{ borderColor: tx.borderS }}>
-        <div className="flex justify-between items-center">
-          <h5 className="font-bold text-sm">
-            {quizReviewMode === "answers_only" ? "คำตอบของคุณ:" : "เฉลยและผลคะแนน:"} {activeTask.title}
-          </h5>
-          <button onClick={() => setSelectedAssignmentId(null)} className="text-xs text-rose-500 hover:underline font-bold active:scale-95 transition-transform">ย้อนกลับ</button>
-        </div>
-
-        <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1 text-left">
-          {activeTask.questions?.map((q, idx) => {
-            const studentAns = sub.answers?.[idx];
-            const isCorrect = studentAns === q.correctIndex;
-            const showCorrectAnswer = quizReviewMode === "full";
-
-            // Border color: full mode - green/red by correctness; answers_only - neutral
-            const borderColor = showCorrectAnswer ? (isCorrect ? "#10b981" : "#f43f5e") : undefined;
-
-            return (
-              <div key={idx}
-                className={`p-3.5 rounded-xl border text-xs space-y-2 animate-slideInUp stagger-${Math.min(idx + 1, 6)}`}
-                style={{ borderColor: borderColor ?? tx.borderS }}
-              >
-                <h6 className="font-bold">ข้อที่ {idx + 1}: {q.question}</h6>
-                <p className={
-                  showCorrectAnswer
-                    ? (isCorrect ? "text-emerald-500 font-semibold" : "text-rose-500 font-semibold")
-                    : "font-semibold"
-                } style={!showCorrectAnswer ? { color: tx.secondary } : {}}>
-                  คำตอบของคุณ: {studentAns !== undefined ? q.options[studentAns as number] : "ไม่ได้ตอบ"}
-                </p>
-                {showCorrectAnswer && (
-                  <p className="text-emerald-500">คำตอบที่ถูก: {q.options[q.correctIndex]}</p>
-                )}
-                {showCorrectAnswer && q.explanation && (
-                  <div className="p-2.5 rounded-lg border text-[11px]" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
-                    <strong>อธิบาย:</strong> {q.explanation}
-                  </div>
-                )}
+      <div className="max-w-4xl mx-auto space-y-6 text-left animate-fadeIn pb-16">
+        {/* Top bar */}
+        <div
+          className="p-5 rounded-3xl border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}
+        >
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedAssignmentId(null)}
+              className="p-2.5 rounded-xl border hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer active:scale-95"
+              style={{ borderColor: tx.border, color: tx.secondary }}
+              title="กลับไปยังบทเรียน"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                  {quizReviewMode === "answers_only" ? "📋 คำตอบของคุณ" : "🎯 ผลคะแนนและเฉลย"}
+                </span>
+                <span className="text-xs" style={{ color: tx.muted }}>
+                  ส่งเมื่อ {formatThaiDateTime(sub.submittedAt)}
+                </span>
               </div>
-            );
-          })}
+              <h2 className="text-lg sm:text-xl font-black mt-0.5" style={{ color: tx.primary }}>
+                {activeTask.title}
+              </h2>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 self-end sm:self-center">
+            <div className={`px-4 py-2 rounded-2xl border text-center ${
+              isPassing
+                ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400"
+                : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-600 dark:text-amber-400"
+            }`}>
+              <span className="text-[10px] font-bold block uppercase tracking-wider">คะแนนที่ได้</span>
+              <span className="text-base sm:text-lg font-black">{scoreGot} / {totalPts} คะแนน</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedAssignmentId(null)}
+              className="btn-primary px-5 py-2.5 rounded-xl text-xs font-bold shadow-md cursor-pointer"
+            >
+              กลับสู่บทเรียน
+            </button>
+          </div>
         </div>
+
+        {/* Review one question at a time */}
+        {reviewQuestion && (
+          <>
+            <div className="flex items-center justify-between rounded-2xl border px-4 py-3" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
+              <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">
+                ข้อที่ {reviewQuestionIndex + 1} จาก {reviewQuestions.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentQuizQuestionIndex(Math.max(0, reviewQuestionIndex - 1))}
+                  disabled={reviewQuestionIndex === 0}
+                  aria-label="ข้อก่อนหน้า"
+                  className="flex items-center px-3 py-2 rounded-xl border text-xs font-bold disabled:opacity-30"
+                  style={{ borderColor: tx.border, color: tx.secondary }}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentQuizQuestionIndex(Math.min(reviewQuestions.length - 1, reviewQuestionIndex + 1))}
+                  disabled={reviewQuestionIndex === reviewQuestions.length - 1}
+                  aria-label="ข้อถัดไป"
+                  className="flex items-center px-3 py-2 rounded-xl border text-xs font-bold disabled:opacity-30"
+                  style={{ borderColor: tx.border, color: tx.secondary }}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <QuizReviewItem
+              question={reviewQuestion}
+              questionIndex={reviewQuestionIndex}
+              studentAnswer={reviewStudentAnswer}
+              showCorrectAnswer={quizReviewMode === "full"}
+            />
+          </>
+        )}
       </div>
     );
   }
@@ -96,146 +304,225 @@ export function QuizPlayer({
 
   if (!isOpen) {
     return (
-      <div className="p-4 rounded-xl border text-center space-y-2 animate-scaleIn" style={{ borderColor: tx.borderS }}>
-        <p className="text-sm font-bold text-rose-500">
-          {notOpenYet ? `ข้อสอบนี้จะเปิดให้ทำในวันที่ ${new Date(activeTask.openAt!).toLocaleString("th-TH")}` : "แบบทดสอบนี้ปิดรับการส่งแล้ว"}
-        </p>
-        <button onClick={() => setSelectedAssignmentId(null)} className="text-xs text-indigo-500 hover:underline font-bold active:scale-95 transition-transform">ย้อนกลับ</button>
+      <div className="max-w-xl mx-auto p-8 rounded-3xl border text-center space-y-4 animate-scaleIn" style={card.style}>
+        <AlertCircle className="h-12 w-12 text-rose-500 mx-auto" />
+        <h4 className="text-lg font-bold text-rose-500">
+          {notOpenYet
+            ? `แบบทดสอบนี้จะเปิดให้ทำในวันที่ ${formatThaiDateTime(activeTask.openAt)}`
+            : alreadyClosed
+              ? `แบบทดสอบนี้หมดเวลาทำแล้ว (ปิดรับส่งเมื่อ ${formatThaiDateTime(activeTask.closeAt)})`
+              : "แบบทดสอบนี้ปิดรับการส่งแล้ว"}
+        </h4>
+        <button
+          type="button"
+          onClick={() => setSelectedAssignmentId(null)}
+          className="btn-primary px-6 py-2.5 rounded-xl text-xs font-bold cursor-pointer"
+        >
+          กลับไปยังบทเรียน
+        </button>
       </div>
     );
   }
 
-  const q = activeTask.questions?.[currentQuizQuestionIndex];
+  const q = questions[currentQuizQuestionIndex];
   if (!q) return <EmptyState illustration="quiz" variant="compact" accent="purple" title="ไม่มีคำถามในชุดแบบทดสอบนี้" />;
-  const chosenIndex = quizAnswers[currentQuizQuestionIndex];
-  const totalQuestions = activeTask.questions!.length;
-  const answeredCount = Object.keys(quizAnswers).length;
-  const allAnswered = answeredCount === totalQuestions;
+  
+  const totalQuestions = questions.length;
+  const answeredCount = questions.filter((question, index) => isQuestionAnswered(question, quizAnswers[index])).length;
+  const unansweredRequiredIndexes = questions
+    .map((question, index) => ({ question, index }))
+    .filter(({ question, index }) => question.required !== false && !isQuestionAnswered(question, quizAnswers[index]))
+    .map(({ index }) => index);
+  const allRequiredAnswered = unansweredRequiredIndexes.length === 0;
+  const progressPercent = Math.round((answeredCount / totalQuestions) * 100);
+
+  const handleManualSubmit = async () => {
+    if (!allRequiredAnswered) {
+      toast.warning(`กรุณาตอบข้อบังคับให้ครบ: ข้อ ${unansweredRequiredIndexes.map((index) => index + 1).join(", ")}`);
+      return;
+    }
+
+    const confirmed = await Swal.fire({
+      title: "ยืนยันการส่งคำตอบ",
+      text: `ตอบแล้ว ${answeredCount}/${totalQuestions} ข้อ ยืนยันที่จะส่งข้อสอบใช่หรือไม่?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "ยืนยันส่งข้อสอบ",
+      cancelButtonText: "ตรวจสอบอีกครั้ง",
+      confirmButtonColor: "#059669",
+    });
+
+    if (confirmed.isConfirmed) {
+      await submitQuiz();
+    }
+  };
 
   return (
-    <div className="p-5 rounded-2xl border space-y-5 animate-fadeIn" style={{ borderColor: tx.borderS }}>
-      {/* Header with progress dots */}
-      <div className="flex justify-between items-center border-b pb-2" style={{ borderColor: tx.borderS }}>
-        <span className="text-xs font-bold text-indigo-500">แบบทดสอบ: {activeTask.title}</span>
-        <span className="text-xs font-extrabold" style={{ color: tx.muted }}>ข้อที่ {currentQuizQuestionIndex + 1} / {totalQuestions}</span>
+    <div className="max-w-4xl mx-auto space-y-6 text-left animate-fadeIn pb-16">
+      {/* Sticky Top Header Bar */}
+      <div
+        className="sticky top-0 z-30 p-4 sm:p-5 rounded-3xl border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 backdrop-blur-md"
+        style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}
+      >
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleBackWithConfirm}
+            className="p-2.5 rounded-xl border hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer shrink-0 active:scale-95"
+            style={{ borderColor: tx.border, color: tx.secondary }}
+            title="ออกจากแบบทดสอบ"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                📝 ห้องสอบแบบทดสอบ (Quiz Room)
+              </span>
+              <span className="text-xs font-bold" style={{ color: tx.muted }}>
+                ข้อที่ {currentQuizQuestionIndex + 1} จาก {totalQuestions} ข้อ
+              </span>
+            </div>
+            <h2 className="text-base sm:text-xl font-black truncate max-w-md mt-0.5" style={{ color: tx.primary }}>
+              {activeTask.title}
+            </h2>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-wrap self-end sm:self-center">
+          {isTimedQuiz && (
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
+              remainingSeconds <= 60
+                ? "bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800/40 text-rose-600 dark:text-rose-300"
+                : "bg-purple-50 dark:bg-purple-950/50 border-purple-200 dark:border-purple-800/40 text-purple-600 dark:text-purple-300"
+            }`}>
+              <Clock className="h-3.5 w-3.5" />
+              <span>เหลือ {formatCountdown(remainingSeconds)}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/40 text-indigo-600 dark:text-indigo-300 text-xs font-bold">
+            <Award className="h-3.5 w-3.5" />
+            <span>เต็ม {activeTask.points} คะแนน</span>
+          </div>
+        </div>
       </div>
 
-      {/* Progress dots */}
-      <div className="flex items-center justify-center gap-1.5">
-        {activeTask.questions!.map((_, idx) => {
-          const isCurrent = idx === currentQuizQuestionIndex;
-          const isAnswered = quizAnswers[idx] !== undefined;
-          return (
-            <button key={idx} onClick={() => setCurrentQuizQuestionIndex(idx)}
-              className={`rounded-full transition-all duration-300 ${
-                isCurrent
-                  ? "w-6 h-2 bg-indigo-500"
-                  : isAnswered
-                    ? "w-2 h-2 bg-indigo-400 dark:bg-indigo-500"
-                    : "w-2 h-2 bg-slate-300 dark:bg-slate-600"
-              }`}
-              title={`ข้อที่ ${idx + 1}${isAnswered ? " (ตอบแล้ว)" : ""}`}
-            />
-          );
-        })}
-      </div>
-
-      <div className="space-y-4 animate-scaleIn" key={currentQuizQuestionIndex}>
-        <h5 className="font-bold text-sm">{q.question}</h5>
-
-        <div className="grid grid-cols-1 gap-2.5">
-          {q.options.map((opt, oIdx) => {
-            const isSelected = chosenIndex === oIdx;
+      {/* Quick Jump Navigator Bar */}
+      <div
+        className="p-3.5 rounded-2xl border shadow-sm flex items-center justify-between gap-2 overflow-hidden"
+        style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}
+      >
+        <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-1 scrollbar-none flex-1">
+          {questions.map((question, idx) => {
+            const isActive = idx === currentQuizQuestionIndex;
+            const isAnswered = isQuestionAnswered(question, quizAnswers[idx]);
             return (
               <button
-                key={oIdx}
-                onClick={() => {
-                  setQuizAnswers(prev => ({
-                    ...prev,
-                    [currentQuizQuestionIndex]: oIdx
-                  }));
-                }}
-                className={`w-full text-left p-3 rounded-xl border text-xs font-bold flex items-center justify-between active:scale-[0.98] ${
-                  isSelected
-                    ? "border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 animate-borderGlow shadow-sm"
-                    : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                } transition-all duration-200`}
+                key={idx}
+                type="button"
+                onClick={() => setCurrentQuizQuestionIndex(idx)}
+                className={`min-w-[42px] h-9 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer shrink-0 active:scale-95 ${
+                  isActive
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20 scale-105"
+                    : isAnswered
+                      ? "border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                      : "border border-slate-200 dark:border-slate-700 bg-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
               >
-                <span>{String.fromCharCode(65 + oIdx)}. {opt}</span>
-                {isSelected && (
-                  <div className="h-5 w-5 rounded-full bg-indigo-500 flex items-center justify-center shrink-0 animate-scaleIn">
-                    <Check className="h-3 w-3 text-white" />
-                  </div>
-                )}
+                <span>ข้อ {idx + 1}{question.required !== false ? " *" : ""}</span>
+                {isAnswered && <CheckCircle2 className={`h-3 w-3 ${isActive ? "text-white" : "text-emerald-500"}`} />}
               </button>
             );
           })}
         </div>
+        <span className="text-[11px] font-bold text-slate-400 shrink-0 hidden sm:inline-block pl-2">
+          ตอบแล้ว {answeredCount}/{totalQuestions}
+        </span>
       </div>
 
-      <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: tx.borderS }}>
-        <button
-          disabled={currentQuizQuestionIndex === 0}
-          onClick={() => setCurrentQuizQuestionIndex(prev => prev - 1)}
-          className="flex items-center gap-1 px-4 py-2 border rounded-xl font-bold text-xs transition-all disabled:opacity-30 cursor-pointer active:scale-95 hover:bg-slate-50 dark:hover:bg-slate-800"
-          style={{ borderColor: tx.borderS, color: tx.secondary }}
-        >
-          <ChevronLeft className="h-3.5 w-3.5" /> ข้อก่อนหน้า
-        </button>
+      {/* Question Main Card */}
+      <div
+        className="p-6 sm:p-8 rounded-3xl border shadow-md space-y-6 animate-scaleIn"
+        key={currentQuizQuestionIndex}
+        style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}
+      >
+        <div className="flex items-start justify-between gap-4 border-b pb-4" style={{ borderColor: tx.borderS }}>
+          <div className="space-y-1">
+            <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
+              โจทย์ข้อที่ {currentQuizQuestionIndex + 1}
+            </span>
+            {q.required !== false && <span className="text-[10px] font-bold text-rose-500">* จำเป็นต้องตอบ</span>}
+            <h3 className="font-bold text-base sm:text-lg leading-relaxed pt-2" style={{ color: tx.primary }}>
+              {q.question}
+            </h3>
+          </div>
+          <span className="text-xs font-extrabold px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0 border border-slate-200 dark:border-slate-700">
+            {q.points !== undefined ? q.points : 1} คะแนน
+          </span>
+        </div>
 
-        {currentQuizQuestionIndex < totalQuestions - 1 ? (
+        <QuizQuestionRenderer
+          question={q}
+          questionIndex={currentQuizQuestionIndex}
+          userAnswer={quizAnswers[currentQuizQuestionIndex]}
+          onAnswerChange={(answer) => {
+            setQuizAnswers(prev => ({
+              ...prev,
+              [currentQuizQuestionIndex]: answer,
+            }));
+          }}
+        />
+      </div>
+
+      {/* Bottom Action / Submission Bar */}
+      <div
+        className="p-4 sm:p-5 rounded-3xl border shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4"
+        style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}
+      >
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
           <button
-            onClick={() => setCurrentQuizQuestionIndex(prev => prev + 1)}
-            className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all hover:shadow-lg active:scale-95"
+            type="button"
+            onClick={() => setCurrentQuizQuestionIndex(prev => Math.max(0, prev - 1))}
+            disabled={currentQuizQuestionIndex === 0}
+            className="px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-30 cursor-pointer active:scale-95 hover:bg-slate-50 dark:hover:bg-slate-800"
+            style={{ borderColor: tx.border, color: tx.secondary }}
           >
-            ข้อถัดไป <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronLeft className="h-4 w-4" /> ข้อก่อนหน้า
           </button>
-        ) : (
+
+          {currentQuizQuestionIndex < totalQuestions - 1 && (
+            <button
+              type="button"
+              onClick={() => setCurrentQuizQuestionIndex(prev => Math.min(totalQuestions - 1, prev + 1))}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95"
+            >
+              ข้อถัดไป <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="text-right hidden sm:block">
+            <span className="text-[11px] font-bold text-slate-400 block">
+              ความคืบหน้า: {progressPercent}%
+            </span>
+            <span className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
+              ตอบแล้ว {answeredCount} / {totalQuestions} ข้อ
+            </span>
+          </div>
+
           <button
-            onClick={async () => {
-              const confirmed = await Swal.fire({
-                title: "ยืนยันการส่งคำตอบ",
-                text: "คุณกรอกคำตอบครบและยืนยันที่จะส่งข้อสอบใช่หรือไม่?",
-                icon: "question",
-                showCancelButton: true,
-                confirmButtonText: "ส่งข้อสอบ",
-                cancelButtonText: "ตรวจสอบอีกครั้ง"
-              });
-              if (confirmed.isConfirmed) {
-                let finalScore = 0;
-                activeTask.questions!.forEach((question, idx) => {
-                  if (quizAnswers[idx] === question.correctIndex) {
-                    finalScore++;
-                  }
-                });
-
-                const submissionAnswers = activeTask.questions!.map((_, idx) => quizAnswers[idx] !== undefined ? quizAnswers[idx] : -1);
-
-                await addSubmission({
-                  id: Math.random().toString(),
-                  studentId: currentUserId || "",
-                  studentName: displayName,
-                  assignmentId: activeTask.id,
-                  type: "quiz",
-                  score: finalScore,
-                  answers: submissionAnswers,
-                  submittedAt: Date.now()
-                });
-
-                const targetLessonId = activeTask.lessonId || activeLessonId;
-                if (targetLessonId) {
-                  toggleLessonComplete(targetLessonId, true);
-                }
-
-                setQuizAnswers({});
-                setSelectedAssignmentId(null);
-              }
-            }}
-            className={`px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all hover:shadow-lg active:scale-95 ${!allAnswered ? "animate-pulseGlow" : ""}`}
+            type="button"
+            onClick={handleManualSubmit}
+            className={`px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white shadow-md transition-all cursor-pointer active:scale-95 ${
+              allRequiredAnswered
+                ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20"
+                : "bg-slate-700 hover:bg-slate-600 opacity-90"
+            }`}
           >
-            ส่งข้อสอบ {allAnswered ? "" : `(${answeredCount}/${totalQuestions})`}
+            ส่งข้อสอบ {allRequiredAnswered ? "✓" : `(ต้องตอบอีก ${unansweredRequiredIndexes.length} ข้อ)`}
           </button>
-        )}
+        </div>
       </div>
     </div>
   );

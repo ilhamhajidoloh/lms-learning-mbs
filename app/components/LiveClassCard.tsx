@@ -4,6 +4,7 @@ import React from "react";
 import { Calendar, Clock, User, Users, Play, Power, Trash2 } from "lucide-react";
 import { tx } from "../lib/theme";
 import { JoinLiveClassButton } from "./JoinLiveClassButton";
+import { formatThaiDateTime } from "../lib/date";
 
 export interface LiveClassData {
   id: string;
@@ -39,15 +40,7 @@ export function LiveClassCard({
   onEnd,
   onDelete,
 }: LiveClassCardProps) {
-  const formattedDate = liveClass.scheduled_at
-    ? new Date(liveClass.scheduled_at).toLocaleDateString("th-TH", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "ไม่ระบุเวลา";
+  const formattedDate = liveClass.scheduled_at ? formatThaiDateTime(liveClass.scheduled_at) : "ไม่ระบุเวลา";
 
   return (
     <div

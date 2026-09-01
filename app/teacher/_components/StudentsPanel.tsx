@@ -1,11 +1,13 @@
 import React from "react";
 import { Plus, Trash2, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { tx, card } from "../../lib/theme";
 import type { Assignment, Enrollment, StudentSubmission } from "../../context/UserContext";
 import { alert as swalAlert } from "../../../lib/swal";
 import { Avatar } from "../../components/Avatar";
 import { EmptyState } from "../../components/EmptyState";
 import Swal from "sweetalert2";
+import { formatThaiDate, formatThaiDateTime } from "../../lib/date";
 
 interface StudentsPanelProps {
   enrollments: Enrollment[];
@@ -14,7 +16,6 @@ interface StudentsPanelProps {
   courseAssignments: Assignment[];
   viewingStudentId: string | null;
   setViewingStudentId: (id: string | null) => void;
-  setViewingQuizSub: (sub: StudentSubmission | null) => void;
   setShowAddStudentModal: (show: boolean) => void;
   teacherRemoveStudent: (courseId: string, studentId: string) => Promise<{ success: boolean; error?: string }>;
 }
@@ -26,10 +27,10 @@ export function StudentsPanel({
   courseAssignments,
   viewingStudentId,
   setViewingStudentId,
-  setViewingQuizSub,
   setShowAddStudentModal,
   teacherRemoveStudent,
 }: StudentsPanelProps) {
+  const router = useRouter();
   const courseEnrollments = enrollments.filter(e => e.courseId === courseId);
   return viewingStudentId ? (
     (() => {
@@ -69,7 +70,7 @@ export function StudentsPanel({
                       <div key={a.id} className="p-4 rounded-xl border flex justify-between items-center text-xs" style={{ borderColor: tx.borderS }}>
                         <div className="space-y-1">
                           <p className="font-bold">{a.title}</p>
-                          <p className="text-[10px]" style={{ color: tx.muted }}>กำหนดส่ง: {a.dueDate}</p>
+                          <p className="text-[10px]" style={{ color: tx.muted }}>กำหนดส่ง: {a.closeAt ? formatThaiDateTime(a.closeAt) : formatThaiDate(a.dueDate)}</p>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -81,7 +82,13 @@ export function StudentsPanel({
                             sub.type === "file" ? (
                               <button type="button" onClick={() => Swal.fire({ icon: "info", title: "จำลองการเปิดไฟล์", text: sub.fileName, confirmButtonText: "ตกลง" })} className="text-[10px] text-indigo-500 hover:underline cursor-pointer">ดูไฟล์ที่ส่ง</button>
                             ) : (
-                              <button type="button" onClick={() => setViewingQuizSub(sub)} className="text-[10px] text-indigo-500 hover:underline cursor-pointer">ตรวจคำตอบ ({sub.score} คะแนน)</button>
+                              <button
+                                type="button"
+                                onClick={() => router.push(`/teacher/review/${sub.id}`)}
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40 cursor-pointer transition-all active:scale-95"
+                              >
+                                🔍 ตรวจคำตอบรายข้อ ({sub.score ?? 0}/{a.points} คะแนน)
+                              </button>
                             )
                           )}
                         </div>
@@ -132,9 +139,9 @@ export function StudentsPanel({
                   const hasPending = studentAssignments.some(a => !studentSubs.some(sub => sub.assignmentId === a.id));
                   const displayStatus = hasPending ? "ค้างส่งงาน" : "ส่งงานครบ";
 
-                  const quizSubs = studentSubs.filter(sub => sub.type === "quiz" && sub.score !== undefined);
+                  const quizSubs = studentSubs.filter(sub => sub.type === "quiz" && Number.isFinite(Number(sub.score)));
                   const avgScore = quizSubs.length > 0
-                    ? (quizSubs.reduce((acc, sub) => acc + (sub.score || 0), 0) / quizSubs.length).toFixed(1) + " คะแนน"
+                    ? (quizSubs.reduce((acc, sub) => acc + Number(sub.score), 0) / quizSubs.length).toFixed(1) + " คะแนน"
                     : "-";
 
                   return (

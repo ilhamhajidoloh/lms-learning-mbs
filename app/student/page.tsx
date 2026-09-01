@@ -31,7 +31,7 @@ export default function StudentDashboard() {
 
   // Interactive Quiz state
   const [currentQuizQuestionIndex, setCurrentQuizQuestionIndex] = useState(0);
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number | string | Record<number, number>>>({});
 
   const enrolledCourses = courses.filter(c => c.isEnrolled);
 

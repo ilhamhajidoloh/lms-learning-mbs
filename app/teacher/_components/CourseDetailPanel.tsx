@@ -20,7 +20,6 @@ interface CourseDetailPanelProps {
   submissions: StudentSubmission[];
   viewingAssignmentId: string | null;
   setViewingAssignmentId: (id: string | null) => void;
-  setViewingQuizSub: (sub: StudentSubmission | null) => void;
 
   lessons: Lesson[];
   chapters: Chapter[];
@@ -49,7 +48,6 @@ export function CourseDetailPanel({
   submissions,
   viewingAssignmentId,
   setViewingAssignmentId,
-  setViewingQuizSub,
   lessons,
   chapters,
   topics,
@@ -148,7 +146,6 @@ export function CourseDetailPanel({
           submissions={submissions}
           viewingAssignmentId={viewingAssignmentId}
           setViewingAssignmentId={setViewingAssignmentId}
-          setViewingQuizSub={setViewingQuizSub}
           setShowForm={setShowForm}
         />
       )}
@@ -177,7 +174,6 @@ export function CourseDetailPanel({
           courseAssignments={courseAssignments}
           viewingStudentId={viewingStudentId}
           setViewingStudentId={setViewingStudentId}
-          setViewingQuizSub={setViewingQuizSub}
           setShowAddStudentModal={setShowAddStudentModal}
           teacherRemoveStudent={teacherRemoveStudent}
         />

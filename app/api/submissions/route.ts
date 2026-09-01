@@ -1,6 +1,13 @@
 import pool, { ensureTables } from "@/lib/db";
 import { authenticate } from "@/lib/auth";
 
+function getDueDateDeadlineMs(dueDate: unknown): number | null {
+  if (!dueDate) return null;
+  const date = String(dueDate).slice(0, 10);
+  const deadlineMs = new Date(`${date}T23:59:59`).getTime();
+  return Number.isNaN(deadlineMs) ? null : deadlineMs;
+}
+
 export async function POST(request: Request) {
   await ensureTables();
   const auth = authenticate(request);
@@ -11,14 +18,14 @@ export async function POST(request: Request) {
   // Check assignment open window if student is submitting
   if (auth.role === "student") {
     const assignRes = await pool.query(
-      `SELECT is_open, open_at, close_at FROM assignments WHERE id = $1`,
+      `SELECT is_open, open_at, close_at, due_date FROM assignments WHERE id = $1`,
       [assignmentId]
     ).catch(() => ({ rows: [] }));
     const assign = assignRes.rows[0];
     if (assign) {
       const now = Date.now();
       const openAt = assign.open_at ? new Date(assign.open_at).getTime() : null;
-      const closeAt = assign.close_at ? new Date(assign.close_at).getTime() : null;
+      const closeAt = assign.close_at ? new Date(assign.close_at).getTime() : getDueDateDeadlineMs(assign.due_date);
       const manualClosed = assign.is_open === false;
       const beforeOpen = openAt !== null && now < openAt;
       const afterClose = closeAt !== null && now > closeAt;
@@ -81,12 +88,12 @@ export async function PUT(request: Request) {
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { submissionId, fileName, score, reset } = body;
+  const { submissionId, fileName, score, reset, questionScores } = body;
 
   // Student editing their own file submission
   if (fileName !== undefined) {
     const subRes = await pool.query(
-      `SELECT s.student_id, s.type, s.score, s.previous_score, a.allow_edit_submission, a.is_open, a.open_at, a.close_at
+      `SELECT s.student_id, s.type, s.score, s.previous_score, a.allow_edit_submission, a.is_open, a.open_at, a.close_at, a.due_date
        FROM submissions s
        JOIN assignments a ON s.assignment_id = a.id
        WHERE s.id = $1`,
@@ -103,7 +110,7 @@ export async function PUT(request: Request) {
     }
     const now = Date.now();
     const openAt = sub.open_at ? new Date(sub.open_at).getTime() : null;
-    const closeAt = sub.close_at ? new Date(sub.close_at).getTime() : null;
+    const closeAt = sub.close_at ? new Date(sub.close_at).getTime() : getDueDateDeadlineMs(sub.due_date);
     if (sub.is_open === false || (openAt !== null && now < openAt) || (closeAt !== null && now > closeAt)) {
       return Response.json({ error: "งานนี้ปิดรับการส่งอยู่ในขณะนี้" }, { status: 403 });
     }
@@ -128,7 +135,54 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Missing submissionId" }, { status: 400 });
   }
 
+  if (questionScores !== undefined) {
+    if (!Array.isArray(questionScores)) {
+      return Response.json({ error: "questionScores must be an array" }, { status: 400 });
+    }
+
+    const submissionRes = await pool.query(
+      `SELECT s.assignment_id, s.type, c.instructor_id
+       FROM submissions s
+       JOIN assignments a ON a.id = s.assignment_id
+       JOIN courses c ON c.id = a.course_id
+       WHERE s.id = $1`,
+      [submissionId]
+    );
+    const submission = submissionRes.rows[0];
+    if (!submission) return Response.json({ error: "Submission not found" }, { status: 404 });
+    if (submission.type !== "quiz") return Response.json({ error: "Question scores are only available for quizzes" }, { status: 400 });
+    if (auth.role === "teacher" && submission.instructor_id !== auth.userId) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const questionsRes = await pool.query(
+      `SELECT points FROM quiz_questions WHERE assignment_id = $1 ORDER BY sort_order`,
+      [submission.assignment_id]
+    );
+    if (questionScores.length !== questionsRes.rows.length) {
+      return Response.json({ error: "Question score count does not match this quiz" }, { status: 400 });
+    }
+
+    const normalizedScores = questionScores.map(Number);
+    const invalidScore = normalizedScores.some((value, index) =>
+      !Number.isFinite(value) || value < 0 || value > Number(questionsRes.rows[index].points)
+    );
+    if (invalidScore) {
+      return Response.json({ error: "Each question score must be within its allowed range" }, { status: 400 });
+    }
+
+    const total = normalizedScores.reduce((sum, value) => sum + value, 0);
+    await pool.query(
+      `UPDATE submissions SET score = $1, question_scores = $2 WHERE id = $3`,
+      [total, JSON.stringify(normalizedScores), submissionId]
+    );
+    return Response.json({ success: true, score: total });
+  }
+
   const finalScore = reset || score === null ? null : Number(score);
+  if (finalScore !== null && !Number.isFinite(finalScore)) {
+    return Response.json({ error: "Score must be a valid number" }, { status: 400 });
+  }
 
   await pool.query(
     `UPDATE submissions SET score = $1 WHERE id = $2`,

@@ -10,6 +10,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { JoinLiveClassButton } from "../../components/JoinLiveClassButton";
 import { type LiveClassData } from "../../components/LiveClassCard";
 import { apiFetch } from "@/lib/api";
+import { formatThaiShortDateTime } from "../../lib/date";
 
 type StudentTab = "dashboard" | "courses" | "study" | "profile";
 
@@ -174,7 +175,7 @@ export function DashboardTab({ displayName, enrolledCourses, setTab, setSelected
 
                 <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: tx.borderS }}>
                   <span className="text-[11px]" style={{ color: tx.secondary }}>
-                    🕒 {lc.scheduled_at ? new Date(lc.scheduled_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "เร็วๆ นี้"}
+                    🕒 {lc.scheduled_at ? formatThaiShortDateTime(lc.scheduled_at) : "เร็วๆ นี้"}
                   </span>
                   <JoinLiveClassButton
                     liveClassId={lc.id}

@@ -56,8 +56,8 @@ export async function GET(request: Request) {
   `);
 
   const quizQuestionsQuery = pool.query(`
-    SELECT qq.id, qq.assignment_id, qq.question_text, qq.options,
-           qq.correct_index, qq.explanation, qq.sort_order
+    SELECT qq.id, qq.assignment_id, qq.question_text, qq.question_type, qq.options,
+           qq.correct_index, qq.correct_answer, qq.matching_pairs, qq.explanation, qq.points, qq.is_required, qq.sort_order
     FROM quiz_questions qq
     ORDER BY qq.assignment_id, qq.sort_order
   `);
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
   const submissionsQuery = role === "student"
     ? pool.query(`
         SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
-               s.score, s.previous_score, s.answers, s.submitted_at, u.display_name AS student_name
+               s.score, s.previous_score, s.question_scores, s.answers, s.submitted_at, u.display_name AS student_name
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         WHERE s.student_id = $1
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
       `, [userId])
     : pool.query(`
         SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
-               s.score, s.previous_score, s.answers, s.submitted_at, u.display_name AS student_name
+               s.score, s.previous_score, s.question_scores, s.answers, s.submitted_at, u.display_name AS student_name
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         ORDER BY s.submitted_at DESC
@@ -225,9 +225,14 @@ export async function GET(request: Request) {
     questions: a.type === "quiz"
       ? (questionsByAssignment[a.id] ?? []).map((q) => ({
           question: q.question_text,
+          questionType: q.question_type || "multiple_choice",
           options: q.options,
           correctIndex: q.correct_index,
+          correctAnswer: q.correct_answer,
+          matchingPairs: q.matching_pairs,
           explanation: q.explanation,
+          points: q.points !== null && q.points !== undefined ? Number(q.points) : 1,
+          required: q.is_required !== false,
         }))
       : undefined,
     createdAt: new Date(a.created_at).getTime(),
@@ -241,18 +246,24 @@ export async function GET(request: Request) {
     closeAt: a.close_at ? new Date(a.close_at).toISOString() : undefined,
   }));
 
-  const submissions = submissionsRes.rows.map((s) => ({
-    id: s.id,
-    assignmentId: s.assignment_id,
-    studentId: s.student_id,
-    studentName: s.student_name,
-    submittedAt: new Date(s.submitted_at).getTime(),
-    type: s.type,
-    fileName: s.file_name || undefined,
-    score: s.score ?? undefined,
-    previousScore: s.previous_score ?? undefined,
-    answers: s.answers || undefined,
-  }));
+  const submissions = submissionsRes.rows.map((s) => {
+    const score = s.score === null || s.score === undefined ? undefined : Number(s.score);
+    const previousScore = s.previous_score === null || s.previous_score === undefined ? undefined : Number(s.previous_score);
+
+    return {
+      id: s.id,
+      assignmentId: s.assignment_id,
+      studentId: s.student_id,
+      studentName: s.student_name,
+      submittedAt: new Date(s.submitted_at).getTime(),
+      type: s.type,
+      fileName: s.file_name || undefined,
+      score: Number.isFinite(score) ? score : undefined,
+      questionScores: Array.isArray(s.question_scores) ? s.question_scores.map(Number) : undefined,
+      previousScore: Number.isFinite(previousScore) ? previousScore : undefined,
+      answers: s.answers || undefined,
+    };
+  });
 
   const enrollments = enrollmentsRes.rows.map((e) => ({
     courseId: e.course_id,

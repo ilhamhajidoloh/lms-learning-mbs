@@ -194,12 +194,27 @@ export async function ensureTables() {
       id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       assignment_id TEXT NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
       question_text TEXT NOT NULL,
+      question_type TEXT NOT NULL DEFAULT 'multiple_choice' CHECK (question_type IN ('multiple_choice', 'fill_blank', 'matching', 'essay')),
       options       JSONB NOT NULL DEFAULT '[]',
-      correct_index INT   NOT NULL CHECK (correct_index >= 0),
+      correct_index INT   CHECK (correct_index >= 0),
+      correct_answer TEXT,
+      matching_pairs JSONB,
       explanation   TEXT  NOT NULL DEFAULT '',
+      points        NUMERIC NOT NULL DEFAULT 1,
+      is_required   BOOLEAN NOT NULL DEFAULT TRUE,
       sort_order    INT   NOT NULL DEFAULT 0
     )
   `);
+
+  // Ensure quiz_questions has essay type and points column
+  try {
+    await pool.query(`ALTER TABLE quiz_questions DROP CONSTRAINT IF EXISTS quiz_questions_question_type_check`);
+    await pool.query(`ALTER TABLE quiz_questions ADD CONSTRAINT quiz_questions_question_type_check CHECK (question_type IN ('multiple_choice', 'fill_blank', 'matching', 'essay'))`);
+    await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS points NUMERIC NOT NULL DEFAULT 1`);
+    await pool.query(`ALTER TABLE submissions ALTER COLUMN score TYPE NUMERIC`);
+  } catch (err) {
+    console.error("Failed to update quiz_questions columns/constraints:", err);
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS submissions (
@@ -210,6 +225,7 @@ export async function ensureTables() {
       file_name     TEXT,
       file_path     TEXT,
       score         INT         CHECK (score >= 0),
+      question_scores JSONB,
       answers       JSONB,
       submitted_at  TIMESTAMPTZ NOT NULL DEFAULT now()
     )
@@ -299,10 +315,16 @@ export async function ensureTables() {
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS quiz_attempt_limit INT`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS open_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS close_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS question_type TEXT NOT NULL DEFAULT 'multiple_choice'`);
+  await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS correct_answer TEXT`);
+  await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS matching_pairs JSONB`);
+  await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS is_required BOOLEAN NOT NULL DEFAULT TRUE`);
+  await pool.query(`ALTER TABLE quiz_questions ALTER COLUMN correct_index DROP NOT NULL`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_quiz_questions_assign  ON quiz_questions (assignment_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON submissions (assignment_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_student    ON submissions (student_id)`);
   await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS previous_score INT`);
+  await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS question_scores JSONB`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_created_by    ON meetings (created_by)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_start         ON meetings (start_datetime DESC)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_completions_student    ON student_lesson_completions (student_id)`);

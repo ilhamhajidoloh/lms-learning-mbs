@@ -1,10 +1,14 @@
 import React, { useState } from "react";
 import { Plus, ArrowLeft, Users, Eye, EyeOff, BookOpen, Clock, PencilLine, Undo2, RotateCcw, Settings, X, Lock, Unlock, Check, Save } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { tx, card } from "../../lib/theme";
 import { useUser, type Assignment, type StudentSubmission } from "../../context/UserContext";
 import { EmptyState } from "../../components/EmptyState";
 import Swal from "sweetalert2";
 import { toast } from "@/lib/swal";
+import { formatThaiDate, formatThaiDateTime, isoToDateInput, isoToLocalInput } from "../../lib/date";
+import { EditAssignmentModal } from "./EditAssignmentModal";
+import { QuizEditorPanel } from "./QuizEditorPanel";
 
 interface AssignmentsPanelProps {
   courseAssignments: Assignment[];
@@ -12,33 +16,17 @@ interface AssignmentsPanelProps {
   submissions: StudentSubmission[];
   viewingAssignmentId: string | null;
   setViewingAssignmentId: (id: string | null) => void;
-  setViewingQuizSub: (sub: StudentSubmission | null) => void;
   setShowForm: (show: boolean) => void;
-}
-
-// Convert an ISO datetime string to datetime-local input value (local timezone)
-function isoToLocalInput(iso?: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function formatThaiDate(dateStr?: string): string {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 interface AssignmentControlModalProps {
   assignment: Assignment | null;
   onClose: () => void;
+}
+
+function dueDateToClosingTime(dueDate?: string): string {
+  const date = isoToDateInput(dueDate);
+  return date ? `${date}T23:59` : "";
 }
 
 function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlModalProps) {
@@ -47,7 +35,7 @@ function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlMod
   const [showScores, setShowScores] = useState(a ? a.showScores !== false : true);
   const [quizReviewMode, setQuizReviewMode] = useState<"full" | "answers_only" | "none">(a ? (a.quizReviewMode ?? "full") : "full");
   const [openAtInput, setOpenAtInput] = useState(a ? isoToLocalInput(a.openAt) : "");
-  const [closeAtInput, setCloseAtInput] = useState(a ? isoToLocalInput(a.closeAt) : "");
+  const [closeAtInput, setCloseAtInput] = useState(a ? isoToLocalInput(a.closeAt) || dueDateToClosingTime(a.dueDate) : "");
   const [attemptInput, setAttemptInput] = useState(a && a.quizAttemptLimit ? String(a.quizAttemptLimit) : "");
   const [allowEdit, setAllowEdit] = useState(a ? a.allowEditSubmission === true : false);
   const [allowCancel, setAllowCancel] = useState(a ? a.allowCancelSubmission === true : false);
@@ -67,6 +55,8 @@ function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlMod
       await updateAssignmentSettings(a.id, showScores, quizReviewMode);
       await toggleAssignmentOpen(a.id, isOpenState);
       await updateAssignmentAdvancedSettings(a.id, {
+        // Keep the legacy date-only deadline aligned with the actual closing time.
+        dueDate: closeAtInput ? closeAtInput.slice(0, 10) : undefined,
         allowEditSubmission: allowEdit,
         allowCancelSubmission: allowCancel,
         quizAttemptLimit: attemptInput ? Number(attemptInput) : 0,
@@ -109,7 +99,7 @@ function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlMod
           </button>
         </div>
 
-        {/* Section 1: Open/Close Switch & Datetime Scheduler */}
+        {/* Section 1: Submission availability */}
         <div className="p-4 rounded-2xl border space-y-3" style={{ borderColor: tx.borderS, backgroundColor: tx.elevated }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -131,7 +121,7 @@ function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlMod
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t pt-3" style={{ borderColor: tx.borderS }}>
             <div className="space-y-1">
               <label className="text-[10px] font-bold flex items-center gap-1" style={{ color: tx.secondary }}>
-                <Clock className="h-3 w-3 text-indigo-500" /> เปิดงานอัตโนมัติเวลา
+                <Clock className="h-3 w-3 text-indigo-500" /> เริ่มรับส่งงาน
               </label>
               <input
                 type="datetime-local"
@@ -143,7 +133,7 @@ function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlMod
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold flex items-center gap-1" style={{ color: tx.secondary }}>
-                <Clock className="h-3 w-3 text-rose-500" /> ปิดงานอัตโนมัติเวลา
+                <Clock className="h-3 w-3 text-rose-500" /> สิ้นสุดการรับส่งงาน
               </label>
               <input
                 type="datetime-local"
@@ -154,6 +144,10 @@ function AssignmentControlModal({ assignment: a, onClose }: AssignmentControlMod
               />
             </div>
           </div>
+
+          <p className="border-t pt-3 text-[10px]" style={{ borderColor: tx.borderS, color: tx.muted }}>
+            หากกำหนด “สิ้นสุดการรับส่งงาน” ระบบจะใช้เวลานี้เป็นทั้งกำหนดส่งและเวลาปิดรับงาน
+          </p>
         </div>
 
         {/* Section 2: Show Scores & Review Mode */}
@@ -296,11 +290,14 @@ export function AssignmentsPanel({
   submissions,
   viewingAssignmentId,
   setViewingAssignmentId,
-  setViewingQuizSub,
   setShowForm,
 }: AssignmentsPanelProps) {
+  const router = useRouter();
   const { gradeSubmission, cancelSubmissionScore, lessons, topics, chapters, enrollments } = useUser();
   const [managingAssignment, setManagingAssignment] = useState<Assignment | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
+  const [editingQuiz, setEditingQuiz] = useState<Assignment | null>(null);
+  const [isCreatingQuiz, setIsCreatingQuiz] = useState<boolean>(false);
 
   const groupedAssignments = React.useMemo(() => {
     const map = new Map<string, Assignment[]>();
@@ -426,13 +423,48 @@ export function AssignmentsPanel({
     }
   };
 
+  if (isCreatingQuiz) {
+    return (
+      <QuizEditorPanel
+        isNew={true}
+        courseId={courseAssignments[0]?.courseId || ""}
+        onBack={() => setIsCreatingQuiz(false)}
+        lessons={lessons}
+      />
+    );
+  }
+
+  if (editingQuiz) {
+    return (
+      <QuizEditorPanel
+        assignment={editingQuiz}
+        onBack={() => setEditingQuiz(null)}
+        lessons={lessons}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
         <h3 className="text-lg font-bold">งานที่มอบหมายทั้งหมดในวิชานี้</h3>
-        <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl shadow-md cursor-pointer">
-          <Plus className="h-4 w-4" /> สร้างงาน / ควิซใหม่
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 font-bold hover:bg-slate-100 dark:hover:bg-slate-750 transition-all cursor-pointer active:scale-95"
+            style={{ color: tx.primary }}
+          >
+            <Plus className="h-4 w-4 text-indigo-500" /> สร้างงานส่งไฟล์ (File)
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsCreatingQuiz(true)}
+            className="btn-primary flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl shadow-md cursor-pointer transition-all active:scale-95"
+          >
+            <Plus className="h-4 w-4" /> สร้างแบบทดสอบ (Quiz Editor)
+          </button>
+        </div>
       </div>
 
       {/* Assignments List */}
@@ -455,9 +487,9 @@ export function AssignmentsPanel({
           const totalCourseStudents = Math.max(enrolledInCourse.length, uniqueSubmittingStudentsCount, 1);
           const submissionRate = Math.min(100, Math.round((uniqueSubmittingStudentsCount / totalCourseStudents) * 100));
 
-          const scoredSubs = Array.from(latestSubmissionsByStudent.values()).filter(s => s.score !== undefined && s.score !== null);
+          const scoredSubs = Array.from(latestSubmissionsByStudent.values()).filter(s => Number.isFinite(Number(s.score)));
           const classAverage = scoredSubs.length > 0
-            ? (scoredSubs.reduce((acc, curr) => acc + (curr.score || 0), 0) / scoredSubs.length).toFixed(1)
+            ? (scoredSubs.reduce((acc, curr) => acc + Number(curr.score), 0) / scoredSubs.length).toFixed(1)
             : null;
 
           const submissionRows = Array.from(latestSubmissionsByStudent.values()).map(submission => ({
@@ -481,8 +513,32 @@ export function AssignmentsPanel({
                   </span>
                   <h3 className="text-xl font-bold mt-1">{activeAssignment.title}</h3>
                   <p className="text-xs mt-1" style={{ color: tx.muted }}>
-                    คะแนนเต็ม {activeAssignment.points} คะแนน · กำหนดส่ง {formatThaiDate(activeAssignment.dueDate)}
+                    คะแนนเต็ม {activeAssignment.points} คะแนน · กำหนดส่ง {activeAssignment.closeAt ? formatThaiDateTime(activeAssignment.closeAt) : formatThaiDate(activeAssignment.dueDate)}
                   </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeAssignment.type === "quiz") {
+                        setEditingQuiz(activeAssignment);
+                      } else {
+                        setEditingAssignment(activeAssignment);
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-bold text-xs border border-amber-200 dark:border-amber-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
+                  >
+                    <PencilLine className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <span>{activeAssignment.type === "quiz" ? "แก้ไขควิซ (Quiz Editor)" : "แก้ไขงาน"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setManagingAssignment(activeAssignment)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
+                  >
+                    <Settings className="h-4 w-4 text-indigo-500" />
+                    <span>ตั้งค่า & ควบคุมงาน</span>
+                  </button>
                 </div>
               </div>
 
@@ -528,7 +584,7 @@ export function AssignmentsPanel({
                                 <p className="text-[10px]" style={{ color: tx.faint }}>รหัส: {student.id}</p>
                               </td>
                               <td className="py-3">
-                                {new Date(sub.submittedAt).toLocaleString("th-TH")}
+                                {formatThaiDateTime(sub.submittedAt)}
                               </td>
                               <td className="py-3">
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -593,17 +649,19 @@ export function AssignmentsPanel({
                                      </div>
                                    </div>
                                 ) : (
-                                  <div className="flex items-center gap-3 flex-wrap">
-                                    <span className="text-emerald-600 font-bold">{sub.score} / {activeAssignment.questions?.length} คะแนน</span>
-                                    <button type="button" onClick={() => setViewingQuizSub(sub)} className="text-[10px] text-indigo-500 hover:underline cursor-pointer">ตรวจคำตอบ</button>
-                                    <button
+                                   <div className="flex items-center gap-2.5 flex-wrap">
+                                     <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
+                                       {sub.score ?? 0} / {activeAssignment.points} คะแนน
+                                     </span>
+                                     <button
                                        type="button"
-                                       onClick={() => handleGradeQuizSubmission(sub.id, sub.score, activeAssignment.questions?.length || activeAssignment.points)}
-                                       className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow cursor-pointer"
+                                       onClick={() => router.push(`/teacher/review/${sub.id}`)}
+                                       className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold text-xs border border-indigo-200 dark:border-indigo-800/40 cursor-pointer transition-all active:scale-95 shadow-sm"
+                                       title="คลิกเพื่อเปิดหน้าตรวจคำตอบและให้คะแนนรายข้อ"
                                      >
-                                       แก้ไขคะแนน
+                                       🔍 ตรวจคำตอบรายข้อ
                                      </button>
-                                  </div>
+                                   </div>
                                 )}
                               </td>
                             </tr>
@@ -675,7 +733,7 @@ export function AssignmentsPanel({
                               {a.type === 'file' ? 'ส่งไฟล์' : 'Quiz แบบทดสอบ'}
                             </span>
                             <span className="text-[10px]" style={{ color: tx.faint }}>
-                              สร้างเมื่อ {new Date(a.createdAt).toLocaleDateString("th-TH")}
+                              สร้างเมื่อ {formatThaiDate(a.createdAt)}
                             </span>
                           </div>
                           <h4 className="font-bold text-sm sm:text-base">{a.title}</h4>
@@ -691,7 +749,7 @@ export function AssignmentsPanel({
                         <div className="text-right shrink-0 flex flex-col justify-between items-end gap-2">
                           <div>
                             <p className="text-xs sm:text-sm font-bold text-indigo-500 dark:text-indigo-400">{a.points} คะแนนเต็ม</p>
-                            <p className="text-[10px] mt-1" style={{ color: tx.faint }}>ครบกำหนด: {formatThaiDate(a.dueDate)}</p>
+                            <p className="text-[10px] mt-1" style={{ color: tx.faint }}>ครบกำหนด: {a.closeAt ? formatThaiDateTime(a.closeAt) : formatThaiDate(a.dueDate)}</p>
                           </div>
                           <button
                             type="button"
@@ -720,14 +778,30 @@ export function AssignmentsPanel({
                             </span>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setManagingAssignment(a)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
-                        >
-                          <Settings className="h-3.5 w-3.5 text-indigo-500" />
-                          <span>ตั้งค่า & ควบคุมงาน</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (a.type === "quiz") {
+                                setEditingQuiz(a);
+                              } else {
+                                setEditingAssignment(a);
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-bold text-xs border border-amber-200 dark:border-amber-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
+                          >
+                            <PencilLine className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                            <span>{a.type === "quiz" ? "แก้ไขควิซ" : "แก้ไขงาน"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setManagingAssignment(a)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
+                          >
+                            <Settings className="h-3.5 w-3.5 text-indigo-500" />
+                            <span>ตั้งค่า & ควบคุมงาน</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -744,6 +818,16 @@ export function AssignmentsPanel({
           key={managingAssignment.id}
           assignment={managingAssignment}
           onClose={() => setManagingAssignment(null)}
+        />
+      )}
+
+      {/* Edit Assignment/Quiz Modal */}
+      {editingAssignment && (
+        <EditAssignmentModal
+          key={editingAssignment.id}
+          assignment={editingAssignment}
+          onClose={() => setEditingAssignment(null)}
+          lessons={lessons}
         />
       )}
     </div>
