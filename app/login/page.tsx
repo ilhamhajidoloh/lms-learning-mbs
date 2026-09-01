@@ -14,6 +14,7 @@ import LoginForm from "./_components/LoginForm";
 export default function LoginPage() {
   const { login, refreshData } = useUser();
   const router = useRouter();
+  const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
 
   const [username,     setUsername]     = useState("");
   const [password,     setPassword]     = useState("");
@@ -65,8 +66,36 @@ export default function LoginPage() {
     loadingToast.close();
     toast.success("เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ " + data.user.displayName);
 
-    // Redirect first, then load data in background
-    const dest = !data.user.passwordChanged ? "/change-password" : data.user.role === "admin" ? "/admin" : data.user.role === "teacher" ? "/teacher" : "/student";
+    // Determine destination based on role and redirect param
+    let dest: string;
+
+    // First priority: change password if needed
+    if (!data.user.passwordChanged) {
+      dest = "/change-password";
+    } else {
+      // Get redirect param from URL
+      const redirectParam = searchParams.get("redirect");
+
+      // Default destinations by role
+      const roleDefaults: Record<Role, string> = {
+        admin: "/admin",
+        teacher: "/teacher",
+        student: "/student"
+      };
+
+      // Use redirect param if it matches the user's role, otherwise use role default
+      if (redirectParam) {
+        const isValidRedirect =
+          (data.user.role === "admin" && redirectParam.startsWith("/admin")) ||
+          (data.user.role === "teacher" && redirectParam.startsWith("/teacher")) ||
+          (data.user.role === "student" && redirectParam.startsWith("/student"));
+
+        dest = isValidRedirect ? redirectParam : roleDefaults[data.user.role];
+      } else {
+        dest = roleDefaults[data.user.role];
+      }
+    }
+
     router.push(dest);
 
     // Load data after navigation
