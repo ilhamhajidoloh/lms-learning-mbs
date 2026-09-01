@@ -234,9 +234,22 @@ export async function ensureTables() {
   // the table is created; otherwise a fresh CockroachDB deployment leaves it
   // as INT permanently because the earlier migration cannot find the table.
   try {
+    // Check if score column needs migration (is it still INT?)
+    const columnInfo = await pool.query(`
+      SELECT data_type
+      FROM information_schema.columns
+      WHERE table_name = 'submissions' AND column_name = 'score'
+    `);
+
+    if (columnInfo.rows[0]?.data_type === 'integer') {
+      // Drop constraint, change type, then add constraint back
+      await pool.query(`ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_score_check`);
+      await pool.query(`ALTER TABLE submissions ALTER COLUMN score TYPE NUMERIC`);
+      await pool.query(`ALTER TABLE submissions ADD CONSTRAINT submissions_score_check CHECK (score >= 0)`);
+    }
+
+    // Add previous_score column if not exists
     await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS previous_score NUMERIC`);
-    await pool.query(`ALTER TABLE submissions ALTER COLUMN score TYPE NUMERIC`);
-    await pool.query(`ALTER TABLE submissions ALTER COLUMN previous_score TYPE NUMERIC`);
   } catch (err) {
     console.error("Failed to migrate submission scores to NUMERIC:", err);
   }
