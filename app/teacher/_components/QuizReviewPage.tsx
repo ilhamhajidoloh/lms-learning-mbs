@@ -46,10 +46,15 @@ export function QuizReviewPage({ submissionId }: { submissionId: string }) {
     return savedScores.map((score, index) => overrides[index] ?? score);
   }, [questionScoreOverrides, questions, submission]);
 
-  const totalScore = useMemo(
-    () => questionScores.reduce((sum, score) => sum + (Number.isFinite(score) ? score : 0), 0),
-    [questionScores],
-  );
+  const totalScore = useMemo(() => {
+    // If questionScores haven't been saved yet but submission.score exists, use that
+    if (submission && (!submission.questionScores || !Array.isArray(submission.questionScores) || submission.questionScores.length === 0)) {
+      if (submission.score !== undefined && submission.score !== null && Number.isFinite(submission.score)) {
+        return submission.score;
+      }
+    }
+    return questionScores.reduce((sum, score) => sum + (Number.isFinite(score) ? score : 0), 0);
+  }, [questionScores, submission]);
 
   const updateQuestionScore = (index: number, rawValue: string) => {
     if (!submission) return;
