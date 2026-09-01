@@ -7,6 +7,8 @@ interface QuizReviewItemProps {
   questionIndex: number;
   studentAnswer: number | string | Record<number, number> | undefined;
   showCorrectAnswer: boolean;
+  showScore?: boolean;
+  earnedPoints?: number;
   isTeacher?: boolean;
 }
 
@@ -15,6 +17,8 @@ export function QuizReviewItem({
   questionIndex,
   studentAnswer,
   showCorrectAnswer,
+  showScore = true,
+  earnedPoints,
   isTeacher = false,
 }: QuizReviewItemProps) {
   let isCorrect: boolean | null = null;
@@ -52,15 +56,23 @@ export function QuizReviewItem({
     if (typeof studentAnswer === "object" && !Array.isArray(studentAnswer)) {
       const totalPairs = question.matchingPairs.length;
       let correctCount = 0;
+      let answeredCount = 0;
 
       for (let i = 0; i < totalPairs; i++) {
+        if (typeof studentAnswer[i] === "number") {
+          answeredCount++;
+        }
         if (studentAnswer[i] === i) {
           correctCount++;
         }
       }
 
       isCorrect = correctCount === totalPairs;
-      answerDisplay = `จับคู่ถูกต้อง ${correctCount}/${totalPairs} คู่`;
+      // In "answers only" mode, never disclose correctness. Show only what the
+      // student submitted; the detailed neutral list below shows each pairing.
+      answerDisplay = showCorrectAnswer
+        ? `จับคู่ถูกต้อง ${correctCount}/${totalPairs} คู่`
+        : `จับคู่แล้ว ${answeredCount}/${totalPairs} คู่`;
     }
     correctAnswerDisplay = question.matchingPairs.map((p, i) => `${i + 1}. ${p.left} ⇄ ${p.right}`).join(", ");
   } else if (qType === "essay") {
@@ -76,9 +88,9 @@ export function QuizReviewItem({
   return (
     <div
       className={`p-4 rounded-2xl border text-xs space-y-3 animate-slideInUp stagger-${Math.min(questionIndex + 1, 6)} ${
-        isCorrect === true
+        showCorrectAnswer && isCorrect === true
           ? "bg-emerald-50/20 dark:bg-emerald-950/10"
-          : isCorrect === false
+          : showCorrectAnswer && isCorrect === false
             ? "bg-rose-50/20 dark:bg-rose-950/10"
             : ""
       }`}
@@ -107,9 +119,15 @@ export function QuizReviewItem({
               {isCorrect ? "✓ ถูกต้อง" : "✗ ไม่ถูกต้อง"}
             </span>
           )}
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
-            {pts} คะแนน
-          </span>
+          {showScore && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+              {typeof earnedPoints === "number" && Number.isFinite(earnedPoints)
+                ? `${earnedPoints} / ${pts} คะแนน`
+                : isTeacher
+                  ? `${pts} คะแนน`
+                  : `รอตรวจ / ${pts} คะแนน`}
+            </span>
+          )}
         </div>
       </div>
 
@@ -141,20 +159,27 @@ export function QuizReviewItem({
       </div>
 
       {/* Matching Breakdown */}
-      {showCorrectAnswer && qType === "matching" && typeof studentAnswer === "object" && !Array.isArray(studentAnswer) && question.matchingPairs && (
+      {qType === "matching" && typeof studentAnswer === "object" && !Array.isArray(studentAnswer) && question.matchingPairs && (
         <div className="p-3 rounded-xl border space-y-1.5" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
-          <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">รายละเอียดการจับคู่:</span>
+          <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
+            {showCorrectAnswer ? "รายละเอียดการจับคู่:" : "คู่ที่คุณเลือก:"}
+          </span>
           {question.matchingPairs.map((pair, i) => {
             const userMatchedRight = studentAnswer[i];
             const correctRight = i;
             const pairCorrect = userMatchedRight === correctRight;
+            const matchedRight = typeof userMatchedRight === "number"
+              ? question.matchingPairs![userMatchedRight]?.right
+              : undefined;
 
             return (
-              <div key={i} className={`flex items-center justify-between text-xs p-1.5 rounded-lg ${
-                pairCorrect ? "bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300" : "bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300"
+              <div key={i} className={`flex items-center justify-between gap-2 text-xs p-1.5 rounded-lg ${
+                showCorrectAnswer
+                  ? (pairCorrect ? "bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300" : "bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300")
+                  : "bg-slate-50 dark:bg-slate-800/50"
               }`}>
-                <span>{i + 1}. {pair.left} ➔ {userMatchedRight !== undefined ? question.matchingPairs![userMatchedRight].right : "ไม่ได้จับคู่"}</span>
-                {!pairCorrect && <span className="text-[10px] opacity-75 font-semibold">(เฉลย: {pair.right})</span>}
+                <span>{i + 1}. {pair.left} ➔ {matchedRight ?? "ไม่ได้จับคู่"}</span>
+                {showCorrectAnswer && !pairCorrect && <span className="text-[10px] opacity-75 font-semibold shrink-0">(เฉลย: {pair.right})</span>}
               </div>
             );
           })}

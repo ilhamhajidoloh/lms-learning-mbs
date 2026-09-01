@@ -40,6 +40,33 @@ function formatCountdown(seconds: number): string {
   return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
+function getAutomaticQuestionScore(
+  question: QuizQuestion,
+  answer: number | string | Record<number, number> | undefined,
+): number | undefined {
+  const points = question.points !== undefined && Number.isFinite(Number(question.points))
+    ? Number(question.points)
+    : 1;
+  const type = question.questionType || "multiple_choice";
+
+  if (type === "multiple_choice") {
+    return answer === question.correctIndex ? points : 0;
+  }
+  if (type === "fill_blank") {
+    if (!question.correctAnswer?.trim()) return undefined;
+    return typeof answer === "string" && answer.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()
+      ? points
+      : 0;
+  }
+  if (type === "matching") {
+    if (!question.matchingPairs) return 0;
+    const isAllCorrect = typeof answer === "object" && answer !== null && !Array.isArray(answer) &&
+      question.matchingPairs.every((_, pairIndex) => answer[pairIndex] === pairIndex);
+    return isAllCorrect ? points : 0;
+  }
+  return undefined; // Essay questions are scored manually.
+}
+
 export function QuizPlayer({
   activeTask,
   sub,
@@ -56,6 +83,7 @@ export function QuizPlayer({
   const { toggleLessonComplete } = useUser();
   const [nowMs] = React.useState(() => Date.now());
   const quizReviewMode = activeTask.quizReviewMode ?? "full";
+  const showScores = activeTask.showScores !== false;
   const questions = useMemo(() => activeTask.questions ?? [], [activeTask.questions]);
   const timeLimitSeconds = Math.max(0, Number(activeTask.timeLimit ?? 0) * 60);
   const isTimedQuiz = timeLimitSeconds > 0;
@@ -201,6 +229,12 @@ export function QuizPlayer({
           ? sub.answers[reviewQuestionIndex]
           : (sub.answers as Record<number, number | string | Record<number, number>> | undefined)?.[reviewQuestionIndex])
       : undefined;
+    const savedQuestionScore = sub.questionScores?.[reviewQuestionIndex];
+    const reviewQuestionScore = typeof savedQuestionScore === "number" && Number.isFinite(savedQuestionScore)
+      ? Number(savedQuestionScore)
+      : reviewQuestion
+        ? getAutomaticQuestionScore(reviewQuestion, reviewStudentAnswer)
+        : undefined;
 
     return (
       <div className="max-w-4xl mx-auto space-y-6 text-left animate-fadeIn pb-16">
@@ -235,14 +269,16 @@ export function QuizPlayer({
           </div>
 
           <div className="flex items-center gap-3 self-end sm:self-center">
-            <div className={`px-4 py-2 rounded-2xl border text-center ${
-              isPassing
-                ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400"
-                : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-600 dark:text-amber-400"
-            }`}>
-              <span className="text-[10px] font-bold block uppercase tracking-wider">คะแนนที่ได้</span>
-              <span className="text-base sm:text-lg font-black">{scoreGot} / {totalPts} คะแนน</span>
-            </div>
+            {showScores && (
+              <div className={`px-4 py-2 rounded-2xl border text-center ${
+                isPassing
+                  ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400"
+                  : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-600 dark:text-amber-400"
+              }`}>
+                <span className="text-[10px] font-bold block uppercase tracking-wider">คะแนนที่ได้</span>
+                <span className="text-base sm:text-lg font-black">{scoreGot} / {totalPts} คะแนน</span>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => setSelectedAssignmentId(null)}
@@ -288,6 +324,8 @@ export function QuizPlayer({
               questionIndex={reviewQuestionIndex}
               studentAnswer={reviewStudentAnswer}
               showCorrectAnswer={quizReviewMode === "full"}
+              showScore={showScores}
+              earnedPoints={reviewQuestionScore}
             />
           </>
         )}
