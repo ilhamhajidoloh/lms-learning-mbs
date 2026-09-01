@@ -19,8 +19,9 @@ export function middleware(request: NextRequest) {
   const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
   const token = cookieToken || bearerToken;
 
-  // Allow access to login and register pages without token
-  if (pathname === "/login" || pathname === "/register") {
+  // Allow access to authentication pages without a token.
+  // The registration page is served at /signup (not /register).
+  if (pathname === "/login" || pathname === "/signup") {
     // If already has token, redirect to home
     if (token) {
       return NextResponse.redirect(new URL("/", request.url));
