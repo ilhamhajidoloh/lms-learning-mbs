@@ -1,14 +1,17 @@
 import pool, { ensureTables } from "@/lib/db";
 import { authenticate } from "@/lib/auth";
-import { calculateQuestionScore } from "@/lib/quizScoring";
+import { calculateQuestionScore, type QuizAnswer } from "@/lib/quizScoring";
 
 export async function POST(request: Request) {
   await ensureTables();
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, courseId, lessonId, type, title, dueDate, points, instructions, timeLimit, questions } =
+  const { id, courseId, lessonId, type, title, dueDate, points, instructions, timeLimit, questions, multiSelectScoringMode } =
     await request.json();
+  const resolvedMultiSelectScoringMode = multiSelectScoringMode === "penalize_incorrect"
+    ? "penalize_incorrect"
+    : "correct_only";
 
   let resolvedLessonId = lessonId || null;
   if (!resolvedLessonId) {
@@ -26,9 +29,9 @@ export async function POST(request: Request) {
   }
 
   await pool.query(
-    `INSERT INTO assignments (id, course_id, lesson_id, created_by, type, title, due_date, points, instructions, time_limit)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [id, courseId, resolvedLessonId, auth.userId, type, title, dueDate, points, instructions ?? null, timeLimit ?? null]
+    `INSERT INTO assignments (id, course_id, lesson_id, created_by, type, title, due_date, points, instructions, time_limit, multi_select_scoring_mode)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    [id, courseId, resolvedLessonId, auth.userId, type, title, dueDate, points, instructions ?? null, timeLimit ?? null, resolvedMultiSelectScoringMode]
   );
 
   if (type === "quiz" && questions?.length) {
@@ -95,6 +98,7 @@ export async function PUT(request: Request) {
     instructions,
     timeLimit,
     questions,
+    multiSelectScoringMode,
   } = body;
 
   if (!id) return Response.json({ error: "Missing assignment id" }, { status: 400 });
@@ -115,8 +119,9 @@ export async function PUT(request: Request) {
          points = COALESCE($12, points),
          instructions = COALESCE($13, instructions),
          time_limit = COALESCE($14, time_limit),
+         multi_select_scoring_mode = COALESCE($15, multi_select_scoring_mode),
          updated_at = now()
-     WHERE id = $15`,
+     WHERE id = $16`,
     [
       showScores !== undefined ? showScores : null,
       quizReviewMode !== undefined ? quizReviewMode : null,
@@ -134,6 +139,9 @@ export async function PUT(request: Request) {
       points !== undefined ? Number(points) : null,
       instructions !== undefined ? instructions : null,
       timeLimit !== undefined ? Number(timeLimit) : null,
+      multiSelectScoringMode !== undefined
+        ? (multiSelectScoringMode === "penalize_incorrect" ? "penalize_incorrect" : "correct_only")
+        : null,
       id,
     ]
   );
@@ -195,7 +203,7 @@ export async function PUT(request: Request) {
           const q = questions[idx];
           const ans = Array.isArray(parsedAnswers)
             ? parsedAnswers[idx]
-            : (parsedAnswers as Record<number, any> | undefined)?.[idx];
+            : (parsedAnswers as Record<number, QuizAnswer> | undefined)?.[idx];
           const result = calculateQuestionScore(q, ans);
           total += result.score;
         }

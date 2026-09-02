@@ -176,7 +176,7 @@ export async function PUT(request: Request) {
 
     const total = normalizedScores.reduce((sum, value) => sum + value, 0);
     await pool.query(
-      `UPDATE submissions SET score = $1, question_scores = $2 WHERE id = $3`,
+      `UPDATE submissions SET score = $1, question_scores = $2, is_manually_graded = TRUE WHERE id = $3`,
       [total, JSON.stringify(normalizedScores), submissionId]
     );
     return Response.json({ success: true, score: total });
@@ -188,7 +188,7 @@ export async function PUT(request: Request) {
   }
 
   await pool.query(
-    `UPDATE submissions SET score = $1 WHERE id = $2`,
+    `UPDATE submissions SET score = $1, is_manually_graded = TRUE WHERE id = $2`,
     [finalScore, submissionId]
   );
 

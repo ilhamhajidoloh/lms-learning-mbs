@@ -1,5 +1,7 @@
 import type { QuizQuestion } from "@/app/context/UserContext";
 
+export type QuizAnswer = number | number[] | string | Record<number, number>;
+
 /**
  * Get the correct answer indices for a multiple choice question
  * Supports both old correctIndex (single) and new correctIndices (multiple)
@@ -18,7 +20,7 @@ export function getQuestionCorrectIndices(question: QuizQuestion): number[] {
  * Get the indices that the student selected
  * Handles both single selection (number) and multiple selection (number[])
  */
-export function getStudentSelectedIndices(answer: number | number[] | string | Record<number, number> | undefined): number[] {
+export function getStudentSelectedIndices(answer: QuizAnswer | undefined): number[] {
   if (Array.isArray(answer)) {
     return answer;
   }
@@ -33,7 +35,7 @@ export function getStudentSelectedIndices(answer: number | number[] | string | R
  */
 export function calculateQuestionScore(
   question: QuizQuestion,
-  answer: number | number[] | string | Record<number, number> | undefined
+  answer: QuizAnswer | undefined
 ): {
   score: number;
   isCorrect: boolean | null;
@@ -70,9 +72,10 @@ export function calculateQuestionScore(
 
     // If multiple correct answers exist, use proportional scoring
     if (correctIndices.length > 1) {
-      // Score = (correct selected / total correct) * points - penalty for incorrect
       const correctRatio = correctSelections.length / correctIndices.length;
-      const incorrectPenalty = incorrectSelections.length / correctIndices.length;
+      const incorrectPenalty = question.multiSelectScoringMode === "penalize_incorrect"
+        ? incorrectSelections.length / correctIndices.length
+        : 0;
       const rawScore = (correctRatio - incorrectPenalty) * points;
       const finalScore = Math.max(0, Math.min(points, rawScore));
 
@@ -215,10 +218,10 @@ export function calculateQuestionScore(
  */
 export function calculateQuizTotalScore(
   questions: QuizQuestion[],
-  answers: number | number[] | string | Record<number, any> | undefined
+  answers: QuizAnswer[] | Record<number, QuizAnswer> | undefined
 ): { totalScore: number; questionScores: number[] } {
   const scores = questions.map((q, idx) => {
-    const ans = Array.isArray(answers) ? answers[idx] : (answers as Record<number, any> | undefined)?.[idx];
+    const ans = Array.isArray(answers) ? answers[idx] : answers?.[idx];
     return calculateQuestionScore(q, ans).score;
   });
   const total = scores.reduce((sum, s) => sum + s, 0);

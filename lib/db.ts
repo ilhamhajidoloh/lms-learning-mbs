@@ -353,6 +353,7 @@ export async function migrateDatabase() {
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS allow_edit_submission BOOLEAN NOT NULL DEFAULT FALSE`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS allow_cancel_submission BOOLEAN NOT NULL DEFAULT FALSE`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS quiz_attempt_limit INT`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS multi_select_scoring_mode TEXT NOT NULL DEFAULT 'correct_only'`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS open_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS close_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS question_type TEXT NOT NULL DEFAULT 'multiple_choice'`);
@@ -365,6 +366,7 @@ export async function migrateDatabase() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_student    ON submissions (student_id)`);
   await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS previous_score NUMERIC`);
   await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS question_scores JSONB`);
+  await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS is_manually_graded BOOLEAN NOT NULL DEFAULT FALSE`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_created_by    ON meetings (created_by)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_start         ON meetings (start_datetime DESC)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_completions_student    ON student_lesson_completions (student_id)`);

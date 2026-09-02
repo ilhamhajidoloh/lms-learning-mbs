@@ -2,6 +2,8 @@ import pool, { ensureTables } from "@/lib/db";
 import { authenticate } from "@/lib/auth";
 import { calculateQuestionScore } from "@/lib/quizScoring";
 
+type QuizAnswer = number | number[] | string | Record<number, number>;
+
 // Disable caching for this endpoint
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,9 +16,6 @@ export async function GET(request: Request) {
   }
 
   const { userId, role } = auth;
-
-  // Add query timeout to prevent long-running queries
-  const queryTimeout = 10000; // 10 seconds
 
   // Optimize courses query - use LEFT JOIN instead of subquery for lessons_count
   const coursesQuery = pool.query(`
@@ -65,7 +64,7 @@ export async function GET(request: Request) {
   // Optimize assignments query - reduce columns and add limit for initial load
   const assignmentsQuery = pool.query(`
     SELECT a.id, a.course_id, a.lesson_id, a.type, a.title, a.due_date, a.points,
-           a.instructions, a.time_limit, a.created_at, a.show_scores, a.quiz_review_mode, a.is_open,
+           a.instructions, a.time_limit, a.created_at, a.show_scores, a.quiz_review_mode, a.is_open, a.multi_select_scoring_mode,
            a.allow_edit_submission, a.allow_cancel_submission, a.quiz_attempt_limit, a.open_at, a.close_at
     FROM assignments a
     ORDER BY a.created_at DESC
@@ -83,7 +82,7 @@ export async function GET(request: Request) {
   const submissionsQuery = role === "student"
     ? pool.query(`
         SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
-               s.score, s.previous_score, s.question_scores, s.answers, s.submitted_at, u.display_name AS student_name
+               s.score, s.previous_score, s.question_scores, s.answers, s.is_manually_graded, s.submitted_at, u.display_name AS student_name
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         WHERE s.student_id = $1
@@ -92,7 +91,7 @@ export async function GET(request: Request) {
       `, [userId])
     : (role === "teacher" ? pool.query(`
         SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
-               s.score, s.previous_score, s.question_scores, s.answers, s.submitted_at, u.display_name AS student_name
+               s.score, s.previous_score, s.question_scores, s.answers, s.is_manually_graded, s.submitted_at, u.display_name AS student_name
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         JOIN assignments a ON a.id = s.assignment_id
@@ -102,7 +101,7 @@ export async function GET(request: Request) {
         LIMIT 1000
       `, [userId]) : pool.query(`
         SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
-               s.score, s.previous_score, s.question_scores, s.answers, s.submitted_at, u.display_name AS student_name
+               s.score, s.previous_score, s.question_scores, s.answers, s.is_manually_graded, s.submitted_at, u.display_name AS student_name
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         ORDER BY s.submitted_at DESC
@@ -244,6 +243,13 @@ export async function GET(request: Request) {
     })),
   }));
 
+  const multiSelectScoringModeByAssignment = new Map<string, "correct_only" | "penalize_incorrect">(
+    assignmentsRes.rows.map((assignment) => [
+      assignment.id,
+      assignment.multi_select_scoring_mode === "penalize_incorrect" ? "penalize_incorrect" : "correct_only",
+    ])
+  );
+
   const assignments = assignmentsRes.rows.map((a) => ({
     id: a.id,
     courseId: a.course_id,
@@ -254,6 +260,7 @@ export async function GET(request: Request) {
     points: a.points,
     instructions: a.instructions || undefined,
     timeLimit: a.time_limit || undefined,
+    multiSelectScoringMode: multiSelectScoringModeByAssignment.get(a.id),
     questions: a.type === "quiz"
       ? (questionsByAssignment[a.id] ?? []).map((q) => ({
           question: q.question_text,
@@ -265,6 +272,7 @@ export async function GET(request: Request) {
             : (typeof q.correct_indices === "string"
                 ? (() => { try { return JSON.parse(q.correct_indices); } catch { return undefined; } })()
                 : (q.correct_indices || (q.correct_index !== null && q.correct_index !== undefined ? [q.correct_index] : undefined))),
+          multiSelectScoringMode: multiSelectScoringModeByAssignment.get(a.id),
           correctAnswer: q.correct_answer,
           matchingPairs: q.matching_pairs,
           explanation: q.explanation,
@@ -301,9 +309,9 @@ export async function GET(request: Request) {
       }
     }
 
-    // If quiz submission has no manual question_scores override and contains only auto-gradable questions,
+    // If quiz submission has no manual score override and contains only auto-gradable questions,
     // ensure score is strictly in sync with the current quiz questions and points
-    if (s.type === "quiz" && !questionScores) {
+    if (s.type === "quiz" && !s.is_manually_graded) {
       const qList = questionsByAssignment[s.assignment_id];
       const hasManualQuestions = qList?.some(
         (q) => q.question_type === "essay" || (q.question_type === "fill_blank" && !q.correct_answer?.trim())
@@ -311,6 +319,7 @@ export async function GET(request: Request) {
       if (!hasManualQuestions && qList && qList.length > 0) {
         if (answers !== undefined && answers !== null) {
           let calculatedTotal = 0;
+          const calculatedQuestionScores: number[] = [];
           for (let i = 0; i < qList.length; i++) {
             const rawQ = qList[i];
             const qObj = {
@@ -323,20 +332,23 @@ export async function GET(request: Request) {
                 : (typeof rawQ.correct_indices === "string"
                     ? (() => { try { return JSON.parse(rawQ.correct_indices); } catch { return undefined; } })()
                     : (rawQ.correct_indices || (rawQ.correct_index !== null && rawQ.correct_index !== undefined ? [rawQ.correct_index] : undefined))),
+              multiSelectScoringMode: multiSelectScoringModeByAssignment.get(s.assignment_id),
               correctAnswer: rawQ.correct_answer,
               matchingPairs: rawQ.matching_pairs,
               explanation: rawQ.explanation,
               points: rawQ.points !== null && rawQ.points !== undefined ? Number(rawQ.points) : 1,
             };
-            const ans = Array.isArray(answers) ? answers[i] : (answers as Record<number, any>)?.[i];
-            calculatedTotal += calculateQuestionScore(qObj, ans).score;
+            const ans = Array.isArray(answers) ? answers[i] : (answers as Record<number, QuizAnswer>)?.[i];
+            const calculatedScore = calculateQuestionScore(qObj, ans).score;
+            calculatedQuestionScores.push(calculatedScore);
+            calculatedTotal += calculatedScore;
           }
+          questionScores = calculatedQuestionScores;
           score = calculatedTotal;
         }
       }
     }
 
-    console.log('[API /data] Final score before return:', score, 'isFinite:', Number.isFinite(score));
     return {
       id: s.id,
       assignmentId: s.assignment_id,

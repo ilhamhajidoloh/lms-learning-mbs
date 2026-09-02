@@ -3,7 +3,7 @@
 import React, { useState, type FormEvent } from "react";
 import { ArrowLeft, Plus, Save, Clock, Calendar, BookOpen, Award, CheckCircle2 } from "lucide-react";
 import { tx, card } from "../../lib/theme";
-import { useUser, type Assignment, type Lesson, type QuizQuestion } from "../../context/UserContext";
+import { useUser, type Assignment, type Lesson, type MultiSelectScoringMode, type QuizQuestion } from "../../context/UserContext";
 import { QuestionEditor } from "./QuestionEditor";
 import { isoToDateInput } from "../../lib/date";
 import Swal from "sweetalert2";
@@ -29,6 +29,9 @@ export function QuizEditorPanel({ assignment: a, isNew = false, courseId, onBack
   const [assignTitle, setAssignTitle] = useState(a?.title || "");
   const [assignDueDate, setAssignDueDate] = useState(a?.dueDate ? (isoToDateInput(a.dueDate) || "") : defaultDueDate);
   const [assignTimeLimit, setAssignTimeLimit] = useState(a?.timeLimit || 15);
+  const [multiSelectScoringMode, setMultiSelectScoringMode] = useState<MultiSelectScoringMode>(
+    a?.multiSelectScoringMode ?? "correct_only"
+  );
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>(
     a?.questions && a.questions.length > 0
       ? a.questions.map((q) => ({ ...q, points: q.points !== undefined ? Number(q.points) : 1 }))
@@ -130,6 +133,7 @@ export function QuizEditorPanel({ assignment: a, isNew = false, courseId, onBack
           points: Number(assignPoints || totalCalculatedPoints),
           dueDate: assignDueDate || defaultDueDate,
           timeLimit: Number(assignTimeLimit),
+          multiSelectScoringMode,
           questions: quizQuestions,
           createdAt: Date.now(),
         };
@@ -143,6 +147,7 @@ export function QuizEditorPanel({ assignment: a, isNew = false, courseId, onBack
           points: Number(assignPoints || totalCalculatedPoints),
           dueDate: assignDueDate || a.dueDate,
           timeLimit: Number(assignTimeLimit),
+          multiSelectScoringMode,
           questions: quizQuestions,
         });
 
@@ -347,6 +352,24 @@ export function QuizEditorPanel({ assignment: a, isNew = false, courseId, onBack
               </div>
 
               {/* Due Date */}
+              <div className="space-y-2">
+                <label className="font-bold uppercase tracking-wider" style={{ color: tx.muted }}>
+                  การคิดคะแนนข้อเลือกได้หลายคำตอบ
+                </label>
+                <select
+                  value={multiSelectScoringMode}
+                  onChange={(e) => setMultiSelectScoringMode(e.target.value as MultiSelectScoringMode)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-xs"
+                  style={{ borderColor: tx.border, color: tx.primary }}
+                >
+                  <option value="correct_only" className="bg-white dark:bg-slate-900">ได้คะแนนตามข้อที่เลือกถูก</option>
+                  <option value="penalize_incorrect" className="bg-white dark:bg-slate-900">เลือกผิดตัดคะแนนตามสัดส่วน</option>
+                </select>
+                <p className="text-[10px] leading-relaxed" style={{ color: tx.muted }}>
+                  ใช้กับข้อที่มีคำตอบถูกมากกว่า 1 ข้อเท่านั้น
+                </p>
+              </div>
+
               <div className="space-y-1">
                 <label className="font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: tx.muted }}>
                   <Calendar className="h-3.5 w-3.5 text-indigo-500" /> วันครบกำหนดส่ง

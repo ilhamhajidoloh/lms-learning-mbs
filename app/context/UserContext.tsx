@@ -28,6 +28,7 @@ export interface Course {
 }
 
 export type QuestionType = "multiple_choice" | "fill_blank" | "matching" | "essay";
+export type MultiSelectScoringMode = "correct_only" | "penalize_incorrect";
 
 export interface MatchingPair {
   left: string;
@@ -42,6 +43,7 @@ export interface QuizQuestion {
   options?: string[];
   correctIndex?: number; // Legacy: single correct answer
   correctIndices?: number[]; // New: supports multiple correct answers
+  multiSelectScoringMode?: MultiSelectScoringMode;
   // For fill in the blank & essay
   correctAnswer?: string;
   // For matching
@@ -70,6 +72,7 @@ export interface Assignment {
   quizAttemptLimit?: number;
   openAt?: string;
   closeAt?: string;
+  multiSelectScoringMode?: MultiSelectScoringMode;
 }
 
 export interface StudentSubmission {
@@ -412,6 +415,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           instructions: assignment.instructions,
           timeLimit: assignment.timeLimit,
           questions: assignment.questions,
+          multiSelectScoringMode: assignment.multiSelectScoringMode,
         }),
       });
       loadingToast.close();
@@ -442,6 +446,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           instructions: assignment.instructions,
           timeLimit: assignment.timeLimit,
           questions: assignment.questions,
+          multiSelectScoringMode: assignment.multiSelectScoringMode,
         }),
       });
       loadingToast.close();
