@@ -90,14 +90,24 @@ export async function GET(request: Request) {
         ORDER BY s.submitted_at DESC
         LIMIT 500
       `, [userId])
-    : pool.query(`
+    : (role === "teacher" ? pool.query(`
+        SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
+               s.score, s.previous_score, s.question_scores, s.answers, s.submitted_at, u.display_name AS student_name
+        FROM submissions s
+        JOIN users u ON u.id = s.student_id
+        JOIN assignments a ON a.id = s.assignment_id
+        JOIN courses c ON c.id = a.course_id
+        WHERE c.instructor_id = $1
+        ORDER BY s.submitted_at DESC
+        LIMIT 1000
+      `, [userId]) : pool.query(`
         SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
                s.score, s.previous_score, s.question_scores, s.answers, s.submitted_at, u.display_name AS student_name
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         ORDER BY s.submitted_at DESC
         LIMIT 1000
-      `);
+      `));
 
   // Optimize enrollments query
   const enrollmentsQuery = role === "teacher"

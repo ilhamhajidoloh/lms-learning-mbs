@@ -1,10 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Users, BookOpen, Clipboard, Clock, Plus,
   ArrowUpRight, BookDashed, Award,
 } from "lucide-react";
 import { tx, card } from "../../lib/theme";
-import type { Course } from "../../context/UserContext";
+import { useUser, type Course } from "../../context/UserContext";
 import { StatCard } from "../../components/StatCard";
 import { HeroBanner } from "../../components/HeroBanner";
 import { EmptyState } from "../../components/EmptyState";
@@ -30,6 +30,32 @@ interface DashboardTabProps {
 }
 
 export function DashboardTab({ displayName, teacherCourses, setShowCourseForm, setTab, setSelectedCourseId, setDetailTab }: DashboardTabProps) {
+  const { assignments, submissions, enrollments } = useUser();
+  const { enrolledStudentCount, assignmentCount, assignmentSubmissionRate } = useMemo(() => {
+    const courseIds = new Set(teacherCourses.map((course) => course.id));
+    const courseEnrollments = enrollments.filter((enrollment) => courseIds.has(enrollment.courseId));
+    const enrolledStudentCount = new Set(
+      courseEnrollments.map((enrollment) => enrollment.studentId).filter(Boolean)
+    ).size;
+    const courseAssignments = assignments.filter((assignment) => courseIds.has(assignment.courseId));
+    const courseAssignmentIds = new Set(courseAssignments.map((assignment) => assignment.id));
+    const expectedSubmissions = courseAssignments.reduce(
+      (total, assignment) => total + courseEnrollments.filter((enrollment) => enrollment.courseId === assignment.courseId).length,
+      0
+    );
+    const submittedCount = new Set(
+      submissions
+        .filter((submission) => courseAssignmentIds.has(submission.assignmentId))
+        .map((submission) => `${submission.assignmentId}:${submission.studentId}`)
+    ).size;
+
+    return {
+      enrolledStudentCount,
+      assignmentCount: courseAssignments.length,
+      assignmentSubmissionRate: expectedSubmissions > 0 ? Math.round((submittedCount / expectedSubmissions) * 100) : 0,
+    };
+  }, [assignments, enrollments, submissions, teacherCourses]);
+
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* Hero / Welcome */}
@@ -42,10 +68,10 @@ export function DashboardTab({ displayName, teacherCourses, setShowCourseForm, s
 
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard icon={<Users className="h-6 w-6" />} label="นักเรียนทั้งหมด" value="0 คน" accent="indigo" className="animate-slideInUp stagger-1" />
-        <StatCard icon={<Clock className="h-6 w-6" />} label="ชั่วโมงสอนสะสม" value="0 ชม." accent="purple" className="animate-slideInUp stagger-2" />
-        <StatCard icon={<BookOpen className="h-6 w-6" />} label="คอร์สที่เปิดสอน" value="0 คอร์ส" accent="blue" className="animate-slideInUp stagger-3" />
-        <StatCard icon={<Clipboard className="h-6 w-6" />} label="การส่งการบ้านสะสม" value="0%" accent="pink" className="animate-slideInUp stagger-4" />
+        <StatCard icon={<Users className="h-6 w-6" />} label="นักเรียนทั้งหมด" value={`${enrolledStudentCount} คน`} accent="indigo" className="animate-slideInUp stagger-1" />
+        <StatCard icon={<Clock className="h-6 w-6" />} label="งานที่มอบหมาย" value={`${assignmentCount} งาน`} accent="purple" className="animate-slideInUp stagger-2" />
+        <StatCard icon={<BookOpen className="h-6 w-6" />} label="คอร์สที่เปิดสอน" value={`${teacherCourses.length} คอร์ส`} accent="blue" className="animate-slideInUp stagger-3" />
+        <StatCard icon={<Clipboard className="h-6 w-6" />} label="อัตราการส่งการบ้าน" value={`${assignmentSubmissionRate}%`} accent="pink" className="animate-slideInUp stagger-4" />
       </div>
 
       {/* Main Area: Course List & Student Logs */}

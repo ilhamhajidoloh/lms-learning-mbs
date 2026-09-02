@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Play, Book, Clock, Trophy, ChevronRight, Search, Award, Video,
 } from "lucide-react";
 import { tx } from "../../lib/theme";
-import type { Course } from "../../context/UserContext";
+import { useUser, type Course } from "../../context/UserContext";
 import { StatCard } from "../../components/StatCard";
 import { HeroBanner } from "../../components/HeroBanner";
 import { EmptyState } from "../../components/EmptyState";
@@ -46,8 +46,50 @@ function useAnimatedCounter(target: number, duration = 800) {
 
 export function DashboardTab({ displayName, enrolledCourses, setTab, setSelectedCourseId }: DashboardTabProps) {
   const courseCount = useAnimatedCounter(enrolledCourses.length, 600);
+  const { assignments, submissions, chapters, topics, lessons, completedLessonIds, currentUserId } = useUser();
   const [activeLiveClasses, setActiveLiveClasses] = useState<LiveClassData[]>([]);
   const [allLiveClasses, setAllLiveClasses] = useState<LiveClassData[]>([]);
+
+  const { completedStudyMinutes, passedQuizCount } = useMemo(() => {
+    const enrolledCourseIds = new Set(enrolledCourses.map((course) => course.id));
+    const chapterCourseIds = new Map(chapters.map((chapter) => [chapter.id, chapter.courseId]));
+    const topicCourseIds = new Map(
+      topics.map((topic) => [topic.id, chapterCourseIds.get(topic.chapterId)])
+    );
+    const completedLessonIdSet = new Set(completedLessonIds);
+
+    const completedStudyMinutes = lessons.reduce((total, lesson) => {
+      if (!completedLessonIdSet.has(lesson.id) || !enrolledCourseIds.has(topicCourseIds.get(lesson.topicId) ?? "")) {
+        return total;
+      }
+
+      return total + (lesson.subLessons ?? []).reduce((lessonTotal, segment) => {
+        const parts = segment.duration.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+        if (!parts) return lessonTotal;
+        const hours = Number(parts[3] ? parts[1] : 0);
+        const minutes = Number(parts[3] ? parts[2] : parts[1]);
+        const seconds = Number(parts[3] ? parts[3] : parts[2]);
+        return lessonTotal + hours * 60 + minutes + Math.round(seconds / 60);
+      }, 0);
+    }, 0);
+
+    const assignmentsById = new Map(
+      assignments
+        .filter((assignment) => assignment.type === "quiz" && enrolledCourseIds.has(assignment.courseId))
+        .map((assignment) => [assignment.id, assignment])
+    );
+    const passedQuizCount = submissions.filter((submission) => {
+      const assignment = assignmentsById.get(submission.assignmentId);
+      return submission.studentId === currentUserId
+        && assignment !== undefined
+        && submission.score !== undefined
+        && submission.score >= assignment.points * 0.5;
+    }).length;
+
+    return { completedStudyMinutes, passedQuizCount };
+  }, [assignments, chapters, completedLessonIds, currentUserId, enrolledCourses, lessons, submissions, topics]);
+
+  const studyTimeLabel = `${Math.floor(completedStudyMinutes / 60)} ชั่วโมง ${completedStudyMinutes % 60} นาที`;
 
   useEffect(() => {
     const fetchLiveData = async () => {
@@ -130,9 +172,9 @@ export function DashboardTab({ displayName, enrolledCourses, setTab, setSelected
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <StatCard icon={<Book className="h-6 w-6" />} label="ความคืบหน้าภาพรวม" value={`${courseCount} คอร์สเรียนอยู่`} accent="indigo" className="animate-slideInUp stagger-1" />
-        <StatCard icon={<Clock className="h-6 w-6" />} label="เวลาสะสมที่ศึกษา" value="0 ชั่วโมง 0 นาที" accent="purple" className="animate-slideInUp stagger-2" />
-        <StatCard icon={<Trophy className="h-6 w-6" />} label="ควิซที่ผ่านแล้ว" value="0 ชุดทดสอบ" accent="emerald" className="animate-slideInUp stagger-3" />
+        <StatCard icon={<Book className="h-6 w-6" />} label="วิชาที่กำลังเรียน" value={`${courseCount} วิชา`} accent="indigo" className="animate-slideInUp stagger-1" />
+        <StatCard icon={<Clock className="h-6 w-6" />} label="เวลาสะสมที่ศึกษา" value={studyTimeLabel} accent="purple" className="animate-slideInUp stagger-2" />
+        <StatCard icon={<Trophy className="h-6 w-6" />} label="ควิซที่ผ่านแล้ว" value={`${passedQuizCount} ชุดทดสอบ`} accent="emerald" className="animate-slideInUp stagger-3" />
       </div>
 
       {/* Live Classroom Sessions Widget (if scheduled or active) */}
