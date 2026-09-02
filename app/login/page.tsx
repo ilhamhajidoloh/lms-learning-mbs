@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { useUser } from "../context/UserContext";
 import { apiFetch, setToken } from "../../lib/api";
 import { toast } from "../../lib/swal";
@@ -118,6 +120,10 @@ export default function LoginPage() {
       <AuthBackground variant="login" />
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
+
+        <Link href="/" className="mb-5 self-start sm:self-auto inline-flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+          <ArrowLeft className="h-4 w-4" /> กลับหน้าแรก
+        </Link>
 
         <AuthLogo />
 
