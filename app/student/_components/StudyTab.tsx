@@ -13,9 +13,10 @@ import { QuizPlayer } from "./QuizPlayer";
 import { EmptyState } from "../../components/EmptyState";
 import { JoinLiveClassButton } from "../../components/JoinLiveClassButton";
 import { formatThaiShortDateTime } from "../../lib/date";
+import { CourseScoresPanel } from "./CourseScoresPanel";
 
 type StudentTab = "dashboard" | "courses" | "study" | "profile";
-type StudyTabId = "overview" | "resources" | "tasks";
+type StudyTabId = "overview" | "resources" | "tasks" | "scores";
 
 interface StudyTabProps {
   enrolledCourses: Course[];
@@ -209,6 +210,8 @@ export function StudyTab({
   const currentCourse = courses.find(c => c.id === selectedCourseId);
   if (!currentCourse) return null;
 
+  const allCourseAssignments = assignments.filter((assignment) => assignment.courseId === selectedCourseId);
+
   const checkLessonCompleted = (lesson: Lesson, index: number) => {
     const lAssignments = assignments.filter((a) => {
       if (a.courseId !== selectedCourseId) return false;
@@ -366,6 +369,25 @@ export function StudyTab({
           <p className="font-bold">Progress ความคืบหน้า</p>
           <p className="text-lg font-black mt-0.5">{realTimeProgress}%</p>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 border-b overflow-x-auto" style={{ borderColor: tx.borderS }}>
+        <button
+          type="button"
+          onClick={() => setStudyTab("overview")}
+          className="px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors"
+          style={studyTab !== "scores" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}
+        >
+          เนื้อหารายวิชา
+        </button>
+        <button
+          type="button"
+          onClick={() => setStudyTab("scores")}
+          className="px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors"
+          style={studyTab === "scores" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}
+        >
+          คะแนน
+        </button>
       </div>
 
       {/* Course Live Classes List (Active & Upcoming) */}
@@ -547,7 +569,13 @@ export function StudyTab({
 
         {/* Right side: Video player & Subtabs */}
         <div className="md:col-span-2 space-y-6 animate-slideInRight">
-          {!activeLesson ? (
+          {studyTab === "scores" ? (
+            <CourseScoresPanel
+              assignments={allCourseAssignments}
+              submissions={submissions}
+              currentUserId={currentUserId}
+            />
+          ) : !activeLesson ? (
             courseLessons.length === 0 ? (
               <EmptyState
                 illustration="inbox"
