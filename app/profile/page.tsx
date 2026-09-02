@@ -136,7 +136,7 @@ export default function ProfilePage() {
       </main>
 
       <footer className="py-6 mt-4 border-t text-center text-xs" style={{ borderColor: tx.borderS, color: tx.faint }}>
-        © 2026 Math by Seng — Premium LMS Platform
+        © 2026 Math by Seng — LMS Platform
       </footer>
     </div>
   );

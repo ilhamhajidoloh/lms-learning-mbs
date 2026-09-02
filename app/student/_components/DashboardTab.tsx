@@ -154,7 +154,7 @@ export function DashboardTab({ displayName, enrolledCourses, setTab, setSelected
         gradient="from-indigo-900 via-purple-950 to-slate-950"
         badge="ยินดีต้อนรับผู้เรียนระดับพรีเมียม"
         title={`ยินดีต้อนรับครับ, ${displayName}`}
-        subtitle="เริ่มต้นการเรียนรู้และพัฒนาทักษะคณิตศาสตร์ไปพร้อมกัน"
+        subtitle="เริ่มต้นการเรียนรู้และพัฒนาทักษะในรายวิชาต่าง ๆ ไปพร้อมกัน"
         action={
           <button onClick={() => {
             if (enrolledCourses.length > 0) {

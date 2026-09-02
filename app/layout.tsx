@@ -15,8 +15,8 @@ const kanit = Kanit({
 });
 
 export const metadata: Metadata = {
-  title: "Math by Seng | Premium LMS Platform",
-  description: "ระบบการเรียนรู้วิชาคณิตศาสตร์ที่ทันสมัยและเข้าใจง่ายที่สุด โดยครูเซ็ง",
+  title: "Math by Seng | LMS Platform",
+  description: "ระบบการเรียนรู้ออนไลน์ที่ทันสมัยและเข้าใจง่าย สำหรับหลากหลายรายวิชา",
 };
 
 export default function RootLayout({

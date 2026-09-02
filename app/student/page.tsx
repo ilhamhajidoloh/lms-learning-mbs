@@ -176,7 +176,7 @@ export default function StudentDashboard() {
 
       {/* FOOTER */}
       <footer className="py-8 border-t text-center text-xs mt-12" style={{ borderColor: tx.borderS, color: tx.faint }}>
-        <p>© 2026 Math by Seng — Premium Student Area Platform</p>
+        <p>© 2026 Math by Seng — Student Learning Area</p>
       </footer>
     </div>
   );

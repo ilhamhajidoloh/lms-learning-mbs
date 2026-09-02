@@ -146,7 +146,7 @@ export default function ChangePasswordPage() {
 
         {/* Footer */}
         <p className="text-xs text-center" style={{ color: tx.faint }}>
-          © 2026 Math by Seng — Premium LMS Platform
+          © 2026 Math by Seng — LMS Platform
         </p>
       </div>
     </div>

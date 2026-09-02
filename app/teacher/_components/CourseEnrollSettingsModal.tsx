@@ -62,7 +62,7 @@ export function CourseEnrollSettingsModal({ selectedCourse, setShowEnrollSetting
                 <input
                   type="text"
                   defaultValue={selectedCourse.enrollCode || ""}
-                  placeholder="ตั้งค่ารหัสลงทะเบียน (เช่น MATH101)..."
+                  placeholder="ตั้งค่ารหัสลงทะเบียน (เช่น COURSE101)..."
                   onBlur={async (e) => {
                     const val = e.target.value.trim();
                     if (val !== (selectedCourse.enrollCode || "")) {

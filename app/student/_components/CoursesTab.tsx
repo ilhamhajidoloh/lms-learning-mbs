@@ -26,7 +26,7 @@ export function CoursesTab({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-slideInUp">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">คอร์สเรียนทั้งหมด (All Courses)</h1>
-          <p className="text-sm mt-1" style={{ color: tx.muted }}>หลักสูตรระดับ Premium ม.4-ม.6 และเทคนิคการเตรียมสอบเข้มข้น</p>
+          <p className="text-sm mt-1" style={{ color: tx.muted }}>หลักสูตร ม.4-ม.6 และเทคนิคการเตรียมสอบเข้มข้น</p>
         </div>
 
         {/* Filters */}

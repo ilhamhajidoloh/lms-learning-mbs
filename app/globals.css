@@ -166,7 +166,7 @@ header a,
 .text-dim    { color: var(--text-faint); }
 
 /* =============================================
-   CUSTOM PREMIUM SCROLLBAR
+   CUSTOM SCROLLBAR
    ============================================= */
 ::-webkit-scrollbar       { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

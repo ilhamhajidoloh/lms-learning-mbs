@@ -187,7 +187,7 @@ export function AddLessonModal({
                         onChange={(e) => setNewChapterTitle(e.target.value)}
                         className="w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm"
                         style={{ borderColor: tx.border, color: tx.primary }}
-                        placeholder="เช่น หน่วยการเรียนรู้ที่ 1: พีชคณิต"
+                        placeholder="เช่น หน่วยการเรียนรู้ที่ 1: บทนำ"
                       />
                     </div>
                   )}
