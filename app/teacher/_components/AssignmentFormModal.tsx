@@ -1,8 +1,7 @@
 import React, { type FormEvent } from "react";
 import { X } from "lucide-react";
 import { tx } from "../../lib/theme";
-import type { Lesson, QuizQuestion } from "../../context/UserContext";
-import { QuestionEditor } from "./QuestionEditor";
+import type { Lesson } from "../../context/UserContext";
 import { Portal } from "@/app/components/Portal";
 
 interface AssignmentFormModalProps {
@@ -10,8 +9,6 @@ interface AssignmentFormModalProps {
   lessons: Lesson[];
   assignLessonId: string;
   setAssignLessonId: (v: string) => void;
-  assignType: "file" | "quiz";
-  setAssignType: (type: "file" | "quiz") => void;
   assignTitle: string;
   setAssignTitle: (v: string) => void;
   assignPoints: number;
@@ -20,13 +17,7 @@ interface AssignmentFormModalProps {
   setAssignDueDate: (v: string) => void;
   assignInstructions: string;
   setAssignInstructions: (v: string) => void;
-  assignTimeLimit: number;
-  setAssignTimeLimit: (v: number) => void;
-  quizQuestions: QuizQuestion[];
   handleCreateAssignment: (e: FormEvent) => void;
-  handleAddQuestion: () => void;
-  handleRemoveQuestion: (index: number) => void;
-  handleUpdateQuestion: (index: number, question: QuizQuestion) => void;
 }
 
 export function AssignmentFormModal({
@@ -34,8 +25,6 @@ export function AssignmentFormModal({
   lessons,
   assignLessonId,
   setAssignLessonId,
-  assignType,
-  setAssignType,
   assignTitle,
   setAssignTitle,
   assignPoints,
@@ -44,20 +33,14 @@ export function AssignmentFormModal({
   setAssignDueDate,
   assignInstructions,
   setAssignInstructions,
-  assignTimeLimit,
-  setAssignTimeLimit,
-  quizQuestions,
   handleCreateAssignment,
-  handleAddQuestion,
-  handleRemoveQuestion,
-  handleUpdateQuestion,
 }: AssignmentFormModalProps) {
   return (
     <Portal>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/60 backdrop-blur-md animate-fadeIn">
         <div className="w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border" style={{ backgroundColor: tx.surface, borderColor: tx.borderS, color: tx.primary }}>
         <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
-          <h2 className="text-xl font-bold">สร้างงาน / ควิซใหม่</h2>
+          <h2 className="text-xl font-bold">สร้างงานส่งไฟล์ใหม่</h2>
           <button type="button" onClick={() => setShowForm(false)} className="btn-icon p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer">
             <X className="h-5 w-5" style={{ color: tx.secondary }} />
           </button>
@@ -87,22 +70,10 @@ export function AssignmentFormModal({
               )}
             </div>
 
-            {/* Type Select */}
-            <div className="grid grid-cols-2 gap-4">
-              <button type="button" onClick={() => setAssignType("file")} className="py-3 px-4 rounded-xl border text-center font-bold text-sm transition-all cursor-pointer animate-fadeIn btn-press"
-                style={assignType === "file" ? { borderColor: tx.accent, color: tx.accent, backgroundColor: tx.accentBg } : { borderColor: tx.borderS, color: tx.secondary }}>
-                แบบส่งไฟล์ (File Submission)
-              </button>
-              <button type="button" onClick={() => setAssignType("quiz")} className="py-3 px-4 rounded-xl border text-center font-bold text-sm transition-all cursor-pointer animate-fadeIn btn-press"
-                style={assignType === "quiz" ? { borderColor: tx.accent, color: tx.accent, backgroundColor: tx.accentBg } : { borderColor: tx.borderS, color: tx.secondary }}>
-                แบบทดสอบตอบคำถาม (Quiz)
-              </button>
-            </div>
-
             {/* Title */}
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>หัวข้อการสั่งงาน / แบบทดสอบ</label>
-              <input type="text" value={assignTitle} onChange={(e) => setAssignTitle(e.target.value)} required className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }} placeholder="เช่น การบ้านบทที่ 1 หรือ ควิซย่อยความต่อเนื่อง" />
+              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>หัวข้อการสั่งงาน</label>
+              <input type="text" value={assignTitle} onChange={(e) => setAssignTitle(e.target.value)} required className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }} placeholder="เช่น การบ้านบทที่ 1" />
             </div>
 
             {/* Points & Due Date */}
@@ -117,40 +88,10 @@ export function AssignmentFormModal({
               </div>
             </div>
 
-            {/* Render Sub Form based on type */}
-            {assignType === "file" ? (
-              <div className="space-y-1 animate-fadeIn">
-                <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>คำชี้แจงโจทย์การบ้าน</label>
-                <textarea value={assignInstructions} onChange={(e) => setAssignInstructions(e.target.value)} required rows={4} className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }} placeholder="ระบุสิ่งที่นักเรียนต้องทำ พร้อมรายละเอียดการส่งไฟล์..." />
-              </div>
-            ) : (
-              <div className="space-y-6 animate-fadeIn">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>จำกัดเวลาในการทำควิซ (นาที)</label>
-                  <input type="number" min={1} value={assignTimeLimit} onChange={(e) => setAssignTimeLimit(Number(e.target.value))} required className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }} />
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center border-b pb-2" style={{ borderColor: tx.borderS }}>
-                    <label className="text-sm font-bold uppercase tracking-wider" style={{ color: tx.secondary }}>ตั้งโจทย์แบบทดสอบ ({quizQuestions.length} ข้อ)</label>
-                    <button type="button" onClick={handleAddQuestion} className="text-xs text-indigo-500 dark:text-indigo-400 font-bold hover:underline">
-                      + เพิ่มข้อสอบใหม่
-                    </button>
-                  </div>
-
-                  {quizQuestions.map((q, idx) => (
-                    <QuestionEditor
-                      key={idx}
-                      question={q}
-                      index={idx}
-                      canRemove={quizQuestions.length > 1}
-                      onRemove={handleRemoveQuestion}
-                      onUpdateQuestion={handleUpdateQuestion}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="space-y-1 animate-fadeIn">
+              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>คำชี้แจงโจทย์การบ้าน</label>
+              <textarea value={assignInstructions} onChange={(e) => setAssignInstructions(e.target.value)} required rows={4} className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }} placeholder="ระบุสิ่งที่นักเรียนต้องทำ พร้อมรายละเอียดการส่งไฟล์..." />
+            </div>
           </form>
         </div>
 

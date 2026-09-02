@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useUser, type QuizQuestion, type Assignment, type StudentSubmission, type Lesson } from "../context/UserContext";
+import { useUser, type Assignment, type Lesson } from "../context/UserContext";
 import LoadingScreen from "../components/LoadingScreen";
 import { tx } from "../lib/theme";
 import { TeacherHeader } from "./_components/TeacherHeader";
@@ -110,7 +110,6 @@ export default function TeacherDashboard() {
 
   // Assignment Form state
   const [showForm, setShowForm] = useState(false);
-  const [assignType, setAssignType] = useState<"file" | "quiz">("file");
   const [assignTitle, setAssignTitle] = useState("");
   const [assignPoints, setAssignPoints] = useState(10);
   const [assignDueDate, setAssignDueDate] = useState(() => {
@@ -119,48 +118,7 @@ export default function TeacherDashboard() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   });
   const [assignInstructions, setAssignInstructions] = useState("");
-  const [assignTimeLimit, setAssignTimeLimit] = useState(15);
   const [assignLessonId, setAssignLessonId] = useState("");
-  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([
-    { question: "", questionType: "multiple_choice" as const, options: ["", "", "", ""], correctIndex: 0, explanation: "", points: 1, required: true }
-  ]);
-
-  const handleUpdateQuestion = (index: number, updatedQuestion: QuizQuestion) => {
-    setQuizQuestions(prev => {
-      const copy = [...prev];
-      copy[index] = updatedQuestion;
-      if (assignType === "quiz") {
-        const total = copy.reduce((sum, q) => sum + (q.points !== undefined && !isNaN(Number(q.points)) ? Number(q.points) : 1), 0);
-        setAssignPoints(total);
-      }
-      return copy;
-    });
-  };
-
-  const handleAddQuestion = () => {
-    setQuizQuestions(prev => {
-      const next: QuizQuestion[] = [
-        ...prev,
-        { question: "", questionType: "multiple_choice", options: ["", "", "", ""], correctIndex: 0, explanation: "", points: 1, required: true }
-      ];
-      if (assignType === "quiz") {
-        const total = next.reduce((sum, q) => sum + (q.points !== undefined && !isNaN(Number(q.points)) ? Number(q.points) : 1), 0);
-        setAssignPoints(total);
-      }
-      return next;
-    });
-  };
-
-  const handleRemoveQuestion = (index: number) => {
-    setQuizQuestions(prev => {
-      const next = prev.filter((_, idx) => idx !== index);
-      if (assignType === "quiz") {
-        const total = next.reduce((sum, q) => sum + (q.points !== undefined && !isNaN(Number(q.points)) ? Number(q.points) : 1), 0);
-        setAssignPoints(total);
-      }
-      return next;
-    });
-  };
 
   const teacherCourses = courses.filter(c => c.instructorId === currentUserId);
   const selectedCourse = selectedCourseId ? teacherCourses.find(c => c.id === selectedCourseId) || null : null;
@@ -193,15 +151,12 @@ export default function TeacherDashboard() {
       id: "assign-" + Math.random().toString(36).substring(2, 9),
       courseId: selectedCourseId || "",
       lessonId: targetLessonId || undefined,
-      type: assignType,
+      type: "file",
       title: assignTitle,
       dueDate: assignDueDate,
       points: Number(assignPoints),
       createdAt: Date.now(),
-      ...(assignType === "file"
-        ? { instructions: assignInstructions }
-        : { timeLimit: Number(assignTimeLimit), questions: quizQuestions }
-      )
+      instructions: assignInstructions,
     };
 
     addAssignment(newAssignment);
@@ -213,9 +168,7 @@ export default function TeacherDashboard() {
     const pad = (n: number) => String(n).padStart(2, "0");
     setAssignDueDate(`${nextWeek.getFullYear()}-${pad(nextWeek.getMonth() + 1)}-${pad(nextWeek.getDate())}`);
     setAssignInstructions("");
-    setAssignTimeLimit(15);
     setAssignLessonId("");
-    setQuizQuestions([{ question: "", questionType: "multiple_choice", options: ["", "", "", ""], correctIndex: 0, explanation: "", required: true }]);
     setShowForm(false);
   };
 
@@ -341,8 +294,6 @@ export default function TeacherDashboard() {
           lessons={selectedCourseLessons}
           assignLessonId={effectiveAssignLessonId}
           setAssignLessonId={setAssignLessonId}
-          assignType={assignType}
-          setAssignType={setAssignType}
           assignTitle={assignTitle}
           setAssignTitle={setAssignTitle}
           assignPoints={assignPoints}
@@ -351,13 +302,7 @@ export default function TeacherDashboard() {
           setAssignDueDate={setAssignDueDate}
           assignInstructions={assignInstructions}
           setAssignInstructions={setAssignInstructions}
-          assignTimeLimit={assignTimeLimit}
-          setAssignTimeLimit={setAssignTimeLimit}
-          quizQuestions={quizQuestions}
           handleCreateAssignment={handleCreateAssignment}
-          handleAddQuestion={handleAddQuestion}
-          handleRemoveQuestion={handleRemoveQuestion}
-          handleUpdateQuestion={handleUpdateQuestion}
         />
       )}
 
