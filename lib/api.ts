@@ -40,9 +40,9 @@ export async function apiFetch<T = unknown>(
       signal: AbortSignal.timeout(30000), // 30 second timeout
     });
 
-    let json: any = null;
+    let json: { error?: string } | null = null;
     try {
-      json = await res.json();
+      json = await res.json() as { error?: string };
     } catch {
       // Body is not JSON or is empty
     }
@@ -59,7 +59,7 @@ export async function apiFetch<T = unknown>(
 
       // Otherwise session token is expired / unauthorized for protected resources
       removeToken();
-      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+      if (typeof window !== "undefined" && window.location.pathname !== "/" && !window.location.pathname.includes("/login")) {
         window.location.href = "/login";
       }
       return { data: null, error: "Session expired. Please login again." };

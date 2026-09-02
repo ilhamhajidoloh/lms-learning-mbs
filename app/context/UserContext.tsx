@@ -1183,10 +1183,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
           console.error("Session restore failed:", error);
           removeToken();
           setLoadingData(false);
-          // Redirect to login if session is invalid
-          if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-            window.location.href = "/login";
-          }
           return;
         }
 

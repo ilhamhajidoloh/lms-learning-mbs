@@ -19,9 +19,12 @@ export function middleware(request: NextRequest) {
   const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
   const token = cookieToken || bearerToken;
 
-  // Allow access to authentication pages without a token.
+  // Public home and authentication pages never require a token.
   // The registration page is served at /signup (not /register).
-  if (pathname === "/login" || pathname === "/signup") {
+  if (pathname === "/" || pathname === "/login" || pathname === "/signup") {
+    if (pathname === "/") {
+      return NextResponse.next();
+    }
     // If already has token, redirect to home
     if (token) {
       return NextResponse.redirect(new URL("/", request.url));
