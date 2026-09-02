@@ -56,7 +56,14 @@ async function checkDatabaseConnection(): Promise<boolean> {
   }
 }
 
-export async function ensureTables() {
+/**
+ * Kept as a compatibility no-op while API routes are migrated away from
+ * runtime schema setup. Database migrations must run during deployment via
+ * `npm run db:migrate`, never while serving a user request.
+ */
+export async function ensureTables(): Promise<void> {}
+
+export async function migrateDatabase() {
   if (migrated) return;
 
   // Keep-alive ping

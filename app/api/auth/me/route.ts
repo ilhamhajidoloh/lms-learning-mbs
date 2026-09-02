@@ -1,8 +1,7 @@
-import pool, { ensureTables } from "@/lib/db";
+import pool from "@/lib/db";
 import { authenticate } from "@/lib/auth";
 
 export async function GET(request: Request) {
-  await ensureTables();
   const auth = authenticate(request);
   if (!auth) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
