@@ -12,11 +12,12 @@ interface QuizEditorPanelProps {
   assignment?: Assignment | null;
   isNew?: boolean;
   courseId?: string;
+  initialLessonId?: string;
   onBack: () => void;
   lessons: Lesson[];
 }
 
-export function QuizEditorPanel({ assignment: a, isNew = false, courseId, onBack, lessons }: QuizEditorPanelProps) {
+export function QuizEditorPanel({ assignment: a, isNew = false, courseId, initialLessonId, onBack, lessons }: QuizEditorPanelProps) {
   const { updateAssignment, addAssignment } = useUser();
   const defaultDueDate = React.useMemo(() => {
     const d = new Date();
@@ -25,7 +26,9 @@ export function QuizEditorPanel({ assignment: a, isNew = false, courseId, onBack
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }, []);
 
-  const [assignLessonId, setAssignLessonId] = useState(a?.lessonId || (lessons[0]?.id || ""));
+  const [assignLessonId, setAssignLessonId] = useState(
+    initialLessonId !== undefined ? initialLessonId : (a?.lessonId || (lessons[0]?.id || ""))
+  );
   const [assignTitle, setAssignTitle] = useState(a?.title || "");
   const [assignDueDate, setAssignDueDate] = useState(a?.dueDate ? (isoToDateInput(a.dueDate) || "") : defaultDueDate);
   const [assignTimeLimit, setAssignTimeLimit] = useState(a?.timeLimit || 15);
@@ -105,6 +108,16 @@ export function QuizEditorPanel({ assignment: a, isNew = false, courseId, onBack
       Swal.fire({
         icon: "warning",
         title: "กรุณาระบุชื่อแบบทดสอบ",
+        confirmButtonColor: "#4f46e5",
+      });
+      return;
+    }
+
+    if (isNew && lessons.length > 0 && !assignLessonId) {
+      Swal.fire({
+        icon: "warning",
+        title: "กรุณาเลือกบทเรียนปลายทาง",
+        text: "เลือกบทเรียนที่จะวางแบบทดสอบนี้ก่อนบันทึก",
         confirmButtonColor: "#4f46e5",
       });
       return;
@@ -270,7 +283,7 @@ export function QuizEditorPanel({ assignment: a, isNew = false, courseId, onBack
               {/* Lesson */}
               <div className="space-y-1">
                 <label className="font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: tx.muted }}>
-                  <BookOpen className="h-3.5 w-3.5 text-indigo-500" /> บทเรียนที่สังกัด
+                  <BookOpen className="h-3.5 w-3.5 text-indigo-500" /> {initialLessonId !== undefined ? "บทเรียนปลายทาง" : "บทเรียนที่สังกัด"}
                 </label>
                 {lessons.length > 0 ? (
                   <select
@@ -279,6 +292,11 @@ export function QuizEditorPanel({ assignment: a, isNew = false, courseId, onBack
                     className="w-full px-3.5 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-xs"
                     style={{ borderColor: tx.border, color: tx.primary }}
                   >
+                    {initialLessonId !== undefined && (
+                      <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                        เลือกบทเรียนปลายทาง
+                      </option>
+                    )}
                     {lessons.map((lesson) => (
                       <option key={lesson.id} value={lesson.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                         {lesson.title}

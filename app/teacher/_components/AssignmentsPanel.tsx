@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, ArrowLeft, Users, Eye, EyeOff, BookOpen, Clock, PencilLine, Undo2, RotateCcw, Settings, X, Lock, Unlock, Check, Save } from "lucide-react";
+import { Plus, ArrowLeft, Users, Eye, EyeOff, BookOpen, Clock, PencilLine, Undo2, RotateCcw, Settings, X, Lock, Unlock, Check, Save, Copy } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { tx, card } from "../../lib/theme";
 import { useUser, type Assignment, type StudentSubmission } from "../../context/UserContext";
@@ -302,7 +302,21 @@ export function AssignmentsPanel({
   const [managingAssignment, setManagingAssignment] = useState<Assignment | null>(null);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [editingQuiz, setEditingQuiz] = useState<Assignment | null>(null);
+  const [copyingQuiz, setCopyingQuiz] = useState<Assignment | null>(null);
   const [isCreatingQuiz, setIsCreatingQuiz] = useState<boolean>(false);
+
+  const startCopyQuiz = (quiz: Assignment) => {
+    setCopyingQuiz({
+      ...quiz,
+      title: `${quiz.title} (สำเนา)`,
+      questions: quiz.questions?.map((question) => ({
+        ...question,
+        options: question.options ? [...question.options] : undefined,
+        correctIndices: question.correctIndices ? [...question.correctIndices] : undefined,
+        matchingPairs: question.matchingPairs?.map((pair) => ({ ...pair })),
+      })),
+    });
+  };
 
   // Keep the lesson selector in the work tab identical to this course's lesson tree.
   // The old selector received every lesson in the system, including lessons from other courses.
@@ -452,6 +466,20 @@ export function AssignmentsPanel({
     );
   }
 
+  if (copyingQuiz) {
+    return (
+      <QuizEditorPanel
+        key={copyingQuiz.id}
+        assignment={copyingQuiz}
+        isNew={true}
+        courseId={courseId}
+        initialLessonId=""
+        onBack={() => setCopyingQuiz(null)}
+        lessons={courseLessons}
+      />
+    );
+  }
+
   if (editingQuiz) {
     return (
       <QuizEditorPanel
@@ -549,6 +577,16 @@ export function AssignmentsPanel({
                     <PencilLine className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                     <span>{activeAssignment.type === "quiz" ? "แก้ไขควิซ (Quiz Editor)" : "แก้ไขงาน"}</span>
                   </button>
+                  {activeAssignment.type === "quiz" && (
+                    <button
+                      type="button"
+                      onClick={() => startCopyQuiz(activeAssignment)}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-bold text-xs border border-purple-200 dark:border-purple-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
+                    >
+                      <Copy className="h-4 w-4" />
+                      <span>คัดลอก Quiz</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setManagingAssignment(activeAssignment)}
@@ -829,6 +867,16 @@ export function AssignmentsPanel({
                             <PencilLine className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                             <span>{a.type === "quiz" ? "แก้ไขควิซ" : "แก้ไขงาน"}</span>
                           </button>
+                          {a.type === "quiz" && (
+                            <button
+                              type="button"
+                              onClick={() => startCopyQuiz(a)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-bold text-xs border border-purple-200 dark:border-purple-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              <span>คัดลอก Quiz</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setManagingAssignment(a)}
