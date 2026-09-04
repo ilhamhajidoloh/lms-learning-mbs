@@ -26,7 +26,7 @@ interface DashboardTabProps {
   setShowCourseForm: (show: boolean) => void;
   setTab: (tab: "dashboard" | "courses" | "students") => void;
   setSelectedCourseId: (id: string | null) => void;
-  setDetailTab: (tab: "assignments" | "lessons" | "students") => void;
+  setDetailTab: (tab: "assignments" | "lessons" | "students" | "private_lessons") => void;
 }
 
 export function DashboardTab({ displayName, teacherCourses, setShowCourseForm, setTab, setSelectedCourseId, setDetailTab }: DashboardTabProps) {

@@ -6,7 +6,7 @@ import { useUser } from "../../context/UserContext";
 import { CheckCircle2, Lock } from "lucide-react";
 import { toast } from "../../../lib/swal";
 
-type StudyTabId = "overview" | "resources" | "tasks" | "scores";
+type StudyTabId = "overview" | "resources" | "tasks" | "scores" | "booking";
 
 interface LessonOverviewPanelProps {
   activeLesson: Lesson;

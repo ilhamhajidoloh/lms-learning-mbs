@@ -1082,7 +1082,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     enrollCode: string | null,
     showScores?: boolean,
     sequentialLessons?: boolean,
-    quizReviewMode?: "full" | "answers_only" | "none"
+    quizReviewMode?: "full" | "answers_only" | "none",
   ): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังอัปเดตการตั้งค่าคอร์ส...");
     try {

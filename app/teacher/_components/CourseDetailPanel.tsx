@@ -7,13 +7,14 @@ import { AssignmentsPanel } from "./AssignmentsPanel";
 import { LessonsPanel } from "./LessonsPanel";
 import { StudentsPanel } from "./StudentsPanel";
 import { HeroBanner } from "../../components/HeroBanner";
+import { PrivateLessonRequestsPanel } from "../../components/PrivateLessonRequestsPanel";
 
 interface CourseDetailPanelProps {
   selectedCourse: Course;
   setSelectedCourseId: (id: string | null) => void;
   setShowForm: (show: boolean) => void;
-  detailTab: "assignments" | "lessons" | "students";
-  setDetailTab: (tab: "assignments" | "lessons" | "students") => void;
+  detailTab: "assignments" | "lessons" | "students" | "private_lessons";
+  setDetailTab: (tab: "assignments" | "lessons" | "students" | "private_lessons") => void;
   setShowEnrollSettingsModal: (show: boolean) => void;
 
   assignments: Assignment[];
@@ -141,6 +142,10 @@ export function CourseDetailPanel({
           style={detailTab === "students" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
           รายชื่อนักเรียน
         </button>
+        <button onClick={() => setDetailTab("private_lessons")} className="text-xs md:text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0 btn-press whitespace-nowrap"
+          style={detailTab === "private_lessons" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
+          คิวสอนส่วนตัว
+        </button>
       </div>
 
       {/* Tab 1: Assignments */}
@@ -183,6 +188,10 @@ export function CourseDetailPanel({
           setShowAddStudentModal={setShowAddStudentModal}
           teacherRemoveStudent={teacherRemoveStudent}
         />
+      )}
+
+      {detailTab === "private_lessons" && (
+        <PrivateLessonRequestsPanel courseId={selectedCourse.id} courseTitle={selectedCourse.title} />
       )}
     </div>
   );

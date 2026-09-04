@@ -1,16 +1,17 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import {
-  Sparkles, BarChart2, BookOpen, Moon, Sun, LogOut, Menu, X,
+  Sparkles, BarChart2, BookOpen, CalendarClock, Moon, Sun, LogOut, Menu, X,
 } from "lucide-react";
 import { tx } from "../../lib/theme";
 import { Avatar } from "../../components/Avatar";
 
 type AppRouter = ReturnType<typeof useRouter>;
+type TeacherTab = "dashboard" | "courses" | "students" | "availability";
 
 interface TeacherHeaderProps {
-  tab: "dashboard" | "courses" | "students";
-  setTab: (tab: "dashboard" | "courses" | "students") => void;
+  tab: TeacherTab;
+  setTab: (tab: TeacherTab) => void;
   mobileOpen: boolean;
   setMobileOpen: (open: boolean) => void;
   darkMode: boolean;
@@ -53,6 +54,12 @@ export function TeacherHeader({ tab, setTab, mobileOpen, setMobileOpen, darkMode
               style={tab === "courses" ? { backgroundColor: tx.accentBg, color: tx.accent, fontWeight: 600 } : { color: tx.secondary }}>
               <BookOpen className="h-4 w-4" />
               คอร์สที่ฉันสอน
+            </button>
+            <button onClick={() => { router.push("/teacher?tab=availability"); setTab("availability"); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 ${tab === "availability" ? "nav-active" : "hover:bg-slate-100 dark:hover:bg-slate-800/50"}`}
+              style={tab === "availability" ? { backgroundColor: tx.accentBg, color: tx.accent, fontWeight: 600 } : { color: tx.secondary }}>
+              <CalendarClock className="h-4 w-4" />
+              เวลาสอนส่วนตัว
             </button>
             <button onClick={() => router.push("/teacher/live-classes")}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-500 hover:bg-red-500/10 transition-all duration-200 active:scale-95">
@@ -108,6 +115,13 @@ export function TeacherHeader({ tab, setTab, mobileOpen, setMobileOpen, darkMode
           >
             <BookOpen className="h-5 w-5" />
             คอร์สที่ฉันสอน
+          </button>
+          <button onClick={() => { router.push("/teacher?tab=availability"); setTab("availability"); setMobileOpen(false); }}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 active:scale-95"
+            style={tab === "availability" ? { backgroundColor: tx.accentBg, color: tx.accent, fontWeight: 600 } : { color: tx.secondary }}
+          >
+            <CalendarClock className="h-5 w-5" />
+            เวลาสอนส่วนตัว
           </button>
           <button onClick={() => { router.push("/teacher/live-classes"); setMobileOpen(false); }}
             className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-base font-medium text-red-500 hover:bg-red-500/10 transition-all duration-200 active:scale-95"

@@ -285,6 +285,37 @@ export async function migrateDatabase() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS private_lesson_requests (
+      id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      student_id       UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      teacher_id       UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      course_id        TEXT        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      requested_at     TIMESTAMPTZ NOT NULL,
+      requested_slots  JSONB       NOT NULL DEFAULT '[]'::jsonb,
+      confirmed_at     TIMESTAMPTZ,
+      duration_minutes INT         NOT NULL DEFAULT 30 CHECK (duration_minutes IN (15, 30, 45, 60, 90, 120)),
+      message          TEXT        NOT NULL DEFAULT '',
+      teacher_note     TEXT,
+      status           TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled')),
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS teacher_private_lesson_availability (
+      teacher_id   UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      weekday      SMALLINT    NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+      is_available BOOLEAN     NOT NULL DEFAULT FALSE,
+      start_time   TIME        NOT NULL DEFAULT '08:00',
+      end_time     TIME        NOT NULL DEFAULT '20:00',
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (teacher_id, weekday),
+      CHECK (start_time < end_time)
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS student_lesson_completions (
       id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
       student_id   UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -322,6 +353,12 @@ export async function migrateDatabase() {
       UNIQUE(live_class_id, user_id)
     )
   `);
+
+  // A private lesson request gets its own scheduled live room when the teacher accepts it.
+  await pool.query(`ALTER TABLE private_lesson_requests ADD COLUMN IF NOT EXISTS live_class_id UUID REFERENCES live_classes(id) ON DELETE SET NULL`);
+  await pool.query(`ALTER TABLE private_lesson_requests ADD COLUMN IF NOT EXISTS requested_slots JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  await pool.query(`ALTER TABLE private_lesson_requests DROP CONSTRAINT IF EXISTS private_lesson_requests_duration_minutes_check`);
+  await pool.query(`ALTER TABLE private_lesson_requests ADD CONSTRAINT private_lesson_requests_duration_minutes_check CHECK (duration_minutes BETWEEN 10 AND 120)`);
 
   const lessonMigrations = [
     `ALTER TABLE lessons ADD COLUMN IF NOT EXISTS topic_id TEXT REFERENCES topics(id) ON DELETE CASCADE`,
@@ -369,6 +406,10 @@ export async function migrateDatabase() {
   await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS is_manually_graded BOOLEAN NOT NULL DEFAULT FALSE`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_created_by    ON meetings (created_by)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_start         ON meetings (start_datetime DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_private_lessons_student ON private_lesson_requests (student_id, created_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_private_lessons_teacher ON private_lesson_requests (teacher_id, status, requested_at)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_private_lessons_live_class ON private_lesson_requests (live_class_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_teacher_private_lesson_availability ON teacher_private_lesson_availability (teacher_id, weekday)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_completions_student    ON student_lesson_completions (student_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_completions_lesson     ON student_lesson_completions (lesson_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_live_classes_active    ON live_classes (is_active, course_id)`);
@@ -391,6 +432,7 @@ export async function migrateDatabase() {
     "quiz_questions",
     "submissions",
     "meetings",
+    "private_lesson_requests",
     "student_lesson_completions",
     "live_classes",
     "live_class_participants"

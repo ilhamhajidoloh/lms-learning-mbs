@@ -19,7 +19,7 @@ export default function StudentDashboard() {
   const [search,       setSearch]       = useState("");
   const [levelFilter,  setLevelFilter]  = useState<string>("all");
   const [mobileOpen,   setMobileOpen]   = useState(false);
-  const [studyTab,     setStudyTab]     = useState<"overview"|"resources"|"tasks"|"scores">("overview");
+  const [studyTab,     setStudyTab]     = useState<"overview"|"resources"|"tasks"|"scores"|"booking">("overview");
 
   // Student task states
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);

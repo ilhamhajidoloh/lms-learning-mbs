@@ -11,8 +11,8 @@ interface CoursesTabProps {
   setShowForm: (show: boolean) => void;
   setShowCourseForm: (show: boolean) => void;
 
-  detailTab: "assignments" | "lessons" | "students";
-  setDetailTab: (tab: "assignments" | "lessons" | "students") => void;
+  detailTab: "assignments" | "lessons" | "students" | "private_lessons";
+  setDetailTab: (tab: "assignments" | "lessons" | "students" | "private_lessons") => void;
   setShowEnrollSettingsModal: (show: boolean) => void;
 
   assignments: Assignment[];

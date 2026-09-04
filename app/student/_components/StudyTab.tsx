@@ -14,9 +14,10 @@ import { EmptyState } from "../../components/EmptyState";
 import { JoinLiveClassButton } from "../../components/JoinLiveClassButton";
 import { formatThaiShortDateTime } from "../../lib/date";
 import { CourseScoresPanel } from "./CourseScoresPanel";
+import { PrivateLessonBookingCard } from "../../components/PrivateLessonBookingCard";
 
 type StudentTab = "dashboard" | "courses" | "study" | "profile";
-type StudyTabId = "overview" | "resources" | "tasks" | "scores";
+type StudyTabId = "overview" | "resources" | "tasks" | "scores" | "booking";
 
 interface StudyTabProps {
   enrolledCourses: Course[];
@@ -226,21 +227,25 @@ export function StudyTab({
     return completedLessonIds.includes(lesson.id);
   };
 
-  const isLessonLocked = (lessonId: string) => {
+  const sequentialLessonLockMessage = (lessonId: string) => {
     const lesson = courseLessons.find(l => l.id === lessonId);
-    if (lesson?.isLocked === true) return true;
-    if (!currentCourse.sequentialLessons) return false;
+    if (lesson?.isLocked === true || !currentCourse.sequentialLessons) return null;
     const lessonIdx = courseLessons.findIndex(l => l.id === lessonId);
-    if (lessonIdx <= 0) return false;
+    if (lessonIdx <= 0) return null;
 
     for (let i = 0; i < lessonIdx; i++) {
       const prevL = courseLessons[i];
       const prevCompleted = checkLessonCompleted(prevL, i);
       if (!prevCompleted) {
-        return true;
+        return `เรียน “${prevL.title}” ให้เสร็จก่อนเพื่อปลดล็อก`;
       }
     }
-    return false;
+    return null;
+  };
+
+  const isLessonLocked = (lessonId: string) => {
+    const lesson = courseLessons.find(l => l.id === lessonId);
+    return lesson?.isLocked === true || sequentialLessonLockMessage(lessonId) !== null;
   };
 
   // Find active lesson (ensure not locked)
@@ -376,7 +381,7 @@ export function StudyTab({
           type="button"
           onClick={() => setStudyTab("overview")}
           className="px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors"
-          style={studyTab !== "scores" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}
+          style={studyTab !== "scores" && studyTab !== "booking" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}
         >
           เนื้อหารายวิชา
         </button>
@@ -388,8 +393,20 @@ export function StudyTab({
         >
           คะแนน
         </button>
+        <button
+          type="button"
+          onClick={() => setStudyTab("booking")}
+          className="px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors"
+          style={studyTab === "booking" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}
+        >
+          จองเวลาเรียนส่วนตัว
+        </button>
       </div>
 
+      {studyTab === "booking" ? (
+        <PrivateLessonBookingCard key={currentCourse.id} course={currentCourse} />
+      ) : (
+        <>
       {/* Course Live Classes List (Active & Upcoming) */}
       {courseLiveClasses.length > 0 && (
         <div className="rounded-3xl p-4 md:p-5 border space-y-3 animate-slideInUp" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
@@ -477,6 +494,7 @@ export function StudyTab({
                   const isActive = activeLesson && l.id === activeLesson.id;
                   const isCompleted = checkLessonCompleted(l, index);
                   const isLocked = isLessonLocked(l.id);
+                  const sequentialLockMessage = sequentialLessonLockMessage(l.id);
                   return (
                     <button key={l.id}
                       onClick={() => {
@@ -500,7 +518,10 @@ export function StudyTab({
                       }`}>
                         {isLocked ? <Lock className="h-3 w-3" /> : isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
                       </span>
-                      <span className="truncate text-[11px] md:text-xs">{l.title}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[11px] md:text-xs">{l.title}</span>
+                        {sequentialLockMessage && <span className="mt-0.5 block text-[9px] font-medium leading-tight" style={{ color: tx.muted }}>{sequentialLockMessage}</span>}
+                      </span>
                     </button>
                   );
                 })}
@@ -529,6 +550,7 @@ export function StudyTab({
                                   const isActive = activeLesson && l.id === activeLesson.id;
                                   const isCompleted = checkLessonCompleted(l, index);
                                   const isLocked = isLessonLocked(l.id);
+                                  const sequentialLockMessage = sequentialLessonLockMessage(l.id);
                                   return (
                                     <button key={l.id}
                                       onClick={() => {
@@ -550,7 +572,10 @@ export function StudyTab({
                                       }`}>
                                         {isLocked ? <Lock className="h-2.5 w-2.5" /> : isCompleted ? <CheckCircle2 className="h-3 w-3" /> : index + 1}
                                       </span>
-                                      <span className="truncate">{l.title}</span>
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate">{l.title}</span>
+                                        {sequentialLockMessage && <span className="mt-0.5 block text-[9px] font-medium leading-tight" style={{ color: tx.muted }}>{sequentialLockMessage}</span>}
+                                      </span>
                                     </button>
                                   );
                                 })}
@@ -681,6 +706,8 @@ export function StudyTab({
         </div>
 
       </div>
+        </>
+      )}
 
     </div>
   );

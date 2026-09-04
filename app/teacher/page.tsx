@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useUser, type Assignment, type Lesson } from "../context/UserContext";
 import LoadingScreen from "../components/LoadingScreen";
 import { tx } from "../lib/theme";
@@ -14,11 +14,13 @@ import { AssignmentFormModal } from "./_components/AssignmentFormModal";
 import { CourseEnrollSettingsModal } from "./_components/CourseEnrollSettingsModal";
 import { AddLessonModal } from "./_components/AddLessonModal";
 import { AddStudentModal } from "./_components/AddStudentModal";
+import { TeacherPrivateLessonAvailabilityPanel } from "./_components/TeacherPrivateLessonAvailabilityPanel";
 
 export default function TeacherDashboard() {
   const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, assignments, addAssignment, submissions, lessons, addLesson, updateLesson, courses, currentUserId, createCourse, loadingData, enrollments, teacherAddStudent, teacherRemoveStudent, updateCourseSettings, appUsers, levels, chapters, addChapter, topics, addTopic } = useUser();
   const router = useRouter();
-  const [tab, setTab] = useState<"dashboard" | "courses" | "students">("dashboard");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<"dashboard" | "courses" | "students" | "availability">("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Course Creation state
@@ -98,7 +100,7 @@ export default function TeacherDashboard() {
 
   // Course Detail states
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<"assignments" | "lessons" | "students">("assignments");
+  const [detailTab, setDetailTab] = useState<"assignments" | "lessons" | "students" | "private_lessons">("assignments");
   const [viewingAssignmentId, setViewingAssignmentId] = useState<string | null>(null);
   const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
 
@@ -181,6 +183,8 @@ export default function TeacherDashboard() {
     }
   }, [isAuthenticated, role, router, loadingData]);
 
+  const activeTab = searchParams.get("tab") === "availability" ? "availability" : tab;
+
   if (loadingData) {
     return <LoadingScreen />;
   }
@@ -193,7 +197,7 @@ export default function TeacherDashboard() {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: tx.base, color: tx.primary }}>
       {/* HEADER */}
       <TeacherHeader
-        tab={tab}
+        tab={activeTab}
         setTab={setTab}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
@@ -225,7 +229,7 @@ export default function TeacherDashboard() {
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {tab === "dashboard" && (
+        {activeTab === "dashboard" && (
           <DashboardTab
             displayName={displayName}
             teacherCourses={teacherCourses}
@@ -236,7 +240,7 @@ export default function TeacherDashboard() {
           />
         )}
 
-        {tab === "courses" && (
+        {activeTab === "courses" && (
           <CoursesTab
             selectedCourseId={selectedCourseId}
             teacherCourses={teacherCourses}
@@ -265,6 +269,8 @@ export default function TeacherDashboard() {
             teacherRemoveStudent={teacherRemoveStudent}
           />
         )}
+
+        {activeTab === "availability" && <TeacherPrivateLessonAvailabilityPanel />}
       </main>
 
       {/* FOOTER */}
