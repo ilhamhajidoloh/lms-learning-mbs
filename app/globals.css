@@ -25,6 +25,7 @@
    ─ muted text is slate-600 (not 500) for stronger readability
    ============================================= */
 :root {
+  color-scheme: light;
   /* page background */
   --bg-base:        #dde3ec;   /* between slate-200–300: clear contrast vs white */
   --bg-surface:     #ffffff;   /* pure white cards — stands out clearly on base   */
@@ -57,6 +58,7 @@
    ─ borders bumped to slate-600/700 so they're visible on dark cards
    ============================================= */
 .dark {
+  color-scheme: dark;
   /* page background */
   --bg-base:        #070c18;   /* deeper near-black */
   --bg-surface:     #111827;   /* gray-900 — cards clearly lighter than base */
@@ -101,13 +103,6 @@ body {
    render native widgets (date/time pickers, scrollbars,
    select dropdowns) in the correct mode.
    ============================================= */
-:root {
-  color-scheme: light;
-}
-.dark {
-  color-scheme: dark;
-}
-
 input, select, textarea {
   color: var(--text-primary);
   background-color: transparent;

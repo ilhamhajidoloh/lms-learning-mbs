@@ -2,6 +2,18 @@ import type { Metadata } from "next";
 import { Inter, Kanit } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "./context/UserContext";
+import { GlobalThemeToggle } from "./components/GlobalThemeToggle";
+
+const themeInitScript = `
+  (() => {
+    try {
+      const saved = localStorage.getItem('math-by-seng-theme');
+      const dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', dark);
+      document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+    } catch (_) {}
+  })();
+`;
 
 const inter = Inter({
   variable: "--font-inter",
@@ -30,9 +42,13 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} ${kanit.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col transition-colors duration-300">
         <UserProvider>
           {children}
+          <GlobalThemeToggle />
         </UserProvider>
       </body>
     </html>

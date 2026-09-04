@@ -242,7 +242,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [passwordChanged, setPasswordChanged] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
+  // The initial value stays deterministic for SSR. The saved preference is
+  // restored immediately after mounting (an inline script in the root layout
+  // applies the same preference before the page is painted).
   const [darkMode, setDarkMode] = useState(false);
+  const [themeReady, setThemeReady] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -1230,10 +1234,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.documentElement.classList.toggle("dark", darkMode);
-    }
-  }, [darkMode]);
+    const frame = window.requestAnimationFrame(() => {
+      const savedTheme = window.localStorage.getItem("math-by-seng-theme");
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      setDarkMode(savedTheme ? savedTheme === "dark" : prefersDark);
+      setThemeReady(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!themeReady) return;
+    document.documentElement.classList.toggle("dark", darkMode);
+    document.documentElement.style.colorScheme = darkMode ? "dark" : "light";
+    window.localStorage.setItem("math-by-seng-theme", darkMode ? "dark" : "light");
+  }, [darkMode, themeReady]);
+
+  useEffect(() => {
+    const syncThemeAcrossTabs = (event: StorageEvent) => {
+      if (event.key === "math-by-seng-theme" && event.newValue) {
+        setDarkMode(event.newValue === "dark");
+      }
+    };
+    window.addEventListener("storage", syncThemeAcrossTabs);
+    return () => window.removeEventListener("storage", syncThemeAcrossTabs);
+  }, []);
 
    return (
     <UserContext.Provider

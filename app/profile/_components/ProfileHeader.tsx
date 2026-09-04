@@ -20,7 +20,7 @@ export default function ProfileHeader({ onBack, darkMode, toggleDarkMode, onLogo
           </button>
           <span className="font-bold text-sm" style={{ color: tx.muted }}>โปรไฟล์ของฉัน</span>
           <div className="flex items-center gap-2">
-            <button onClick={toggleDarkMode}
+            <button onClick={toggleDarkMode} aria-label={darkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"} aria-pressed={darkMode} title={darkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
               className="btn-icon p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40"
               style={{ color: tx.secondary }}>
               {darkMode ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-indigo-500" />}

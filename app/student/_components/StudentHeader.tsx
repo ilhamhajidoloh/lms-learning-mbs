@@ -105,7 +105,7 @@ export function StudentHeader({
 
           {/* Right Buttons */}
           <div className="flex items-center gap-3">
-            <button onClick={toggleDarkMode}
+            <button onClick={toggleDarkMode} aria-label={darkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"} aria-pressed={darkMode} title={darkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
               className="p-2 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/40 transition-all duration-200 active:scale-90"
               style={{ color: tx.secondary }}>
               {darkMode ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />}
