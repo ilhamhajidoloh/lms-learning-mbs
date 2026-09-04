@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, ArrowLeft, Users, Eye, EyeOff, BookOpen, Clock, PencilLine, Undo2, RotateCcw, Settings, X, Lock, Unlock, Check, Save, Copy } from "lucide-react";
+import { Plus, ArrowLeft, Users, Eye, EyeOff, BookOpen, Clock, PencilLine, Undo2, RotateCcw, Settings, X, Lock, Unlock, Check, Save, Copy, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { tx, card } from "../../lib/theme";
 import { useUser, type Assignment, type StudentSubmission } from "../../context/UserContext";
@@ -298,7 +298,7 @@ export function AssignmentsPanel({
   setShowForm,
 }: AssignmentsPanelProps) {
   const router = useRouter();
-  const { gradeSubmission, cancelSubmissionScore, lessons, topics, chapters, enrollments } = useUser();
+  const { gradeSubmission, cancelSubmissionScore, deleteAssignment, lessons, topics, chapters, enrollments } = useUser();
   const [managingAssignment, setManagingAssignment] = useState<Assignment | null>(null);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [editingQuiz, setEditingQuiz] = useState<Assignment | null>(null);
@@ -455,6 +455,28 @@ export function AssignmentsPanel({
     }
   };
 
+  const handleDeleteAssignment = async (assignment: Assignment) => {
+    const relatedSubmissions = submissions.filter((submission) => submission.assignmentId === assignment.id).length;
+    const itemLabel = assignment.type === "quiz" ? "quiz" : "assignment";
+    const confirmed = await Swal.fire({
+      icon: "warning",
+      title: `Delete this ${itemLabel}?`,
+      text: `“${assignment.title}” and all ${relatedSubmissions} student attempt${relatedSubmissions === 1 ? "" : "s"}/submission${relatedSubmissions === 1 ? "" : "s"} will be permanently deleted.`,
+      showCancelButton: true,
+      confirmButtonText: "Delete permanently",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#dc2626",
+      focusCancel: true,
+    });
+    if (!confirmed.isConfirmed) return;
+
+    const result = await deleteAssignment(assignment.id);
+    if (result.success) {
+      setViewingAssignmentId(null);
+      setManagingAssignment(null);
+    }
+  };
+
   if (isCreatingQuiz) {
     return (
       <QuizEditorPanel
@@ -587,6 +609,14 @@ export function AssignmentsPanel({
                       <span>คัดลอก Quiz</span>
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAssignment(activeAssignment)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-bold text-xs border border-rose-200 dark:border-rose-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete {activeAssignment.type === "quiz" ? "Quiz" : "Assignment"}</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setManagingAssignment(activeAssignment)}
@@ -877,6 +907,14 @@ export function AssignmentsPanel({
                               <span>คัดลอก Quiz</span>
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAssignment(a)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-bold text-xs border border-rose-200 dark:border-rose-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Delete</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => setManagingAssignment(a)}

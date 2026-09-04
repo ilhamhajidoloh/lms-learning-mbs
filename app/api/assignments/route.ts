@@ -75,6 +75,60 @@ export async function POST(request: Request) {
   return Response.json({ success: true });
 }
 
+/**
+ * Removes an assignment or quiz together with every student submission for it.
+ * This is deliberately a single transaction: a failed assignment deletion must
+ * never leave its attempts/submissions deleted on their own.
+ */
+export async function DELETE(request: Request) {
+  await ensureTables();
+  const auth = authenticate(request);
+  if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (auth.role !== "teacher" && auth.role !== "admin") {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  if (!id) return Response.json({ error: "Missing assignment id" }, { status: 400 });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const assignmentResult = await client.query(
+      "SELECT created_by FROM assignments WHERE id = $1 FOR UPDATE",
+      [id]
+    );
+    const assignment = assignmentResult.rows[0];
+    if (!assignment) {
+      await client.query("ROLLBACK");
+      return Response.json({ error: "Assignment not found" }, { status: 404 });
+    }
+    if (auth.role === "teacher" && assignment.created_by !== auth.userId) {
+      await client.query("ROLLBACK");
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const submissionsResult = await client.query(
+      "DELETE FROM submissions WHERE assignment_id = $1 RETURNING id",
+      [id]
+    );
+    await client.query("DELETE FROM assignments WHERE id = $1", [id]);
+    await client.query("COMMIT");
+
+    return Response.json({
+      success: true,
+      deletedSubmissionCount: submissionsResult.rowCount ?? 0,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    console.error("Failed to delete assignment:", error);
+    return Response.json({ error: "Could not delete assignment" }, { status: 500 });
+  } finally {
+    client.release();
+  }
+}
+
 export async function PUT(request: Request) {
   await ensureTables();
   const auth = authenticate(request);
