@@ -467,26 +467,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteAssignment = async (id: string): Promise<{ success: boolean; deletedSubmissionCount?: number; error?: string }> => {
-    const loadingToast = toast.loading("Deleting assignment and student submissions...");
+    const loadingToast = toast.loading("กำลังลบข้อมูลและประวัติการส่งของนักเรียน...");
     try {
       const { data, error } = await apiFetch<{ deletedSubmissionCount?: number }>(`/api/assignments?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
       loadingToast.close();
       if (error) {
-        toast.error("Could not delete the assignment: " + error);
+        toast.error("ไม่สามารถลบได้: " + error);
         return { success: false, error };
       }
 
       setAssignments((prev) => prev.filter((assignment) => assignment.id !== id));
       setSubmissions((prev) => prev.filter((submission) => submission.assignmentId !== id));
       const deletedSubmissionCount = data?.deletedSubmissionCount ?? 0;
-      toast.success(`Assignment deleted. Removed ${deletedSubmissionCount} student submission${deletedSubmissionCount === 1 ? "" : "s"}.`);
+      toast.success(`ลบเรียบร้อยแล้ว (นำประวัติการส่งของนักเรียนออก ${deletedSubmissionCount} รายการ)`);
       return { success: true, deletedSubmissionCount };
     } catch (err: unknown) {
       loadingToast.close();
-      const message = err instanceof Error ? err.message : "Unknown error";
-      toast.error("Could not delete the assignment: " + message);
+      const message = err instanceof Error ? err.message : "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ";
+      toast.error("ไม่สามารถลบได้: " + message);
       return { success: false, error: message };
     }
   };

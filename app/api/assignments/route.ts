@@ -83,14 +83,14 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   await ensureTables();
   const auth = authenticate(request);
-  if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!auth) return Response.json({ error: "ไม่มีสิทธิ์เข้าถึง (Unauthorized)" }, { status: 401 });
   if (auth.role !== "teacher" && auth.role !== "admin") {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+    return Response.json({ error: "ไม่มีสิทธิ์การใช้งาน (Forbidden)" }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
-  if (!id) return Response.json({ error: "Missing assignment id" }, { status: 400 });
+  if (!id) return Response.json({ error: "ไม่พบรหัสงานหรือควิซ" }, { status: 400 });
 
   const client = await pool.connect();
   try {
@@ -102,11 +102,11 @@ export async function DELETE(request: Request) {
     const assignment = assignmentResult.rows[0];
     if (!assignment) {
       await client.query("ROLLBACK");
-      return Response.json({ error: "Assignment not found" }, { status: 404 });
+      return Response.json({ error: "ไม่พบงานหรือควิซนี้" }, { status: 404 });
     }
     if (auth.role === "teacher" && assignment.created_by !== auth.userId) {
       await client.query("ROLLBACK");
-      return Response.json({ error: "Forbidden" }, { status: 403 });
+      return Response.json({ error: "ไม่มีสิทธิ์ลบรายการนี้" }, { status: 403 });
     }
 
     const submissionsResult = await client.query(
@@ -123,7 +123,7 @@ export async function DELETE(request: Request) {
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
     console.error("Failed to delete assignment:", error);
-    return Response.json({ error: "Could not delete assignment" }, { status: 500 });
+    return Response.json({ error: "ไม่สามารถลบงานหรือควิซได้" }, { status: 500 });
   } finally {
     client.release();
   }

@@ -457,14 +457,14 @@ export function AssignmentsPanel({
 
   const handleDeleteAssignment = async (assignment: Assignment) => {
     const relatedSubmissions = submissions.filter((submission) => submission.assignmentId === assignment.id).length;
-    const itemLabel = assignment.type === "quiz" ? "quiz" : "assignment";
+    const itemLabel = assignment.type === "quiz" ? "ควิซ" : "งาน";
     const confirmed = await Swal.fire({
       icon: "warning",
-      title: `Delete this ${itemLabel}?`,
-      text: `“${assignment.title}” and all ${relatedSubmissions} student attempt${relatedSubmissions === 1 ? "" : "s"}/submission${relatedSubmissions === 1 ? "" : "s"} will be permanently deleted.`,
+      title: `ยืนยันการลบ${itemLabel}นี้?`,
+      text: `“${assignment.title}” และประวัติการส่ง/การทำข้อสอบของนักเรียนทั้งหมด ${relatedSubmissions} รายการจะถูกลบออกอย่างถาวร`,
       showCancelButton: true,
-      confirmButtonText: "Delete permanently",
-      cancelButtonText: "Cancel",
+      confirmButtonText: "ยืนยันลบถาวร",
+      cancelButtonText: "ยกเลิก",
       confirmButtonColor: "#dc2626",
       focusCancel: true,
     });
@@ -615,7 +615,7 @@ export function AssignmentsPanel({
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-bold text-xs border border-rose-200 dark:border-rose-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
                   >
                     <Trash2 className="h-4 w-4" />
-                    <span>Delete {activeAssignment.type === "quiz" ? "Quiz" : "Assignment"}</span>
+                    <span>ลบ{activeAssignment.type === "quiz" ? "ควิซ" : "งาน"}</span>
                   </button>
                   <button
                     type="button"
@@ -911,9 +911,10 @@ export function AssignmentsPanel({
                             type="button"
                             onClick={() => handleDeleteAssignment(a)}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-bold text-xs border border-rose-200 dark:border-rose-800/50 shadow-xs transition-all cursor-pointer active:scale-95"
+                            title={`ลบ${a.type === "quiz" ? "ควิซ" : "งาน"}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                            <span>Delete</span>
+                            <span>ลบ</span>
                           </button>
                           <button
                             type="button"
