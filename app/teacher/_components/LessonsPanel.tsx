@@ -4,6 +4,7 @@ import { tx, card } from "@/app/lib/theme";
 import { alert } from "@/lib/swal";
 import { useUser, type Chapter, type Lesson, type Topic } from "@/app/context/UserContext";
 import { Portal } from "@/app/components/Portal";
+import { LessonBroadcastButton } from "./LessonBroadcastButton";
 
 interface LessonsPanelProps {
   lessons: Lesson[];
@@ -31,9 +32,13 @@ export function LessonsPanel({
   const {
     addChapter,
     updateChapter,
+    toggleChapterPublished,
+    toggleChapterLocked,
     deleteChapter,
     addTopic,
     updateTopic,
+    toggleTopicPublished,
+    toggleTopicLocked,
     deleteTopic,
     deleteLesson,
     toggleLessonPublished,
@@ -250,12 +255,30 @@ export function LessonsPanel({
                         <h4 className="font-bold text-sm md:text-base text-slate-800 dark:text-slate-100 truncate">
                           {chap.title}
                         </h4>
+                        {chap.isPublished === false && <span className="text-[10px] font-bold text-slate-500 shrink-0">ซ่อนอยู่</span>}
+                        {chap.isLocked === true && <span className="text-[10px] font-bold text-amber-600 shrink-0">ล็อกอยู่</span>}
                       </div>
                     )}
                   </div>
 
                   {/* Chapter Actions */}
                   <div className="flex items-center gap-1 md:gap-1.5 shrink-0 self-end sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => void toggleChapterPublished(chap.id, chap.isPublished === false)}
+                      className="p-1 md:p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                      title={chap.isPublished === false ? "แสดงหน่วยการเรียน" : "ซ่อนหน่วยการเรียน"}
+                    >
+                      {chap.isPublished === false ? <EyeOff className="h-3 w-3 md:h-3.5 md:w-3.5" /> : <Eye className="h-3 w-3 md:h-3.5 md:w-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void toggleChapterLocked(chap.id, chap.isLocked !== true)}
+                      className="p-1 md:p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                      title={chap.isLocked ? "ปลดล็อกหน่วยการเรียน" : "ล็อกหน่วยการเรียน"}
+                    >
+                      {chap.isLocked ? <Lock className="h-3 w-3 md:h-3.5 md:w-3.5" /> : <LockOpen className="h-3 w-3 md:h-3.5 md:w-3.5" />}
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -369,6 +392,8 @@ export function LessonsPanel({
                                   <h5 className="font-bold text-xs md:text-sm text-slate-700 dark:text-slate-200 truncate">
                                     {top.title}
                                   </h5>
+                                  {top.isPublished === false && <span className="text-[10px] font-bold text-slate-500 shrink-0">ซ่อนอยู่</span>}
+                                  {top.isLocked === true && <span className="text-[10px] font-bold text-amber-600 shrink-0">ล็อกอยู่</span>}
                                   <span className="text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
                                     {topicLessons.length} บทเรียน
                                   </span>
@@ -377,6 +402,22 @@ export function LessonsPanel({
 
                               {/* Topic Actions */}
                               <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => void toggleTopicPublished(top.id, top.isPublished === false)}
+                                  className="p-1 rounded text-slate-400 hover:text-indigo-500 cursor-pointer"
+                                  title={top.isPublished === false ? "แสดงเรื่อง" : "ซ่อนเรื่อง"}
+                                >
+                                  {top.isPublished === false ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void toggleTopicLocked(top.id, top.isLocked !== true)}
+                                  className="p-1 rounded text-slate-400 hover:text-amber-500 cursor-pointer"
+                                  title={top.isLocked ? "ปลดล็อกเรื่อง" : "ล็อกเรื่อง"}
+                                >
+                                  {top.isLocked ? <Lock className="h-3 w-3" /> : <LockOpen className="h-3 w-3" />}
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -459,6 +500,11 @@ export function LessonsPanel({
 
                                       {/* Lesson Control Actions */}
                                       <div className="flex items-center gap-1 md:gap-2 shrink-0 flex-wrap">
+                                        <LessonBroadcastButton
+                                          lessonId={l.id}
+                                          lessonTitle={l.title}
+                                          disabled={!isPub}
+                                        />
                                         <button
                                           type="button"
                                           onClick={() => toggleLessonLocked(l.id, !isLocked)}

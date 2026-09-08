@@ -159,6 +159,18 @@ export async function migrateDatabase() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS course_announcements (
+      id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      course_id   TEXT        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      author_id   UUID        NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      title       TEXT        NOT NULL,
+      body        TEXT        NOT NULL DEFAULT '',
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS chapters (
       id          TEXT        PRIMARY KEY,
       course_id   TEXT        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -354,6 +366,20 @@ export async function migrateDatabase() {
     )
   `);
 
+  // One OBS/YouTube broadcast can be assigned to a lesson at a time. This is
+  // intentionally separate from live_classes, which powers the existing Jitsi
+  // classroom feature.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lesson_live_broadcasts (
+      lesson_id  TEXT PRIMARY KEY REFERENCES lessons(id) ON DELETE CASCADE,
+      is_live    BOOLEAN NOT NULL DEFAULT FALSE,
+      started_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      started_at TIMESTAMPTZ,
+      ended_at   TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+
   // A private lesson request gets its own scheduled live room when the teacher accepts it.
   await pool.query(`ALTER TABLE private_lesson_requests ADD COLUMN IF NOT EXISTS live_class_id UUID REFERENCES live_classes(id) ON DELETE SET NULL`);
   await pool.query(`ALTER TABLE private_lesson_requests ADD COLUMN IF NOT EXISTS requested_slots JSONB NOT NULL DEFAULT '[]'::jsonb`);
@@ -376,12 +402,19 @@ export async function migrateDatabase() {
     }
   }
 
+  await pool.query(`ALTER TABLE chapters ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT TRUE`);
+  await pool.query(`ALTER TABLE topics ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT TRUE`);
+  await pool.query(`ALTER TABLE chapters ADD COLUMN IF NOT EXISTS is_locked BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE topics ADD COLUMN IF NOT EXISTS is_locked BOOLEAN NOT NULL DEFAULT FALSE`);
+
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_enrollments_student    ON course_enrollments (student_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_enrollments_course     ON course_enrollments (course_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_announcements_course  ON course_announcements (course_id, created_at DESC)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_chapters_course        ON chapters (course_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_topics_chapter         ON topics (chapter_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_lessons_topic          ON lessons (topic_id, sort_order)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_segments_lesson        ON lesson_segments (lesson_id, sort_order)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_lesson_live_broadcasts_active ON lesson_live_broadcasts (is_live) WHERE is_live = TRUE`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_assignments_course     ON assignments (course_id)`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS lesson_id TEXT REFERENCES lessons(id) ON DELETE CASCADE`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS show_scores BOOLEAN NOT NULL DEFAULT TRUE`);

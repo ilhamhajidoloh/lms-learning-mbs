@@ -5,6 +5,7 @@ import type { Lesson } from "../../context/UserContext";
 import { useUser } from "../../context/UserContext";
 import { CheckCircle2, Lock } from "lucide-react";
 import { toast } from "../../../lib/swal";
+import { LessonLiveStream } from "../../components/LessonLiveStream";
 
 type StudyTabId = "overview" | "resources" | "tasks" | "scores" | "booking";
 
@@ -144,6 +145,8 @@ export function LessonOverviewPanel({ activeLesson, studyTab, setStudyTab, hasTa
       </div>
 
       {/* Video player embedded */}
+      <LessonLiveStream lessonId={activeLesson.id} lessonTitle={activeLesson.title} />
+
       {ytId ? (
         <div className="aspect-video w-full rounded-xl md:rounded-2xl overflow-hidden shadow-lg border relative group/video" style={{ borderColor: tx.borderS }}>
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover/video:opacity-100 transition-opacity duration-300 pointer-events-none z-10" />

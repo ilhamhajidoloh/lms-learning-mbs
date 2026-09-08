@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import LoadingScreen from "../../components/LoadingScreen";
 import { QuizReviewItem } from "../../student/_components/QuizReviewItem";
 import { useUser, type QuizQuestion } from "../../context/UserContext";
-import { calculateQuestionScore } from "@/lib/quizScoring";
+import { calculateQuestionScore, type QuizAnswer } from "@/lib/quizScoring";
 import { tx } from "../../lib/theme";
 import { TeacherHeader } from "./TeacherHeader";
 
@@ -34,7 +34,7 @@ export function QuizReviewPage({ submissionId }: { submissionId: string }) {
     const autoScores = questions.map((question, index) => {
       const answer = Array.isArray(submission.answers)
         ? submission.answers[index]
-        : (submission.answers as Record<number, any> | undefined)?.[index];
+        : (submission.answers as Record<number, QuizAnswer> | undefined)?.[index];
       return calculateQuestionScore(question, answer).score;
     });
 

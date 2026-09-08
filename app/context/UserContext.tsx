@@ -94,6 +94,8 @@ export interface Chapter {
   courseId: string;
   title: string;
   order: number;
+  isPublished?: boolean;
+  isLocked?: boolean;
 }
 
 export interface Topic {
@@ -101,6 +103,8 @@ export interface Topic {
   chapterId: string;
   title: string;
   order: number;
+  isPublished?: boolean;
+  isLocked?: boolean;
 }
 
 export interface LessonSegment {
@@ -170,10 +174,14 @@ interface UserContextProps {
   chapters: Chapter[];
   addChapter: (courseId: string, title: string) => Promise<{ success: boolean; id?: string; error?: string }>;
   updateChapter: (id: string, title: string) => Promise<{ success: boolean; error?: string }>;
+  toggleChapterPublished: (id: string, isPublished: boolean) => Promise<{ success: boolean; error?: string }>;
+  toggleChapterLocked: (id: string, isLocked: boolean) => Promise<{ success: boolean; error?: string }>;
   deleteChapter: (id: string) => Promise<{ success: boolean; error?: string }>;
   topics: Topic[];
   addTopic: (chapterId: string, title: string) => Promise<{ success: boolean; id?: string; error?: string }>;
   updateTopic: (id: string, title: string) => Promise<{ success: boolean; error?: string }>;
+  toggleTopicPublished: (id: string, isPublished: boolean) => Promise<{ success: boolean; error?: string }>;
+  toggleTopicLocked: (id: string, isLocked: boolean) => Promise<{ success: boolean; error?: string }>;
   deleteTopic: (id: string) => Promise<{ success: boolean; error?: string }>;
   assignments: Assignment[];
   addAssignment: (assignment: Assignment) => void;
@@ -833,6 +841,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const toggleChapterPublished = async (id: string, isPublished: boolean): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await apiFetch("/api/chapters", { method: "PUT", body: JSON.stringify({ id, isPublished }) });
+    if (error) return { success: false, error };
+    await fetchAllData();
+    return { success: true };
+  };
+
+  const toggleChapterLocked = async (id: string, isLocked: boolean): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await apiFetch("/api/chapters", { method: "PUT", body: JSON.stringify({ id, isLocked }) });
+    if (error) return { success: false, error };
+    await fetchAllData();
+    return { success: true };
+  };
+
   const deleteChapter = async (id: string): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังลบหน่วยเรียน...");
     try {
@@ -873,6 +895,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
       toast.error("แก้ไขชื่อเรื่องไม่สำเร็จ: " + message);
       return { success: false, error: message };
     }
+  };
+
+  const toggleTopicPublished = async (id: string, isPublished: boolean): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await apiFetch("/api/topics", { method: "PUT", body: JSON.stringify({ id, isPublished }) });
+    if (error) return { success: false, error };
+    await fetchAllData();
+    return { success: true };
+  };
+
+  const toggleTopicLocked = async (id: string, isLocked: boolean): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await apiFetch("/api/topics", { method: "PUT", body: JSON.stringify({ id, isLocked }) });
+    if (error) return { success: false, error };
+    await fetchAllData();
+    return { success: true };
   };
 
   const deleteTopic = async (id: string): Promise<{ success: boolean; error?: string }> => {
@@ -1279,10 +1315,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
         chapters,
         addChapter,
         updateChapter,
+        toggleChapterPublished,
+        toggleChapterLocked,
         deleteChapter,
         topics,
         addTopic,
         updateTopic,
+        toggleTopicPublished,
+        toggleTopicLocked,
         deleteTopic,
         assignments,
         addAssignment,

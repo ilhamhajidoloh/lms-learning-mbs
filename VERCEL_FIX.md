@@ -99,6 +99,7 @@ psql $DATABASE_URL -f front-lms/optimize-indexes.sql
 DATABASE_URL=postgresql://...
 JWT_SECRET=your-secure-secret-here
 DATABASE_SSL=true
+NEXT_PUBLIC_YOUTUBE_CHANNEL_ID=your-youtube-channel-id
 ```
 
 ### ตรวจสอบว่าแก้ไขปัญหาได้แล้ว

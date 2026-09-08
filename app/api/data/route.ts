@@ -36,13 +36,13 @@ export async function GET(request: Request) {
   `);
 
   const chaptersQuery = pool.query(`
-    SELECT ch.id, ch.course_id, ch.title, ch.sort_order
+    SELECT ch.id, ch.course_id, ch.title, ch.sort_order, ch.is_published, ch.is_locked
     FROM chapters ch
     ORDER BY ch.course_id, ch.sort_order
   `);
 
   const topicsQuery = pool.query(`
-    SELECT t.id, t.chapter_id, t.title, t.sort_order
+    SELECT t.id, t.chapter_id, t.title, t.sort_order, t.is_published, t.is_locked
     FROM topics t
     ORDER BY t.chapter_id, t.sort_order
   `);
@@ -219,6 +219,8 @@ export async function GET(request: Request) {
     courseId: ch.course_id,
     title: ch.title,
     order: ch.sort_order,
+    isPublished: ch.is_published !== false,
+    isLocked: ch.is_locked === true,
   }));
 
   const topics = topicsRes.rows.map((t) => ({
@@ -226,6 +228,8 @@ export async function GET(request: Request) {
     chapterId: t.chapter_id,
     title: t.title,
     order: t.sort_order,
+    isPublished: t.is_published !== false,
+    isLocked: t.is_locked === true,
   }));
 
   const lessons = lessonsRes.rows.map((l) => ({

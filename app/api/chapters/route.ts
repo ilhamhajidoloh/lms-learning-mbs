@@ -27,8 +27,20 @@ export async function PUT(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, title, sortOrder } = await request.json();
+  const { id, title, sortOrder, isPublished, isLocked } = await request.json();
   if (!id) return Response.json({ error: "Missing chapter id" }, { status: 400 });
+  if (auth.role !== "teacher" && auth.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
+
+  if (isPublished !== undefined || isLocked !== undefined) {
+    const result = await pool.query(
+      `UPDATE chapters ch SET is_published = COALESCE($1, ch.is_published), is_locked = COALESCE($2, ch.is_locked), updated_at = now()
+       FROM courses c WHERE ch.id = $3 AND ch.course_id = c.id AND ($4 = 'admin' OR c.instructor_id = $5)
+       RETURNING ch.id`,
+      [isPublished === undefined ? null : Boolean(isPublished), isLocked === undefined ? null : Boolean(isLocked), id, auth.role, auth.userId]
+    );
+    if (!result.rows[0]) return Response.json({ error: "Chapter not found or forbidden" }, { status: 404 });
+    return Response.json({ success: true });
+  }
 
   if (sortOrder !== undefined) {
     await pool.query(

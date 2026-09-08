@@ -100,7 +100,7 @@ export default function TeacherDashboard() {
 
   // Course Detail states
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<"assignments" | "lessons" | "students" | "private_lessons">("assignments");
+  const [detailTab, setDetailTab] = useState<"assignments" | "lessons" | "students" | "announcements" | "private_lessons">("assignments");
   const [viewingAssignmentId, setViewingAssignmentId] = useState<string | null>(null);
   const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
 

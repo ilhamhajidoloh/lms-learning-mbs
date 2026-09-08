@@ -15,6 +15,7 @@ import { JoinLiveClassButton } from "../../components/JoinLiveClassButton";
 import { formatThaiShortDateTime } from "../../lib/date";
 import { CourseScoresPanel } from "./CourseScoresPanel";
 import { PrivateLessonBookingCard } from "../../components/PrivateLessonBookingCard";
+import { CourseAnnouncements } from "../../components/CourseAnnouncements";
 
 type StudentTab = "dashboard" | "courses" | "study" | "profile";
 type StudyTabId = "overview" | "resources" | "tasks" | "scores" | "booking";
@@ -111,38 +112,53 @@ export function StudyTab({
   };
 
   const courseChapters = useMemo(() => {
-    return selectedCourseId ? chapters.filter(ch => ch.courseId === selectedCourseId) : [];
+    return selectedCourseId ? chapters.filter(ch => ch.courseId === selectedCourseId && ch.isPublished !== false) : [];
   }, [chapters, selectedCourseId]);
 
   const courseTopics = useMemo(() => {
     return selectedCourseId
       ? topics.filter(t => {
           const chapter = chapters.find(ch => ch.id === t.chapterId);
-          return chapter?.courseId === selectedCourseId;
+          return chapter?.courseId === selectedCourseId && chapter.isPublished !== false && t.isPublished !== false;
         })
       : [];
   }, [topics, chapters, selectedCourseId]);
 
   const courseLessons = useMemo(() => {
-    return selectedCourseId
-      ? lessons.filter(
-          l =>
-            l.isPublished !== false &&
-            (courseTopics.some(t => t.id === l.topicId) ||
-              (l as { courseId?: string }).courseId === selectedCourseId)
-        )
-      : [];
-  }, [lessons, courseTopics, selectedCourseId]);
+    if (!selectedCourseId) return [];
+    if (courseChapters.length === 0) {
+      return lessons.filter(
+        l =>
+          l.isPublished !== false &&
+          (courseTopics.some(t => t.id === l.topicId) ||
+            (l as { courseId?: string }).courseId === selectedCourseId)
+      );
+    }
+    const ordered: Lesson[] = [];
+    for (const chap of courseChapters) {
+      const chTopics = courseTopics.filter(t => t.chapterId === chap.id);
+      for (const top of chTopics) {
+        const topLessons = lessons.filter(l => l.topicId === top.id && l.isPublished !== false);
+        ordered.push(...topLessons);
+      }
+    }
+    const directLessons = lessons.filter(
+      l =>
+        l.isPublished !== false &&
+        (l as { courseId?: string }).courseId === selectedCourseId &&
+        !ordered.some(o => o.id === l.id)
+    );
+    return [...ordered, ...directLessons];
+  }, [lessons, courseChapters, courseTopics, selectedCourseId]);
 
   // Auto-sync lesson completion when all tasks for a lesson are submitted or unsubmitted
   useEffect(() => {
     if (!currentUserId || !selectedCourseId || courseLessons.length === 0) return;
 
-    courseLessons.forEach((l, index) => {
+    courseLessons.forEach((l) => {
       const lAssignments = assignments.filter((a) => {
         if (a.courseId !== selectedCourseId) return false;
-        if (a.lessonId) return a.lessonId === l.id;
-        return index === 0;
+        return a.lessonId === l.id;
       });
 
       if (lAssignments.length > 0) {
@@ -213,11 +229,10 @@ export function StudyTab({
 
   const allCourseAssignments = assignments.filter((assignment) => assignment.courseId === selectedCourseId);
 
-  const checkLessonCompleted = (lesson: Lesson, index: number) => {
+  const checkLessonCompleted = (lesson: Lesson, _index?: number) => {
     const lAssignments = assignments.filter((a) => {
       if (a.courseId !== selectedCourseId) return false;
-      if (a.lessonId) return a.lessonId === lesson.id;
-      return index === 0;
+      return a.lessonId === lesson.id;
     });
     if (lAssignments.length > 0) {
       return lAssignments.every((a) =>
@@ -229,7 +244,9 @@ export function StudyTab({
 
   const sequentialLessonLockMessage = (lessonId: string) => {
     const lesson = courseLessons.find(l => l.id === lessonId);
-    if (lesson?.isLocked === true || !currentCourse.sequentialLessons) return null;
+    const topic = courseTopics.find(t => t.id === lesson?.topicId);
+    const chapter = courseChapters.find(ch => ch.id === topic?.chapterId);
+    if (lesson?.isLocked === true || topic?.isLocked === true || chapter?.isLocked === true || !currentCourse?.sequentialLessons) return null;
     const lessonIdx = courseLessons.findIndex(l => l.id === lessonId);
     if (lessonIdx <= 0) return null;
 
@@ -243,9 +260,58 @@ export function StudyTab({
     return null;
   };
 
-  const isLessonLocked = (lessonId: string) => {
+  const getLessonLockInfo = (lessonId: string) => {
     const lesson = courseLessons.find(l => l.id === lessonId);
-    return lesson?.isLocked === true || sequentialLessonLockMessage(lessonId) !== null;
+    const topic = courseTopics.find(t => t.id === lesson?.topicId);
+    const chapter = courseChapters.find(ch => ch.id === topic?.chapterId);
+
+    if (chapter?.isLocked === true) {
+      return {
+        isLocked: true,
+        reason: "teacher" as const,
+        message: `หน่วยการเรียน “${chapter.title}” ถูกล็อกโดยคุณครู 🔒`,
+        hint: "ครูล็อกหน่วยการเรียนนี้ไว้ 🔒",
+      };
+    }
+    if (topic?.isLocked === true) {
+      return {
+        isLocked: true,
+        reason: "teacher" as const,
+        message: `หัวข้อ “${topic.title}” ถูกล็อกโดยคุณครู 🔒`,
+        hint: "ครูล็อกหัวข้อนี้ไว้ 🔒",
+      };
+    }
+    if (lesson?.isLocked === true) {
+      return {
+        isLocked: true,
+        reason: "teacher" as const,
+        message: "บทเรียนนี้ถูกล็อกโดยคุณครู 🔒",
+        hint: "ครูล็อกบทเรียนนี้ไว้ 🔒",
+      };
+    }
+
+    if (currentCourse?.sequentialLessons) {
+      const seqMsg = sequentialLessonLockMessage(lessonId);
+      if (seqMsg) {
+        return {
+          isLocked: true,
+          reason: "sequential" as const,
+          message: `บทเรียนนี้ถูกล็อก 🔒 ${seqMsg}`,
+          hint: seqMsg,
+        };
+      }
+    }
+
+    return {
+      isLocked: false,
+      reason: null,
+      message: null,
+      hint: null,
+    };
+  };
+
+  const isLessonLocked = (lessonId: string) => {
+    return getLessonLockInfo(lessonId).isLocked;
   };
 
   // Find active lesson (ensure not locked)
@@ -407,6 +473,7 @@ export function StudyTab({
         <PrivateLessonBookingCard key={currentCourse.id} course={currentCourse} />
       ) : (
         <>
+      <CourseAnnouncements courseId={currentCourse.id} />
       {/* Course Live Classes List (Active & Upcoming) */}
       {courseLiveClasses.length > 0 && (
         <div className="rounded-3xl p-4 md:p-5 border space-y-3 animate-slideInUp" style={{ backgroundColor: tx.surface, borderColor: tx.borderS }}>
@@ -493,34 +560,33 @@ export function StudyTab({
                 {courseLessons.map((l, index) => {
                   const isActive = activeLesson && l.id === activeLesson.id;
                   const isCompleted = checkLessonCompleted(l, index);
-                  const isLocked = isLessonLocked(l.id);
-                  const sequentialLockMessage = sequentialLessonLockMessage(l.id);
+                  const lockInfo = getLessonLockInfo(l.id);
                   return (
                     <button key={l.id}
                       onClick={() => {
-                        if (isLocked) {
-                          toast.error(l.isLocked === true ? "บทเรียนนี้ถูกล็อกโดยคุณครู 🔒" : "บทเรียนนี้ถูกล็อก 🔒 กรุณาเรียนบทเรียนก่อนหน้าให้ผ่านก่อนครับ");
+                        if (lockInfo.isLocked) {
+                          toast.error(lockInfo.message || "บทเรียนนี้ถูกล็อก 🔒");
                           return;
                         }
                         setActiveLessonId(l.id);
                         setSelectedAssignmentId(null);
                       }}
-                      className={`w-full text-left p-2.5 md:p-3.5 rounded-xl border text-xs font-bold flex gap-2 md:gap-3 items-center transition-all duration-200 active:scale-[0.98] ${isActive ? "animate-borderGlow" : ""} ${isLocked ? "opacity-60 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed" : ""}`}
+                      className={`w-full text-left p-2.5 md:p-3.5 rounded-xl border text-xs font-bold flex gap-2 md:gap-3 items-center transition-all duration-200 active:scale-[0.98] ${isActive ? "animate-borderGlow" : ""} ${lockInfo.isLocked ? "opacity-60 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed" : ""}`}
                       style={isActive
                         ? { borderColor: tx.accent, backgroundColor: tx.accentBg, color: tx.accent }
                         : { borderColor: tx.borderS, color: tx.secondary }}>
                       <span className={`flex h-5 w-5 rounded-full items-center justify-center text-[10px] font-mono shrink-0 transition-colors ${
-                        isLocked
+                        lockInfo.isLocked
                           ? "bg-amber-500/20 text-amber-500"
                           : isCompleted
                             ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20"
                             : isActive ? "bg-indigo-500/20 text-indigo-500" : "bg-indigo-500/10 text-indigo-500"
                       }`}>
-                        {isLocked ? <Lock className="h-3 w-3" /> : isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
+                        {lockInfo.isLocked ? <Lock className="h-3 w-3" /> : isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[11px] md:text-xs">{l.title}</span>
-                        {sequentialLockMessage && <span className="mt-0.5 block text-[9px] font-medium leading-tight" style={{ color: tx.muted }}>{sequentialLockMessage}</span>}
+                        {lockInfo.hint && <span className="mt-0.5 block text-[9px] font-medium leading-tight text-amber-600 dark:text-amber-400">{lockInfo.hint}</span>}
                       </span>
                     </button>
                   );
@@ -549,32 +615,31 @@ export function StudyTab({
                                 {topicLessons.map((l, index) => {
                                   const isActive = activeLesson && l.id === activeLesson.id;
                                   const isCompleted = checkLessonCompleted(l, index);
-                                  const isLocked = isLessonLocked(l.id);
-                                  const sequentialLockMessage = sequentialLessonLockMessage(l.id);
+                                  const lockInfo = getLessonLockInfo(l.id);
                                   return (
                                     <button key={l.id}
                                       onClick={() => {
-                                        if (isLocked) {
-                                          toast.error(l.isLocked === true ? "บทเรียนนี้ถูกล็อกโดยคุณครู 🔒" : "บทเรียนนี้ถูกล็อก 🔒 กรุณาเรียนบทเรียนก่อนหน้าให้ผ่านก่อนครับ");
+                                        if (lockInfo.isLocked) {
+                                          toast.error(lockInfo.message || "บทเรียนนี้ถูกล็อก 🔒");
                                           return;
                                         }
                                         setActiveLessonId(l.id);
                                         setSelectedAssignmentId(null);
                                       }}
-                                      className={`w-full text-left p-2 md:p-2.5 rounded-lg border text-[11px] md:text-xs font-semibold flex gap-2 md:gap-2.5 items-center transition-all duration-200 ${isActive ? "shadow-sm border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 font-bold" : "hover:bg-slate-100 dark:hover:bg-slate-800"} ${isLocked ? "opacity-60 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed" : ""}`}
+                                      className={`w-full text-left p-2 md:p-2.5 rounded-lg border text-[11px] md:text-xs font-semibold flex gap-2 md:gap-2.5 items-center transition-all duration-200 ${isActive ? "shadow-sm border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 font-bold" : "hover:bg-slate-100 dark:hover:bg-slate-800"} ${lockInfo.isLocked ? "opacity-60 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed" : ""}`}
                                       style={!isActive ? { borderColor: tx.borderS, color: tx.secondary } : {}}>
                                       <span className={`flex h-4 w-4 rounded-full items-center justify-center text-[9px] font-mono shrink-0 ${
-                                        isLocked
+                                        lockInfo.isLocked
                                           ? "bg-amber-500/20 text-amber-500"
                                           : isCompleted
                                             ? "bg-emerald-500/20 text-emerald-500"
                                             : isActive ? "bg-indigo-500/20 text-indigo-500" : "bg-slate-200 dark:bg-slate-700 text-slate-500"
                                       }`}>
-                                        {isLocked ? <Lock className="h-2.5 w-2.5" /> : isCompleted ? <CheckCircle2 className="h-3 w-3" /> : index + 1}
+                                        {lockInfo.isLocked ? <Lock className="h-2.5 w-2.5" /> : isCompleted ? <CheckCircle2 className="h-3 w-3" /> : index + 1}
                                       </span>
                                       <span className="min-w-0 flex-1">
                                         <span className="block truncate">{l.title}</span>
-                                        {sequentialLockMessage && <span className="mt-0.5 block text-[9px] font-medium leading-tight" style={{ color: tx.muted }}>{sequentialLockMessage}</span>}
+                                        {lockInfo.hint && <span className="mt-0.5 block text-[9px] font-medium leading-tight text-amber-600 dark:text-amber-400">{lockInfo.hint}</span>}
                                       </span>
                                     </button>
                                   );

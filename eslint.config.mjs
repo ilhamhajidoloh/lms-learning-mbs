@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // This Node.js migration runner intentionally uses CommonJS so it can
+    // transpile and load the TypeScript database module before Next starts.
+    "scripts/migrate.cjs",
   ]),
 ]);
 

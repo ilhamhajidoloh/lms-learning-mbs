@@ -8,13 +8,14 @@ import { LessonsPanel } from "./LessonsPanel";
 import { StudentsPanel } from "./StudentsPanel";
 import { HeroBanner } from "../../components/HeroBanner";
 import { PrivateLessonRequestsPanel } from "../../components/PrivateLessonRequestsPanel";
+import { CourseAnnouncements } from "../../components/CourseAnnouncements";
 
 interface CourseDetailPanelProps {
   selectedCourse: Course;
   setSelectedCourseId: (id: string | null) => void;
   setShowForm: (show: boolean) => void;
-  detailTab: "assignments" | "lessons" | "students" | "private_lessons";
-  setDetailTab: (tab: "assignments" | "lessons" | "students" | "private_lessons") => void;
+  detailTab: "assignments" | "lessons" | "students" | "announcements" | "private_lessons";
+  setDetailTab: (tab: "assignments" | "lessons" | "students" | "announcements" | "private_lessons") => void;
   setShowEnrollSettingsModal: (show: boolean) => void;
 
   assignments: Assignment[];
@@ -142,6 +143,10 @@ export function CourseDetailPanel({
           style={detailTab === "students" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
           รายชื่อนักเรียน
         </button>
+        <button onClick={() => setDetailTab("announcements")} className="text-xs md:text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0 btn-press whitespace-nowrap"
+          style={detailTab === "announcements" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
+          ประกาศ
+        </button>
         <button onClick={() => setDetailTab("private_lessons")} className="text-xs md:text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0 btn-press whitespace-nowrap"
           style={detailTab === "private_lessons" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
           คิวสอนส่วนตัว
@@ -189,6 +194,8 @@ export function CourseDetailPanel({
           teacherRemoveStudent={teacherRemoveStudent}
         />
       )}
+
+      {detailTab === "announcements" && <CourseAnnouncements courseId={selectedCourse.id} canManage />}
 
       {detailTab === "private_lessons" && (
         <PrivateLessonRequestsPanel courseId={selectedCourse.id} courseTitle={selectedCourse.title} />
