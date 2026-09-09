@@ -11,17 +11,19 @@ interface LessonLiveStreamProps {
 
 interface Broadcast {
   is_live: boolean;
+  youtube_video_id: string | null;
 }
 
 export function LessonLiveStream({ lessonId, lessonTitle }: LessonLiveStreamProps) {
   const [isLive, setIsLive] = useState(false);
+  const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const channelId = process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID;
 
   const refresh = useCallback(async () => {
     setLoading(true);
     const { data } = await apiFetch<{ broadcast: Broadcast }>(`/api/lesson-live?lesson_id=${encodeURIComponent(lessonId)}`);
     setIsLive(data?.broadcast.is_live === true);
+    setYoutubeVideoId(data?.broadcast.youtube_video_id ?? null);
     setLoading(false);
   }, [lessonId]);
 
@@ -36,10 +38,10 @@ export function LessonLiveStream({ lessonId, lessonTitle }: LessonLiveStreamProp
 
   if (loading || !isLive) return null;
 
-  if (!channelId) {
+  if (!youtubeVideoId) {
     return (
       <div className="rounded-xl border border-amber-400/40 bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-        ไลฟ์ของบทนี้กำลังเริ่มแล้ว แต่ยังไม่ได้ตั้งค่า YouTube Channel ID
+        ไลฟ์บทนี้ยังไม่มีลิงก์ YouTube สำหรับรับชม กรุณาแจ้งผู้สอนให้ปิดและเปิดไลฟ์ใหม่พร้อมลิงก์ไลฟ์
       </div>
     );
   }
@@ -57,7 +59,7 @@ export function LessonLiveStream({ lessonId, lessonTitle }: LessonLiveStreamProp
       <div className="aspect-video overflow-hidden rounded-xl bg-black shadow-lg">
         <iframe
           className="h-full w-full"
-          src={`https://www.youtube-nocookie.com/embed/live_stream?channel=${encodeURIComponent(channelId)}&autoplay=1&rel=0`}
+          src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeVideoId)}?autoplay=1&rel=0`}
           title={`ไลฟ์สอน: ${lessonTitle}`}
           allow="autoplay; encrypted-media; picture-in-picture"
           allowFullScreen

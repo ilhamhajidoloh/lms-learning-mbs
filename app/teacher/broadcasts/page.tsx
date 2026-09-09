@@ -16,6 +16,20 @@ interface BroadcastLesson {
   is_live: boolean;
 }
 
+function getYouTubeVideoId(value: string): string | null {
+  const input = value.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(input)) return input;
+  try {
+    const url = new URL(input);
+    const id = url.hostname.includes("youtu.be")
+      ? url.pathname.split("/").filter(Boolean)[0]
+      : url.searchParams.get("v") ?? url.pathname.match(/\/(?:embed|live)\/([A-Za-z0-9_-]{11})/)?.[1];
+    return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function TeacherBroadcastsPage() {
   const { isAuthenticated, loadingData, role } = useUser();
   const [broadcasts, setBroadcasts] = useState<BroadcastLesson[]>([]);
@@ -46,10 +60,17 @@ export default function TeacherBroadcastsPage() {
   const changeLiveStatus = async (isLive: boolean) => {
     const lessonId = isLive ? selectedLessonId : activeBroadcast?.lesson_id;
     if (!lessonId) return;
+    let youtubeVideoId: string | undefined;
+    if (isLive) {
+      const link = window.prompt("วางลิงก์ Share ของ YouTube Live แบบไม่เป็นสาธารณะ");
+      if (link === null) return;
+      youtubeVideoId = getYouTubeVideoId(link) ?? undefined;
+      if (!youtubeVideoId) return toast.error("กรุณาวางลิงก์ YouTube Live ที่ถูกต้อง");
+    }
     setSaving(true);
     const { error } = await apiFetch("/api/lesson-live", {
       method: "PUT",
-      body: JSON.stringify({ lessonId, isLive }),
+      body: JSON.stringify({ lessonId, isLive, youtubeVideoId }),
     });
     setSaving(false);
     if (error) return toast.error(error);

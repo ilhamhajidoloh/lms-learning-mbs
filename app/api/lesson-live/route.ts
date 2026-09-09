@@ -11,13 +11,14 @@ type LessonRow = {
   course_id: string;
   course_title: string;
   is_live: boolean;
+  youtube_video_id: string | null;
   started_at: string | null;
 };
 
 const lessonQuery = `
   SELECT l.id AS lesson_id, l.title AS lesson_title,
          c.id AS course_id, c.title AS course_title,
-         COALESCE(llb.is_live, FALSE) AS is_live, llb.started_at
+         COALESCE(llb.is_live, FALSE) AS is_live, llb.started_at, llb.youtube_video_id
   FROM lessons l
   LEFT JOIN topics t ON t.id = l.topic_id
   LEFT JOIN chapters ch ON ch.id = t.chapter_id
@@ -76,9 +77,12 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const body = await request.json() as { lessonId?: string; isLive?: boolean };
+    const body = await request.json() as { lessonId?: string; isLive?: boolean; youtubeVideoId?: string };
     if (!body.lessonId || typeof body.isLive !== "boolean") {
       return NextResponse.json({ error: "lessonId and isLive are required" }, { status: 400 });
+    }
+    if (body.isLive && !/^[A-Za-z0-9_-]{11}$/.test(body.youtubeVideoId ?? "")) {
+      return NextResponse.json({ error: "A valid YouTube live video link is required" }, { status: 400 });
     }
 
     const lesson = await pool.query<Pick<LessonRow, "lesson_id" | "course_id">>(
@@ -99,16 +103,17 @@ export async function PUT(request: Request) {
         await pool.query("UPDATE lesson_live_broadcasts SET is_live = FALSE, ended_at = now(), updated_at = now() WHERE is_live = TRUE");
       }
       const updated = await pool.query<LessonRow>(
-        `INSERT INTO lesson_live_broadcasts (lesson_id, is_live, started_by, started_at, ended_at, updated_at)
-         VALUES ($1, $2, $3, CASE WHEN $2 THEN now() ELSE NULL END, CASE WHEN $2 THEN NULL ELSE now() END, now())
+        `INSERT INTO lesson_live_broadcasts (lesson_id, is_live, youtube_video_id, started_by, started_at, ended_at, updated_at)
+         VALUES ($1, $2, $3, $4, CASE WHEN $2 THEN now() ELSE NULL END, CASE WHEN $2 THEN NULL ELSE now() END, now())
          ON CONFLICT (lesson_id) DO UPDATE SET
            is_live = EXCLUDED.is_live,
+           youtube_video_id = CASE WHEN EXCLUDED.is_live THEN EXCLUDED.youtube_video_id ELSE lesson_live_broadcasts.youtube_video_id END,
            started_by = CASE WHEN EXCLUDED.is_live THEN EXCLUDED.started_by ELSE lesson_live_broadcasts.started_by END,
            started_at = CASE WHEN EXCLUDED.is_live THEN now() ELSE lesson_live_broadcasts.started_at END,
            ended_at = CASE WHEN EXCLUDED.is_live THEN NULL ELSE now() END,
            updated_at = now()
-         RETURNING lesson_id, is_live, started_at`,
-        [body.lessonId, body.isLive, auth.userId]
+         RETURNING lesson_id, is_live, youtube_video_id, started_at`,
+        [body.lessonId, body.isLive, body.youtubeVideoId ?? null, auth.userId]
       );
       await pool.query("COMMIT");
       return NextResponse.json({ broadcast: updated.rows[0] });

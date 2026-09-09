@@ -373,12 +373,14 @@ export async function migrateDatabase() {
     CREATE TABLE IF NOT EXISTS lesson_live_broadcasts (
       lesson_id  TEXT PRIMARY KEY REFERENCES lessons(id) ON DELETE CASCADE,
       is_live    BOOLEAN NOT NULL DEFAULT FALSE,
+      youtube_video_id TEXT,
       started_by UUID REFERENCES users(id) ON DELETE SET NULL,
       started_at TIMESTAMPTZ,
       ended_at   TIMESTAMPTZ,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  await pool.query(`ALTER TABLE lesson_live_broadcasts ADD COLUMN IF NOT EXISTS youtube_video_id TEXT`);
 
   // A private lesson request gets its own scheduled live room when the teacher accepts it.
   await pool.query(`ALTER TABLE private_lesson_requests ADD COLUMN IF NOT EXISTS live_class_id UUID REFERENCES live_classes(id) ON DELETE SET NULL`);
