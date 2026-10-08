@@ -93,10 +93,10 @@ export async function PUT(request: Request) {
   if (provider === "oracle") {
     await query(
       `UPDATE courses
-       SET is_open = COALESCE(:isOpen, is_open),
+       SET is_open = COALESCE(CAST(:isOpen AS NUMBER), is_open),
            enroll_code = :enrollCode,
-           show_scores = COALESCE(:showScores, show_scores),
-           sequential_lessons = COALESCE(:sequentialLessons, sequential_lessons),
+           show_scores = COALESCE(CAST(:showScores AS NUMBER), show_scores),
+           sequential_lessons = COALESCE(CAST(:sequentialLessons AS NUMBER), sequential_lessons),
            quiz_review_mode = COALESCE(:quizReviewMode, quiz_review_mode),
            updated_at = SYSTIMESTAMP
        WHERE id = :id`,

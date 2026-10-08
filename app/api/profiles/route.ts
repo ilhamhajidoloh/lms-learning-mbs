@@ -1,4 +1,4 @@
-import { query, getDbProvider } from "@/lib/database";
+import { query, getDbProvider, lowerKeys } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -10,10 +10,13 @@ export async function GET(request: Request) {
     provider === "oracle"
       ? "SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC"
       : "SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC",
-    []
+    provider === "oracle" ? {} : []
   );
 
-  const rows = result.rows as Array<{ id: string; username: string; display_name: string; role: string; created_at: Date | string | number }>;
+  const rows = result.rows.map((row) => provider === "oracle"
+    ? lowerKeys(row as Record<string, unknown>)!
+    : row
+  ) as Array<{ id: string; username: string; display_name: string; role: string; created_at: Date | string | number }>;
   return Response.json(
     rows.map((p) => ({
       id: p.id,
@@ -54,9 +57,12 @@ export async function PUT(request: Request) {
         provider === "oracle"
           ? "SELECT id FROM users WHERE role = 'admin'"
           : "SELECT id FROM users WHERE role = 'admin'",
-        []
+        provider === "oracle" ? {} : []
       );
-      const adminRows = adminResult.rows as Array<{ id: string }>;
+      const adminRows = adminResult.rows.map((row) => provider === "oracle"
+        ? lowerKeys(row as Record<string, unknown>)!
+        : row
+      ) as Array<{ id: string }>;
       const hasOtherAdmin = adminRows.some((a) => a.id !== targetId);
       if (hasOtherAdmin) {
         return Response.json({ error: "ระบบมีผู้ดูแลระบบอยู่แล้ว ไม่สามารถกำหนด Admin คนที่สองได้" }, { status: 409 });

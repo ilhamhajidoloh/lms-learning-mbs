@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { BookOpen, Check, ChevronDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { BookOpen, Check, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { apiFetch } from "../../../lib/api";
 import { alert as swalAlert, toast } from "../../../lib/swal";
 import { tx } from "../../lib/theme";
@@ -287,7 +287,7 @@ export function CourseLevelsPanel({ courses, levels, addLevel, deleteLevel, refr
                   ) : (
                     <select
                       value={form.level}
-                      onChange={(e) => setForm({ ...form, level: e.target.value })}
+                      onChange={(e) => handleLevelChange(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm font-medium"
                       style={{ borderColor: tx.border, color: tx.primary }}
                     >

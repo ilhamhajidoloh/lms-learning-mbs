@@ -20,6 +20,15 @@ interface OracleConnection {
 interface OraclePool {
   getConnection(): Promise<OracleConnection>;
   close(drainTime?: number): Promise<void>;
+  connectionsInUse: number;
+  connectionsOpen: number;
+  getStatistics(): {
+    connectionRequests: number;
+    requestsEnqueued: number;
+    requestTimeouts: number;
+    currentQueueLength: number;
+    maximumQueueLength: number;
+  };
 }
 
 interface OracleDriver {
@@ -31,6 +40,34 @@ interface OracleDriver {
 
 declare global {
   var __oraclePoolPromise: Promise<OraclePool> | undefined;
+  var __oraclePoolCreationCount: number | undefined;
+}
+
+const poolDiagnosticsEnabled = () =>
+  process.env.NODE_ENV !== "production" && process.env.ORACLE_POOL_DIAGNOSTICS === "1";
+
+/** Development-only numeric pool state; intentionally excludes connection and credential details. */
+function logPoolDiagnostic(event: string, pool?: OraclePool) {
+  if (!poolDiagnosticsEnabled()) return;
+  const details: Record<string, number | string> = {
+    event,
+    creationCount: globalThis.__oraclePoolCreationCount ?? 0,
+  };
+  if (pool) {
+    details.connectionsOpen = pool.connectionsOpen;
+    details.connectionsInUse = pool.connectionsInUse;
+    try {
+      const stats = pool.getStatistics();
+      details.connectionRequests = stats.connectionRequests;
+      details.requestsEnqueued = stats.requestsEnqueued;
+      details.requestTimeouts = stats.requestTimeouts;
+      details.currentQueueLength = stats.currentQueueLength;
+      details.maximumQueueLength = stats.maximumQueueLength;
+    } catch {
+      // A pool can be closing while a diagnostic is emitted; that must not affect requests.
+    }
+  }
+  console.info("[oracle-pool]", details);
 }
 
 function getOracleDriver(): OracleDriver {
@@ -48,6 +85,7 @@ export async function getOraclePool(): Promise<OraclePool> {
   if (!globalThis.__oraclePoolPromise) {
     const config = getOracleConfig();
     const oracledb = getOracleDriver();
+    globalThis.__oraclePoolCreationCount = (globalThis.__oraclePoolCreationCount ?? 0) + 1;
     globalThis.__oraclePoolPromise = oracledb.createPool({
       user: config.user,
       password: config.password,
@@ -64,7 +102,12 @@ export async function getOraclePool(): Promise<OraclePool> {
       queueTimeout: config.queueTimeout,
       connectTimeout: config.connectTimeout,
       homogeneous: true,
+      ...(poolDiagnosticsEnabled() ? { enableStatistics: true } : {}),
+    }).then((pool) => {
+      logPoolDiagnostic("created", pool);
+      return pool;
     }).catch((error: unknown) => {
+      logPoolDiagnostic("create-failed");
       globalThis.__oraclePoolPromise = undefined;
       throw normalizeDatabaseError(error, "connection");
     });
@@ -74,8 +117,14 @@ export async function getOraclePool(): Promise<OraclePool> {
 
 export async function getOracleConnection(): Promise<OracleConnection> {
   try {
-    return await (await getOraclePool()).getConnection();
+    const pool = await getOraclePool();
+    logPoolDiagnostic("connection-requested", pool);
+    const connection = await pool.getConnection();
+    logPoolDiagnostic("connection-acquired", pool);
+    return connection;
   } catch (error) {
+    const poolPromise = globalThis.__oraclePoolPromise;
+    if (poolPromise) void poolPromise.then((pool) => logPoolDiagnostic("connection-failed", pool)).catch(() => undefined);
     throw normalizeDatabaseError(error, "connection");
   }
 }
@@ -84,7 +133,11 @@ export async function getOracleConnection(): Promise<OracleConnection> {
 export async function closeOraclePool(): Promise<void> {
   const poolPromise = globalThis.__oraclePoolPromise;
   globalThis.__oraclePoolPromise = undefined;
-  if (poolPromise) await (await poolPromise).close(5);
+  if (poolPromise) {
+    const pool = await poolPromise;
+    logPoolDiagnostic("closing", pool);
+    await pool.close(5);
+  }
 }
 
 async function executeOracle<T>(
@@ -116,7 +169,11 @@ class OracleConnectionAdapter implements DbConnection {
 
   async commit() { await this.connection.commit(); }
   async rollback() { await this.connection.rollback(); }
-  async release() { await this.connection.close(); }
+  async release() {
+    await this.connection.close();
+    const poolPromise = globalThis.__oraclePoolPromise;
+    if (poolPromise) void poolPromise.then((pool) => logPoolDiagnostic("connection-released", pool)).catch(() => undefined);
+  }
 }
 
 export const oracleDatabase: DatabaseAdapter = {
@@ -133,6 +190,8 @@ export const oracleDatabase: DatabaseAdapter = {
       throw error;
     } finally {
       await connection.close();
+      const poolPromise = globalThis.__oraclePoolPromise;
+      if (poolPromise) void poolPromise.then((pool) => logPoolDiagnostic("connection-released", pool)).catch(() => undefined);
     }
   },
   async acquireConnection(): Promise<DbConnection> {

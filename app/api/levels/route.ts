@@ -1,4 +1,4 @@
-import { query, getDbProvider } from "@/lib/database";
+import { query, getDbProvider, lowerKeys } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
 import { randomUUID } from "crypto";
 
@@ -15,10 +15,13 @@ export async function GET(request: Request) {
     provider === "oracle"
       ? "SELECT id, level_value AS value, label FROM course_levels ORDER BY sort_order, label"
       : "SELECT id, value, label FROM course_levels ORDER BY sort_order, label LIMIT 100",
-    []
+    provider === "oracle" ? {} : []
   );
 
-  const rows = result.rows as Array<{ id: string; value: string; label: string }>;
+  const rows = result.rows.map((row) => provider === "oracle"
+    ? lowerKeys(row as Record<string, unknown>)!
+    : row
+  ) as Array<{ id: string; value: string; label: string }>;
   return Response.json({
     levels: rows.map((r) => ({
       id: r.id,

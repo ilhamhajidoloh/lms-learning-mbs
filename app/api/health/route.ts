@@ -1,4 +1,4 @@
-import { getDatabase, getDbProvider } from "@/lib/database";
+import { getDatabase, getDbProvider, lowerKeys } from "@/lib/database";
 
 // Simple health check endpoint to keep the serverless function warm
 export async function GET() {
@@ -11,7 +11,9 @@ export async function GET() {
     return Response.json({
       status: "ok",
       provider: getDbProvider(),
-      value: result.rows[0]?.value ?? 1,
+      // node-oracledb returns unquoted aliases in upper case; preserve the
+      // provider-neutral response shape used by this endpoint.
+      value: lowerKeys(result.rows[0] as Record<string, unknown>)?.value ?? 1,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
