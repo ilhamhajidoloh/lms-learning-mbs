@@ -1,0 +1,17 @@
+{
+  "_note": "Data-migration mapping only. API/application field names are NOT renamed.",
+  "column_renames": {
+    "course_levels": {
+      "value": "level_value"
+    },
+    "courses": {
+      "level": "course_level"
+    },
+    "assignments": {
+      "type": "assignment_type"
+    },
+    "submissions": {
+      "type": "submission_type"
+    }
+  }
+}

@@ -1,0 +1,2536 @@
+{
+  "_meta": {
+    "generated_by": "scripts/migration/build-manifest.cjs",
+    "phase": "4A",
+    "business_table_count": 19,
+    "excluded_tables": [
+      "schema_migrations"
+    ],
+    "id_policy": "preserve existing IDs exactly (no randomUUID/SYS_GUID for migrated rows)",
+    "uuid_format": "lowercase hyphenated 8-4-4-4-12 for UUID-typed columns",
+    "fk_cycles": [],
+    "self_references": [],
+    "transforms": {
+      "BOOLEAN_TRANSFORM": "true->1, false->0, NULL->NULL only where target allows (all NOT NULL targets must be non-null)",
+      "JSON_SERIALIZE": "structured JSON -> JSON.stringify exactly once -> CLOB; string-encoded JSON is decoded once first; NEVER double-encode",
+      "EMPTY_CLOB": "NOT NULL text: source NULL or '' -> EMPTY_CLOB(); non-empty (incl. whitespace-only) -> unchanged, never trimmed",
+      "NULL_POLICY": "nullable text: source '' -> NULL (Oracle cannot distinguish); NULL -> NULL; whitespace-only unchanged",
+      "TIMESTAMP_TRANSFORM": "instant preserved: read as UTC ISO-8601 with Z (microsecond precision as string), bind to TIMESTAMP WITH TIME ZONE as UTC",
+      "DATE_COPY": "calendar date string YYYY-MM-DD, never passed through JS Date/UTC conversion",
+      "TIME_STRING": "TIME -> zero-padded HH24:MI string, never through JS Date",
+      "NUMERIC_SCALE": "exact decimal string from source; Oracle NUMBER(12,4) rounds at scale 4 -> any >4 fractional digits reported as numeric_precision_risk",
+      "RENAME": "column rename only (data migration mapping; API names unchanged)",
+      "COPY": "value copied unchanged"
+    }
+  },
+  "tables": {
+    "users": {
+      "order": 1,
+      "dependency_level": 0,
+      "source": "users",
+      "target": "users",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "unique_constraints": [
+        [
+          "email"
+        ],
+        [
+          "username"
+        ]
+      ],
+      "check_rules": [
+        {
+          "type": "enum",
+          "col": "role",
+          "values": [
+            "admin",
+            "teacher",
+            "student"
+          ]
+        }
+      ],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "email": {
+          "target": "email",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 320
+          },
+          "nullable_target": false
+        },
+        "password_hash": {
+          "target": "password_hash",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "username": {
+          "target": "username",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "display_name": {
+          "target": "display_name",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 1000
+          },
+          "nullable_target": false
+        },
+        "role": {
+          "target": "role",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 20
+          },
+          "nullable_target": false
+        },
+        "password_changed": {
+          "target": "password_changed",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "course_levels": {
+      "order": 2,
+      "dependency_level": 1,
+      "source": "course_levels",
+      "target": "course_levels",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "unique_constraints": [
+        [
+          "value"
+        ]
+      ],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "value": {
+          "target": "level_value",
+          "transform": "RENAME",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "label": {
+          "target": "label",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 1000
+          },
+          "nullable_target": false
+        },
+        "sort_order": {
+          "target": "sort_order",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "courses": {
+      "order": 3,
+      "dependency_level": 2,
+      "source": "courses",
+      "target": "courses",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "instructor_id"
+          ],
+          "references": "users",
+          "on_delete": "restrict"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [],
+      "enum_report_columns": [
+        "quiz_review_mode"
+      ],
+      "order_pairs": [],
+      "soft_references": [
+        {
+          "col": "level",
+          "ref": "course_levels",
+          "refCol": "value",
+          "note": "no FK in source/target; informational"
+        }
+      ],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "title": {
+          "target": "title",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2000
+          },
+          "nullable_target": false
+        },
+        "level": {
+          "target": "course_level",
+          "transform": "RENAME",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "level_label": {
+          "target": "level_label",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 1000
+          },
+          "nullable_target": false
+        },
+        "gradient_class": {
+          "target": "gradient_class",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "instructor_id": {
+          "target": "instructor_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "is_open": {
+          "target": "is_open",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "enroll_code": {
+          "target": "enroll_code",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": true
+        },
+        "show_scores": {
+          "target": "show_scores",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "sequential_lessons": {
+          "target": "sequential_lessons",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "quiz_review_mode": {
+          "target": "quiz_review_mode",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 30
+          },
+          "nullable_target": false
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "updated_at": {
+          "target": "updated_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "course_enrollments": {
+      "order": 4,
+      "dependency_level": 3,
+      "source": "course_enrollments",
+      "target": "course_enrollments",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "course_id"
+          ],
+          "references": "courses",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "student_id"
+          ],
+          "references": "users",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [
+        [
+          "course_id",
+          "student_id"
+        ]
+      ],
+      "check_rules": [
+        {
+          "type": "between",
+          "col": "progress",
+          "min": 0,
+          "max": 100
+        }
+      ],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "course_id": {
+          "target": "course_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "student_id": {
+          "target": "student_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "progress": {
+          "target": "progress",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "enrolled_at": {
+          "target": "enrolled_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "course_announcements": {
+      "order": 5,
+      "dependency_level": 4,
+      "source": "course_announcements",
+      "target": "course_announcements",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "course_id"
+          ],
+          "references": "courses",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "author_id"
+          ],
+          "references": "users",
+          "on_delete": "restrict"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "course_id": {
+          "target": "course_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "author_id": {
+          "target": "author_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "title": {
+          "target": "title",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2000
+          },
+          "nullable_target": false
+        },
+        "body": {
+          "target": "body",
+          "transform": "EMPTY_CLOB",
+          "source_type": "text",
+          "target_type": {
+            "type": "CLOB"
+          },
+          "nullable_target": false,
+          "empty_clob_not_null": true
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "updated_at": {
+          "target": "updated_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "chapters": {
+      "order": 6,
+      "dependency_level": 5,
+      "source": "chapters",
+      "target": "chapters",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "course_id"
+          ],
+          "references": "courses",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "course_id": {
+          "target": "course_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "title": {
+          "target": "title",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2000
+          },
+          "nullable_target": false
+        },
+        "sort_order": {
+          "target": "sort_order",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "is_published": {
+          "target": "is_published",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "is_locked": {
+          "target": "is_locked",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "updated_at": {
+          "target": "updated_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "topics": {
+      "order": 7,
+      "dependency_level": 6,
+      "source": "topics",
+      "target": "topics",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "chapter_id"
+          ],
+          "references": "chapters",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "chapter_id": {
+          "target": "chapter_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "title": {
+          "target": "title",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2000
+          },
+          "nullable_target": false
+        },
+        "sort_order": {
+          "target": "sort_order",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "is_published": {
+          "target": "is_published",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "is_locked": {
+          "target": "is_locked",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "updated_at": {
+          "target": "updated_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "lessons": {
+      "order": 8,
+      "dependency_level": 7,
+      "source": "lessons",
+      "target": "lessons",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "topic_id"
+          ],
+          "references": "topics",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "course_id"
+          ],
+          "references": "courses",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "topic_id": {
+          "target": "topic_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "course_id": {
+          "target": "course_id",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": true
+        },
+        "title": {
+          "target": "title",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2000
+          },
+          "nullable_target": false
+        },
+        "description": {
+          "target": "description",
+          "transform": "EMPTY_CLOB",
+          "source_type": "text",
+          "target_type": {
+            "type": "CLOB"
+          },
+          "nullable_target": false,
+          "empty_clob_not_null": true
+        },
+        "video_url": {
+          "target": "video_url",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2048
+          },
+          "nullable_target": true
+        },
+        "sort_order": {
+          "target": "sort_order",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "is_published": {
+          "target": "is_published",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "is_locked": {
+          "target": "is_locked",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "updated_at": {
+          "target": "updated_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "lesson_segments": {
+      "order": 9,
+      "dependency_level": 8,
+      "source": "lesson_segments",
+      "target": "lesson_segments",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "lesson_id"
+          ],
+          "references": "lessons",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "lesson_id": {
+          "target": "lesson_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "title": {
+          "target": "title",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2000
+          },
+          "nullable_target": false
+        },
+        "duration": {
+          "target": "duration",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 20
+          },
+          "nullable_target": false
+        },
+        "sort_order": {
+          "target": "sort_order",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "assignments": {
+      "order": 10,
+      "dependency_level": 9,
+      "source": "assignments",
+      "target": "assignments",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "course_id"
+          ],
+          "references": "courses",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "lesson_id"
+          ],
+          "references": "lessons",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "created_by"
+          ],
+          "references": "users",
+          "on_delete": "restrict"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [
+        {
+          "type": "enum",
+          "col": "type",
+          "values": [
+            "file",
+            "quiz"
+          ]
+        },
+        {
+          "type": "gt",
+          "col": "points",
+          "value": 0
+        },
+        {
+          "type": "gt",
+          "col": "time_limit",
+          "value": 0
+        }
+      ],
+      "enum_report_columns": [
+        "quiz_review_mode",
+        "multi_select_scoring_mode"
+      ],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "course_id": {
+          "target": "course_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "lesson_id": {
+          "target": "lesson_id",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": true
+        },
+        "created_by": {
+          "target": "created_by",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "type": {
+          "target": "assignment_type",
+          "transform": "RENAME",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 20
+          },
+          "nullable_target": false
+        },
+        "title": {
+          "target": "title",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2000
+          },
+          "nullable_target": false
+        },
+        "due_date": {
+          "target": "due_date",
+          "transform": "DATE_COPY",
+          "source_type": "date",
+          "target_type": {
+            "type": "DATE"
+          },
+          "nullable_target": false
+        },
+        "points": {
+          "target": "points",
+          "transform": "NUMERIC_SCALE",
+          "source_type": "numeric",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 12,
+            "scale": 4
+          },
+          "nullable_target": false
+        },
+        "instructions": {
+          "target": "instructions",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "CLOB"
+          },
+          "nullable_target": true
+        },
+        "time_limit": {
+          "target": "time_limit",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": true
+        },
+        "show_scores": {
+          "target": "show_scores",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "quiz_review_mode": {
+          "target": "quiz_review_mode",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 30
+          },
+          "nullable_target": false
+        },
+        "is_open": {
+          "target": "is_open",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "allow_edit_submission": {
+          "target": "allow_edit_submission",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "allow_cancel_submission": {
+          "target": "allow_cancel_submission",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "quiz_attempt_limit": {
+          "target": "quiz_attempt_limit",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": true
+        },
+        "multi_select_scoring_mode": {
+          "target": "multi_select_scoring_mode",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 30
+          },
+          "nullable_target": false
+        },
+        "open_at": {
+          "target": "open_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": true
+        },
+        "close_at": {
+          "target": "close_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": true
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "updated_at": {
+          "target": "updated_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "quiz_questions": {
+      "order": 11,
+      "dependency_level": 10,
+      "source": "quiz_questions",
+      "target": "quiz_questions",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "assignment_id"
+          ],
+          "references": "assignments",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [
+        {
+          "type": "enum",
+          "col": "question_type",
+          "values": [
+            "multiple_choice",
+            "fill_blank",
+            "matching",
+            "essay"
+          ]
+        },
+        {
+          "type": "gte",
+          "col": "correct_index",
+          "value": 0
+        }
+      ],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "assignment_id": {
+          "target": "assignment_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "question_text": {
+          "target": "question_text",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "CLOB"
+          },
+          "nullable_target": false
+        },
+        "question_type": {
+          "target": "question_type",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 30
+          },
+          "nullable_target": false
+        },
+        "options": {
+          "target": "options",
+          "transform": "JSON_SERIALIZE",
+          "source_type": "jsonb",
+          "target_type": {
+            "type": "CLOB",
+            "json": true
+          },
+          "nullable_target": false,
+          "json_shape": "array"
+        },
+        "correct_index": {
+          "target": "correct_index",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": true
+        },
+        "correct_indices": {
+          "target": "correct_indices",
+          "transform": "JSON_SERIALIZE",
+          "source_type": "jsonb",
+          "target_type": {
+            "type": "CLOB",
+            "json": true
+          },
+          "nullable_target": true,
+          "json_shape": "array"
+        },
+        "correct_answer": {
+          "target": "correct_answer",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "CLOB"
+          },
+          "nullable_target": true
+        },
+        "matching_pairs": {
+          "target": "matching_pairs",
+          "transform": "JSON_SERIALIZE",
+          "source_type": "jsonb",
+          "target_type": {
+            "type": "CLOB",
+            "json": true
+          },
+          "nullable_target": true,
+          "json_shape": "any"
+        },
+        "explanation": {
+          "target": "explanation",
+          "transform": "EMPTY_CLOB",
+          "source_type": "text",
+          "target_type": {
+            "type": "CLOB"
+          },
+          "nullable_target": false,
+          "empty_clob_not_null": true
+        },
+        "points": {
+          "target": "points",
+          "transform": "NUMERIC_SCALE",
+          "source_type": "numeric",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 12,
+            "scale": 4
+          },
+          "nullable_target": false
+        },
+        "is_required": {
+          "target": "is_required",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "sort_order": {
+          "target": "sort_order",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "submissions": {
+      "order": 12,
+      "dependency_level": 11,
+      "source": "submissions",
+      "target": "submissions",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "assignment_id"
+          ],
+          "references": "assignments",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "student_id"
+          ],
+          "references": "users",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [
+        {
+          "type": "enum",
+          "col": "type",
+          "values": [
+            "file",
+            "quiz"
+          ]
+        },
+        {
+          "type": "gte",
+          "col": "score",
+          "value": 0
+        },
+        {
+          "type": "gte",
+          "col": "previous_score",
+          "value": 0
+        }
+      ],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "assignment_id": {
+          "target": "assignment_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "student_id": {
+          "target": "student_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "type": {
+          "target": "submission_type",
+          "transform": "RENAME",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 20
+          },
+          "nullable_target": false
+        },
+        "file_name": {
+          "target": "file_name",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2000
+          },
+          "nullable_target": true
+        },
+        "file_path": {
+          "target": "file_path",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 4000
+          },
+          "nullable_target": true
+        },
+        "score": {
+          "target": "score",
+          "transform": "NUMERIC_SCALE",
+          "source_type": "numeric",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 12,
+            "scale": 4
+          },
+          "nullable_target": true
+        },
+        "previous_score": {
+          "target": "previous_score",
+          "transform": "NUMERIC_SCALE",
+          "source_type": "numeric",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 12,
+            "scale": 4
+          },
+          "nullable_target": true
+        },
+        "question_scores": {
+          "target": "question_scores",
+          "transform": "JSON_SERIALIZE",
+          "source_type": "jsonb",
+          "target_type": {
+            "type": "CLOB",
+            "json": true
+          },
+          "nullable_target": true,
+          "json_shape": "any"
+        },
+        "answers": {
+          "target": "answers",
+          "transform": "JSON_SERIALIZE",
+          "source_type": "jsonb",
+          "target_type": {
+            "type": "CLOB",
+            "json": true
+          },
+          "nullable_target": true,
+          "json_shape": "any"
+        },
+        "is_manually_graded": {
+          "target": "is_manually_graded",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "submitted_at": {
+          "target": "submitted_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "meetings": {
+      "order": 13,
+      "dependency_level": 12,
+      "source": "meetings",
+      "target": "meetings",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "created_by"
+          ],
+          "references": "users",
+          "on_delete": "restrict"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [
+        {
+          "a": "start_datetime",
+          "b": "end_datetime",
+          "rule": "a<=b"
+        }
+      ],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "created_by": {
+          "target": "created_by",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "subject": {
+          "target": "subject",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2000
+          },
+          "nullable_target": false
+        },
+        "join_url": {
+          "target": "join_url",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2048
+          },
+          "nullable_target": false
+        },
+        "start_datetime": {
+          "target": "start_datetime",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "end_datetime": {
+          "target": "end_datetime",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "passcode": {
+          "target": "passcode",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "teacher_private_lesson_availability": {
+      "order": 14,
+      "dependency_level": 13,
+      "source": "teacher_private_lesson_availability",
+      "target": "teacher_private_lesson_availability",
+      "primary_key": [
+        "teacher_id",
+        "weekday"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "teacher_id"
+          ],
+          "references": "users",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [
+        {
+          "type": "between",
+          "col": "weekday",
+          "min": 0,
+          "max": 6
+        },
+        {
+          "type": "time_order",
+          "a": "start_time",
+          "b": "end_time"
+        }
+      ],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "teacher_id",
+        "weekday"
+      ],
+      "columns": {
+        "teacher_id": {
+          "target": "teacher_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "weekday": {
+          "target": "weekday",
+          "transform": "COPY",
+          "source_type": "smallint",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "is_available": {
+          "target": "is_available",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "start_time": {
+          "target": "start_time",
+          "transform": "TIME_STRING",
+          "source_type": "time",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 5
+          },
+          "nullable_target": false
+        },
+        "end_time": {
+          "target": "end_time",
+          "transform": "TIME_STRING",
+          "source_type": "time",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 5
+          },
+          "nullable_target": false
+        },
+        "updated_at": {
+          "target": "updated_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "student_lesson_completions": {
+      "order": 15,
+      "dependency_level": 14,
+      "source": "student_lesson_completions",
+      "target": "student_lesson_completions",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "student_id"
+          ],
+          "references": "users",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "lesson_id"
+          ],
+          "references": "lessons",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [
+        [
+          "student_id",
+          "lesson_id"
+        ]
+      ],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "student_id": {
+          "target": "student_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "lesson_id": {
+          "target": "lesson_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "completed_at": {
+          "target": "completed_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "live_classes": {
+      "order": 16,
+      "dependency_level": 15,
+      "source": "live_classes",
+      "target": "live_classes",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "course_id"
+          ],
+          "references": "courses",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "lesson_id"
+          ],
+          "references": "lessons",
+          "on_delete": "set null"
+        },
+        {
+          "columns": [
+            "host_id"
+          ],
+          "references": "users",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [
+        [
+          "room_name"
+        ]
+      ],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "course_id": {
+          "target": "course_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "lesson_id": {
+          "target": "lesson_id",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": true
+        },
+        "room_name": {
+          "target": "room_name",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "title": {
+          "target": "title",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 2000
+          },
+          "nullable_target": false
+        },
+        "description": {
+          "target": "description",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "CLOB"
+          },
+          "nullable_target": true
+        },
+        "scheduled_at": {
+          "target": "scheduled_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": true
+        },
+        "duration_minutes": {
+          "target": "duration_minutes",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": true
+        },
+        "host_id": {
+          "target": "host_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "is_active": {
+          "target": "is_active",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": true
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "updated_at": {
+          "target": "updated_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "live_class_participants": {
+      "order": 17,
+      "dependency_level": 16,
+      "source": "live_class_participants",
+      "target": "live_class_participants",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "live_class_id"
+          ],
+          "references": "live_classes",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "user_id"
+          ],
+          "references": "users",
+          "on_delete": "cascade"
+        }
+      ],
+      "unique_constraints": [
+        [
+          "live_class_id",
+          "user_id"
+        ]
+      ],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [
+        {
+          "a": "joined_at",
+          "b": "left_at",
+          "rule": "a<=b"
+        }
+      ],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "live_class_id": {
+          "target": "live_class_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "user_id": {
+          "target": "user_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "joined_at": {
+          "target": "joined_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": true
+        },
+        "left_at": {
+          "target": "left_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": true
+        },
+        "duration_seconds": {
+          "target": "duration_seconds",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": true
+        }
+      }
+    },
+    "private_lesson_requests": {
+      "order": 18,
+      "dependency_level": 17,
+      "source": "private_lesson_requests",
+      "target": "private_lesson_requests",
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "student_id"
+          ],
+          "references": "users",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "teacher_id"
+          ],
+          "references": "users",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "course_id"
+          ],
+          "references": "courses",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "live_class_id"
+          ],
+          "references": "live_classes",
+          "on_delete": "set null"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [
+        {
+          "type": "between",
+          "col": "duration_minutes",
+          "min": 10,
+          "max": 120
+        },
+        {
+          "type": "enum",
+          "col": "status",
+          "values": [
+            "pending",
+            "accepted",
+            "declined",
+            "cancelled"
+          ]
+        }
+      ],
+      "enum_report_columns": [],
+      "order_pairs": [],
+      "soft_references": [],
+      "order_by": [
+        "id"
+      ],
+      "columns": {
+        "id": {
+          "target": "id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "student_id": {
+          "target": "student_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "teacher_id": {
+          "target": "teacher_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": false
+        },
+        "course_id": {
+          "target": "course_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "requested_at": {
+          "target": "requested_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "requested_slots": {
+          "target": "requested_slots",
+          "transform": "JSON_SERIALIZE",
+          "source_type": "jsonb",
+          "target_type": {
+            "type": "CLOB",
+            "json": true
+          },
+          "nullable_target": false,
+          "json_shape": "array"
+        },
+        "confirmed_at": {
+          "target": "confirmed_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": true
+        },
+        "duration_minutes": {
+          "target": "duration_minutes",
+          "transform": "COPY",
+          "source_type": "int",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 10,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "message": {
+          "target": "message",
+          "transform": "EMPTY_CLOB",
+          "source_type": "text",
+          "target_type": {
+            "type": "CLOB"
+          },
+          "nullable_target": false,
+          "empty_clob_not_null": true
+        },
+        "teacher_note": {
+          "target": "teacher_note",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "CLOB"
+          },
+          "nullable_target": true
+        },
+        "status": {
+          "target": "status",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 20
+          },
+          "nullable_target": false
+        },
+        "live_class_id": {
+          "target": "live_class_id",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": true
+        },
+        "created_at": {
+          "target": "created_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        },
+        "updated_at": {
+          "target": "updated_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    },
+    "lesson_live_broadcasts": {
+      "order": 19,
+      "dependency_level": 18,
+      "source": "lesson_live_broadcasts",
+      "target": "lesson_live_broadcasts",
+      "primary_key": [
+        "lesson_id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "lesson_id"
+          ],
+          "references": "lessons",
+          "on_delete": "cascade"
+        },
+        {
+          "columns": [
+            "started_by"
+          ],
+          "references": "users",
+          "on_delete": "set null"
+        }
+      ],
+      "unique_constraints": [],
+      "check_rules": [],
+      "enum_report_columns": [],
+      "order_pairs": [
+        {
+          "a": "started_at",
+          "b": "ended_at",
+          "rule": "a<=b"
+        }
+      ],
+      "soft_references": [],
+      "order_by": [
+        "lesson_id"
+      ],
+      "columns": {
+        "lesson_id": {
+          "target": "lesson_id",
+          "transform": "COPY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": false
+        },
+        "is_live": {
+          "target": "is_live",
+          "transform": "BOOLEAN_TRANSFORM",
+          "source_type": "bool",
+          "target_type": {
+            "type": "NUMBER",
+            "precision": 1,
+            "scale": 0
+          },
+          "nullable_target": false
+        },
+        "youtube_video_id": {
+          "target": "youtube_video_id",
+          "transform": "NULL_POLICY",
+          "source_type": "text",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 255
+          },
+          "nullable_target": true
+        },
+        "started_by": {
+          "target": "started_by",
+          "transform": "COPY",
+          "source_type": "uuid",
+          "target_type": {
+            "type": "VARCHAR2",
+            "length": 36
+          },
+          "nullable_target": true
+        },
+        "started_at": {
+          "target": "started_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": true
+        },
+        "ended_at": {
+          "target": "ended_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": true
+        },
+        "updated_at": {
+          "target": "updated_at",
+          "transform": "TIMESTAMP_TRANSFORM",
+          "source_type": "timestamptz",
+          "target_type": {
+            "type": "TIMESTAMP WITH TIME ZONE"
+          },
+          "nullable_target": false
+        }
+      }
+    }
+  }
+}
