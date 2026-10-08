@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, type FormEvent } from "react";
+import React, { Suspense, useState, useEffect, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser, type Assignment, type Lesson } from "../context/UserContext";
 import LoadingScreen from "../components/LoadingScreen";
@@ -16,7 +16,7 @@ import { AddLessonModal } from "./_components/AddLessonModal";
 import { AddStudentModal } from "./_components/AddStudentModal";
 import { TeacherPrivateLessonAvailabilityPanel } from "./_components/TeacherPrivateLessonAvailabilityPanel";
 
-export default function TeacherDashboard() {
+function TeacherDashboardContent() {
   const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, assignments, addAssignment, submissions, lessons, addLesson, updateLesson, courses, currentUserId, createCourse, loadingData, enrollments, teacherAddStudent, teacherRemoveStudent, updateCourseSettings, appUsers, levels, chapters, addChapter, topics, addTopic } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -355,5 +355,13 @@ export default function TeacherDashboard() {
         />
       )}
     </div>
+  );
+}
+
+export default function TeacherDashboard() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <TeacherDashboardContent />
+    </Suspense>
   );
 }
