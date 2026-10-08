@@ -1,0 +1,25 @@
+-- @statement
+CREATE TABLE private_lesson_requests (
+  id VARCHAR2(36) NOT NULL,
+  student_id VARCHAR2(36) NOT NULL,
+  teacher_id VARCHAR2(36) NOT NULL,
+  course_id VARCHAR2(255) NOT NULL,
+  requested_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  requested_slots CLOB DEFAULT '[]' NOT NULL,
+  confirmed_at TIMESTAMP WITH TIME ZONE,
+  duration_minutes NUMBER(10,0) DEFAULT 30 NOT NULL,
+  message CLOB DEFAULT EMPTY_CLOB() NOT NULL,
+  teacher_note CLOB,
+  status VARCHAR2(20) DEFAULT 'pending' NOT NULL,
+  live_class_id VARCHAR2(36),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL,
+  CONSTRAINT pk_private_lesson_requests PRIMARY KEY (id),
+  CONSTRAINT fk_requests__students FOREIGN KEY (student_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_requests__teachers FOREIGN KEY (teacher_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_requests__courses FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE,
+  CONSTRAINT fk_requests__live_classes FOREIGN KEY (live_class_id) REFERENCES live_classes (id) ON DELETE SET NULL,
+  CONSTRAINT ck_requests__slots_json CHECK (requested_slots IS JSON),
+  CONSTRAINT ck_requests__duration CHECK (duration_minutes BETWEEN 10 AND 120),
+  CONSTRAINT ck_requests__status CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled'))
+)
