@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isFrozenApiRequest, MAINTENANCE_BODY } from "@/lib/writeFreeze";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Phase 7 write freeze: inert unless WRITE_FREEZE=1. Reads and page navigation are unaffected.
+  if (isFrozenApiRequest(request.method, pathname)) {
+    return NextResponse.json(MAINTENANCE_BODY, { status: 503, headers: { "Retry-After": "300", "Cache-Control": "no-store" } });
+  }
 
   // Skip middleware for static files, API routes, and public assets
   if (
@@ -53,5 +59,7 @@ export const config = {
      * - public folder files
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\..*|api).*)",
+    // API requests are only inspected for the write freeze; the handler above passes them through unchanged otherwise.
+    "/api/:path*",
   ],
 };

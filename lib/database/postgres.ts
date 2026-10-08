@@ -1,5 +1,6 @@
 import type { PoolClient, QueryResult } from "pg";
 import legacyPool from "@/lib/db";
+import { assertWritable } from "@/lib/writeFreeze";
 import { normalizeDatabaseError } from "./errors";
 import type { DatabaseAdapter, DbBinds, DbConnection, DbQueryOptions, DbResult } from "./types";
 
@@ -14,6 +15,7 @@ async function executePostgres<T>(
   options?: DbQueryOptions,
 ): Promise<DbResult<T>> {
   void options;
+  assertWritable(sql); // no-op unless WRITE_FREEZE=1 (Phase 7)
   if (binds && !Array.isArray(binds)) {
     throw new Error("The PostgreSQL adapter accepts positional bind arrays; migrated Oracle SQL must use named binds only with DB_PROVIDER=oracle");
   }

@@ -166,10 +166,26 @@ async function main() {
     report.checks.synthesized_defaults = flags;
     const known = await q("SELECT TO_CHAR(score, 'FM99999999990.0000') AS V FROM submissions WHERE id = 'de4599ca-b1e3-4065-a761-f5d7bee2f4f9'");
     report.checks.known_score = { id: "de4599ca-b1e3-4065-a761-f5d7bee2f4f9", oracle: known[0] ? known[0].V : null };
-    if (!known[0] || normalizeDecimal(known[0].V) !== "16.7833") fail("known submission score is not 16.7833");
+    // Phase 7: the known row may legitimately have been changed/deleted in production; the per-row logical parity above covers it.
+    const knownInExport = fs.readFileSync(path.join(dir, "submissions.ndjson"), "utf8").includes("de4599ca-b1e3-4065-a761-f5d7bee2f4f9");
+    if (!args.has("phase7") || knownInExport) {
+      if (!known[0] || normalizeDecimal(known[0].V) !== "16.7833") fail("known submission score is not 16.7833");
+    }
 
-    // Ledger
-    if (fs.existsSync(ledgerFile)) {
+    // Ledger. --phase7 replaces the Phase 4 ledger check with the Phase 7 delta ledger (absent => no delta was applied, only allowed for an empty delta).
+    if (args.has("phase7")) {
+      const p7 = path.resolve(args.values["phase7-ledger"] || path.join(common.REPORT_DIR, "phase7-delta-ledger.json"));
+      const deltaFile = path.resolve(args.values.delta || path.join(common.REPORT_DIR, "phase7-delta-manifest.json"));
+      const delta = fs.existsSync(deltaFile) ? JSON.parse(fs.readFileSync(deltaFile, "utf8")) : null;
+      const empty = delta && delta.totals && delta.totals.insert + delta.totals.update + delta.totals.delete === 0;
+      if (fs.existsSync(p7)) {
+        const l = JSON.parse(fs.readFileSync(p7, "utf8"));
+        report.ledger = { phase: 7, status: l.status, operations: (l.operations || []).length, final_snapshot: l.final_snapshot };
+        if (l.status !== "COMPLETE") fail("Phase 7 delta ledger is " + l.status);
+        if (delta && l.delta_manifest_sha256 !== sha(fs.readFileSync(deltaFile, "utf8"))) fail("Phase 7 ledger does not match the delta manifest");
+      } else if (!empty) fail("Phase 7 delta ledger missing but the delta is not empty");
+      else report.ledger = { phase: 7, status: "NOT_REQUIRED_EMPTY_DELTA" };
+    } else if (fs.existsSync(ledgerFile)) {
       const l = JSON.parse(fs.readFileSync(ledgerFile, "utf8"));
       const committed = Object.values(l.tables).reduce((n, s) => n + s.batches.filter((b) => b.status === "COMMITTED").reduce((m, b) => m + b.rows_committed, 0), 0);
       report.ledger = { run_id: l.migration_id, status: l.status, tables: Object.keys(l.tables).length, rows_committed: committed, created_at: l.created_at, completed_at: l.completed_at, source_fingerprint: l.source_fingerprint };
@@ -189,4 +205,6 @@ async function main() {
   console.log(JSON.stringify({ ...head, row_counts: checks.row_counts_match, pk: checks.pk_equality, logical: checks.logical_checksum, total: checks.total_rows, fk: checks.fk_integrity, unique: checks.unique_integrity, passwords: checks.password_hash_equality, field_parity: checks.field_parity, json: checks.json_parity, timestamps: checks.timestamp_parity, dates: checks.date_parity, booleans: checks.boolean_parity, empty_clob: checks.empty_clob_rows, rounding: checks.scale_rounding_rows, defaults: checks.synthesized_defaults, known_score: checks.known_score }, null, 2));
   process.exitCode = report.problems.length ? 2 : 0;
 }
-main().catch((e) => { console.error("validation error: " + e.message); process.exitCode = 1; });
+if (require.main === module) main().catch((e) => { console.error("validation error: " + e.message); process.exitCode = 1; });
+// Reused (not copied) by the Phase 7 final-delta tools.
+module.exports = { selectExpr, oracleValue };

@@ -1,4 +1,5 @@
 import { query, withTransaction, getDbProvider } from "@/lib/database";
+import { isWriteFrozen } from "@/lib/writeFreeze";
 
 const CHUNK = 500;
 
@@ -15,6 +16,8 @@ const ORACLE_EXPIRED_WHERE = `status = 'accepted'
 
 /** Removes accepted appointments ten minutes after their scheduled end time. */
 export async function purgeExpiredPrivateLessonRequests(): Promise<number> {
+  // This runs from GET handlers and a cron; during the Phase 7 write freeze it must neither write nor fail the read.
+  if (isWriteFrozen()) return 0;
   if (getDbProvider() === "oracle") return purgeOracle();
 
   const { rows } = await query<{ deleted_count: number }>(`

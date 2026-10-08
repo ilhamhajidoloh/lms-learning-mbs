@@ -1,5 +1,6 @@
 import { getOracleConfig } from "./config";
 import { normalizeDatabaseError } from "./errors";
+import { assertWritable } from "@/lib/writeFreeze";
 import type { DatabaseAdapter, DbBinds, DbConnection, DbQueryOptions, DbResult } from "./types";
 
 // node-oracledb 7 ships JavaScript entry points. These narrow interfaces keep
@@ -92,6 +93,7 @@ async function executeOracle<T>(
   binds?: DbBinds,
   options?: DbQueryOptions,
 ): Promise<DbResult<T>> {
+  assertWritable(sql); // no-op unless WRITE_FREEZE=1 (Phase 7)
   try {
     const result = await connection.execute<T>(sql, binds ?? {}, {
       outFormat: getOracleDriver().OUT_FORMAT_OBJECT,

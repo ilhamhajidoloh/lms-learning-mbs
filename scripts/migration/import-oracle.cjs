@@ -84,16 +84,16 @@ async function targetCheck(conn, oracledb, order, needEmpty, ledger) {
   if (ledger) { const wrong = order.filter((t) => counts[t] !== committed(ledger, t)); if (wrong.length) throw new Error("Target state differs from ledger for: " + wrong.join(", ")); }
   return { schema: who.S, service: who.SVC, migrationCount, counts, empty: Object.values(counts).every((n) => n === 0) };
 }
+function valueExpr(col, b) {
+  if (col.transform === "EMPTY_CLOB") return "CASE WHEN " + b + " IS NULL THEN EMPTY_CLOB() ELSE TO_CLOB(" + b + ") END";
+  if (col.transform === "TIMESTAMP_TRANSFORM") return "FROM_TZ(TO_TIMESTAMP(" + b + ", 'FXYYYY-MM-DD\"T\"HH24:MI:SS.FF6\"Z\"'), 'UTC')";
+  if (col.transform === "DATE_COPY") return "TO_DATE(" + b + ", 'FXYYYY-MM-DD', 'NLS_DATE_LANGUAGE=American')";
+  if (col.transform === "NUMERIC_SCALE") return "TO_NUMBER(" + b + ", 'FM99999999D9999', 'NLS_NUMERIC_CHARACTERS=''.,''')";
+  return b;
+}
 function insertSql(def) {
   const cols = Object.entries(def.columns);
-  const vals = cols.map(([, col], i) => {
-    const b = ":b" + i;
-    if (col.transform === "EMPTY_CLOB") return "CASE WHEN " + b + " IS NULL THEN EMPTY_CLOB() ELSE TO_CLOB(" + b + ") END";
-    if (col.transform === "TIMESTAMP_TRANSFORM") return "FROM_TZ(TO_TIMESTAMP(" + b + ", 'FXYYYY-MM-DD\"T\"HH24:MI:SS.FF6\"Z\"'), 'UTC')";
-    if (col.transform === "DATE_COPY") return "TO_DATE(" + b + ", 'FXYYYY-MM-DD', 'NLS_DATE_LANGUAGE=American')";
-    if (col.transform === "NUMERIC_SCALE") return "TO_NUMBER(" + b + ", 'FM99999999D9999', 'NLS_NUMERIC_CHARACTERS=''.,''')";
-    return b;
-  });
+  const vals = cols.map(([, col], i) => valueExpr(col, ":b" + i));
   return "INSERT INTO " + ora(def.target) + " (" + cols.map(([, c]) => ora(c.target)).join(", ") + ") VALUES (" + vals.join(", ") + ")";
 }
 async function runImport(conn, dir, manifest, v, ledger, ledgerFile, allowScaleRounding, testForceFailure) {
@@ -153,4 +153,6 @@ async function main() {
   } finally { if (conn) await conn.close(); }
   console.log(execute ? "IMPORT COMPLETE" : "DRY RUN OK: no Oracle writes.");
 }
-main().catch((e) => { console.error("import failed: " + e.message); process.exitCode = 1; });
+if (require.main === module) main().catch((e) => { console.error("import failed: " + e.message); process.exitCode = 1; });
+// Reused (not copied) by the Phase 7 final-delta tools.
+module.exports = { verifyExport, rows, insertSql, valueExpr, connect, oracleId, writeJson, ora };
