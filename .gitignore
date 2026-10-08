@@ -23,6 +23,16 @@
 # misc
 .DS_Store
 *.pem
+*.sso
+*.p12
+*.jks
+tnsnames.ora
+sqlnet.ora
+
+# Oracle Autonomous Database wallet material (never commit)
+/oracle-wallet/
+/wallet/
+/database/oracle/wallet/
 
 # debug
 npm-debug.log*
@@ -32,6 +42,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env.example
 
 # vercel
 .vercel
@@ -41,3 +52,7 @@ yarn-error.log*
 next-env.d.ts
 
 *.sql
+/test-fixtures
+# Phase 4 migration artifacts (contain production data; never commit)
+/migration-data/
+/migration-reports/
