@@ -1,26 +1,34 @@
-import pool, { ensureTables } from "@/lib/db";
+import { query, getDbProvider } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
+import { randomUUID } from "crypto";
 
 // Cache levels for 60 seconds since they change rarely
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 export async function GET(request: Request) {
-  await ensureTables();
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { rows } = await pool.query(
-    `SELECT id, value, label FROM course_levels ORDER BY sort_order, label LIMIT 100`
+  const provider = getDbProvider();
+  const result = await query(
+    provider === "oracle"
+      ? "SELECT id, level_value AS value, label FROM course_levels ORDER BY sort_order, label"
+      : "SELECT id, value, label FROM course_levels ORDER BY sort_order, label LIMIT 100",
+    []
   );
 
+  const rows = result.rows as Array<{ id: string; value: string; label: string }>;
   return Response.json({
-    levels: rows.map((r) => ({ id: r.id, value: r.value, label: r.label })),
+    levels: rows.map((r) => ({
+      id: r.id,
+      value: r.value,
+      label: r.label,
+    })),
   });
 }
 
 export async function POST(request: Request) {
-  await ensureTables();
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (auth.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -32,17 +40,29 @@ export async function POST(request: Request) {
     return Response.json({ error: "กรุณากำหนดรหัสระดับและชื่อที่แสดง" }, { status: 400 });
   }
 
+  const provider = getDbProvider();
+
   try {
-    const { rows } = await pool.query(
-      `INSERT INTO course_levels (value, label, sort_order)
-       VALUES ($1, $2, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM course_levels))
-       RETURNING id`,
-      [trimmedValue, trimmedLabel]
-    );
-    return Response.json({ id: rows[0].id });
+    if (provider === "oracle") {
+      const id = randomUUID();
+      await query(
+        `INSERT INTO course_levels (id, level_value, label, sort_order)
+         VALUES (:id, :value, :label, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM course_levels))`,
+        { id, value: trimmedValue, label: trimmedLabel }
+      );
+      return Response.json({ id });
+    } else {
+      const result = await query(
+        `INSERT INTO course_levels (value, label, sort_order)
+         VALUES ($1, $2, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM course_levels))
+         RETURNING id`,
+        [trimmedValue, trimmedLabel]
+      );
+      return Response.json({ id: (result.rows[0] as { id: string }).id });
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    const isDuplicate = message.includes("duplicate key") || message.includes("unique");
+    const isDuplicate = message.includes("duplicate key") || message.includes("unique") || message.includes("ORA-00001");
     return Response.json(
       { error: isDuplicate ? "มีรหัสระดับนี้อยู่แล้ว" : message },
       { status: 400 }
@@ -51,7 +71,6 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  await ensureTables();
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (auth.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -59,6 +78,11 @@ export async function DELETE(request: Request) {
   const { id } = await request.json();
   if (!id) return Response.json({ error: "Missing level id" }, { status: 400 });
 
-  await pool.query(`DELETE FROM course_levels WHERE id = $1`, [id]);
+  const provider = getDbProvider();
+  await query(
+    provider === "oracle" ? "DELETE FROM course_levels WHERE id = :id" : "DELETE FROM course_levels WHERE id = $1",
+    provider === "oracle" ? { id } : [id]
+  );
+
   return Response.json({ success: true });
 }

@@ -1,80 +1,86 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool, { ensureTables } from "@/lib/db";
+import { randomUUID } from "crypto";
+import { query, withTransaction, getDbProvider, oracleUtcInstant, runForProvider, publicErrorMessage } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
+import { LIVE_CLASS_LIST_COLUMNS, LIVE_CLASS_TABLE_COLUMNS, toApiLiveClass } from "@/lib/liveClasses";
+
+// node-oracledb requires the Node.js runtime; PostgreSQL continues to work here too.
+export const runtime = "nodejs";
+
+const rootDb = { query };
+
+const LIST_FROM = `
+  FROM live_classes lc
+  JOIN courses c ON c.id = lc.course_id
+  JOIN users u ON u.id = lc.host_id
+`;
+const LIST_ORDER = ` ORDER BY lc.is_active DESC, lc.scheduled_at DESC NULLS LAST, lc.created_at DESC `;
 
 export async function GET(request: NextRequest) {
   try {
-    await ensureTables();
     const auth = authenticate(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const courseId = searchParams.get("course_id");
+    const courseId = new URL(request.url).searchParams.get("course_id");
 
-    let query = `
-      SELECT lc.id, lc.course_id, lc.lesson_id, lc.room_name, lc.title, lc.description,
-             lc.scheduled_at, lc.duration_minutes, lc.host_id, lc.is_active, lc.created_at, lc.updated_at,
-             c.title AS course_title, u.display_name AS host_name,
-             (SELECT COUNT(*) FROM live_class_participants lcp WHERE lcp.live_class_id = lc.id)::int AS participant_count
-      FROM live_classes lc
-      JOIN courses c ON c.id = lc.course_id
-      JOIN users u ON u.id = lc.host_id
-    `;
-    const params: (string | boolean)[] = [];
-
+    // Students see classes of courses they are enrolled in; teachers those they host or teach; admins everything.
+    let oracleWhere = "";
+    let pgWhere = "";
+    const oracleBinds: Record<string, unknown> = {};
+    const pgBinds: unknown[] = [];
     if (auth.role === "student") {
-      // Students only see live classes for courses they have enrolled in.
+      const enrolled = (n: string) => `EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.course_id = lc.course_id AND ce.student_id = ${n})`;
       if (courseId) {
-        query += `
-          WHERE lc.course_id = $2
-            AND EXISTS (
-              SELECT 1 FROM course_enrollments ce
-              WHERE ce.course_id = lc.course_id AND ce.student_id = $1
-            )
-        `;
-        params.push(auth.userId, courseId);
+        oracleWhere = ` WHERE lc.course_id = :courseId AND ${enrolled(":userId")} `;
+        pgWhere = ` WHERE lc.course_id = $2 AND ${enrolled("$1")} `;
+        Object.assign(oracleBinds, { courseId, userId: auth.userId });
+        pgBinds.push(auth.userId, courseId);
       } else {
-        query += `
-          WHERE EXISTS (
-            SELECT 1 FROM course_enrollments ce
-            WHERE ce.course_id = lc.course_id AND ce.student_id = $1
-          )
-        `;
-        params.push(auth.userId);
+        oracleWhere = ` WHERE ${enrolled(":userId")} `;
+        pgWhere = ` WHERE ${enrolled("$1")} `;
+        Object.assign(oracleBinds, { userId: auth.userId });
+        pgBinds.push(auth.userId);
       }
     } else if (auth.role === "teacher") {
-      // Teachers see live classes for their courses
       if (courseId) {
-        query += ` WHERE lc.course_id = $1 AND (lc.host_id = $2 OR c.instructor_id = $2) `;
-        params.push(courseId, auth.userId);
+        oracleWhere = " WHERE lc.course_id = :courseId AND (lc.host_id = :userId OR c.instructor_id = :userId) ";
+        pgWhere = " WHERE lc.course_id = $1 AND (lc.host_id = $2 OR c.instructor_id = $2) ";
+        Object.assign(oracleBinds, { courseId, userId: auth.userId });
+        pgBinds.push(courseId, auth.userId);
       } else {
-        query += ` WHERE (lc.host_id = $1 OR c.instructor_id = $1) `;
-        params.push(auth.userId);
+        oracleWhere = " WHERE (lc.host_id = :userId OR c.instructor_id = :userId) ";
+        pgWhere = " WHERE (lc.host_id = $1 OR c.instructor_id = $1) ";
+        Object.assign(oracleBinds, { userId: auth.userId });
+        pgBinds.push(auth.userId);
       }
-    } else {
-      // Admin sees everything
-      if (courseId) {
-        query += ` WHERE lc.course_id = $1 `;
-        params.push(courseId);
-      }
+    } else if (courseId) {
+      oracleWhere = " WHERE lc.course_id = :courseId ";
+      pgWhere = " WHERE lc.course_id = $1 ";
+      Object.assign(oracleBinds, { courseId });
+      pgBinds.push(courseId);
     }
 
-    query += ` ORDER BY lc.is_active DESC, lc.scheduled_at DESC NULLS LAST, lc.created_at DESC `;
-
-    const { rows } = await pool.query(query, params);
-    return NextResponse.json({ liveClasses: rows });
+    const select = (count: string) => `
+      SELECT ${LIVE_CLASS_LIST_COLUMNS},
+             c.title AS course_title, u.display_name AS host_name,
+             ${count} AS participant_count
+      ${LIST_FROM}`;
+    const { rows } = await runForProvider(
+      rootDb,
+      { sql: `${select("(SELECT COUNT(*) FROM live_class_participants lcp WHERE lcp.live_class_id = lc.id)")}${oracleWhere}${LIST_ORDER}`, binds: oracleBinds },
+      { sql: `${select("(SELECT COUNT(*) FROM live_class_participants lcp WHERE lcp.live_class_id = lc.id)::int")}${pgWhere}${LIST_ORDER}`, binds: pgBinds },
+    );
+    return NextResponse.json({ liveClasses: rows.map((row) => toApiLiveClass(row)) });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal Server Error";
     console.error("GET /api/live-classes error:", err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: publicErrorMessage(err) }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    await ensureTables();
     const auth = authenticate(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -93,7 +99,11 @@ export async function POST(request: NextRequest) {
 
     // Verify instructor ownership if teacher
     if (auth.role === "teacher") {
-      const courseCheck = await pool.query("SELECT instructor_id FROM courses WHERE id = $1", [course_id]);
+      const courseCheck = await runForProvider(
+        rootDb,
+        { sql: "SELECT instructor_id FROM courses WHERE id = :courseId", binds: { courseId: course_id } },
+        { sql: "SELECT instructor_id FROM courses WHERE id = $1", binds: [course_id] },
+      );
       if (courseCheck.rows.length === 0) {
         return NextResponse.json({ error: "Course not found" }, { status: 404 });
       }
@@ -109,29 +119,34 @@ export async function POST(request: NextRequest) {
 
     const duration = typeof duration_minutes === "number" && duration_minutes > 0 ? duration_minutes : 60;
     const scheduled = scheduled_at ? new Date(scheduled_at).toISOString() : new Date().toISOString();
+    const cleanTitle = title.trim();
+    const cleanDescription = description?.trim() || null;
 
-    const insertResult = await pool.query(
-      `INSERT INTO live_classes (
-        course_id, lesson_id, room_name, title, description, scheduled_at, duration_minutes, host_id, is_active
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)
-      RETURNING *`,
-      [
-        course_id,
-        lesson_id || null,
-        room_name,
-        title.trim(),
-        description?.trim() || null,
-        scheduled,
-        duration,
-        auth.userId,
-      ]
-    );
+    const created = await withTransaction(async (tx) => {
+      if (getDbProvider() !== "oracle") {
+        const inserted = await tx.query<Record<string, unknown>>(
+          `INSERT INTO live_classes (
+            course_id, lesson_id, room_name, title, description, scheduled_at, duration_minutes, host_id, is_active
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)
+          RETURNING *`,
+          [course_id, lesson_id || null, room_name, cleanTitle, cleanDescription, scheduled, duration, auth.userId],
+        );
+        return inserted.rows[0];
+      }
+      // Oracle: application-generated id, INSERT then SELECT; the instant goes through the shared UTC conversion.
+      const id = randomUUID();
+      await tx.query(
+        `INSERT INTO live_classes (id, course_id, lesson_id, room_name, title, description, scheduled_at, duration_minutes, host_id, is_active)
+         VALUES (:id, :courseId, :lessonId, :roomName, :title, :description, ${oracleUtcInstant("scheduledAt")}, :duration, :hostId, 0)`,
+        { id, courseId: course_id, lessonId: lesson_id || null, roomName: room_name, title: cleanTitle, description: cleanDescription, scheduledAt: scheduled, duration, hostId: auth.userId },
+      );
+      const selected = await tx.query<Record<string, unknown>>(`SELECT ${LIVE_CLASS_TABLE_COLUMNS} FROM live_classes WHERE id = :id`, { id });
+      return Object.fromEntries(Object.entries(selected.rows[0]).map(([key, value]) => [key.toLowerCase(), value]));
+    });
 
-    const created = insertResult.rows[0];
-    return NextResponse.json({ liveClass: created }, { status: 201 });
+    return NextResponse.json({ liveClass: toApiLiveClass(created) }, { status: 201 });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal Server Error";
     console.error("POST /api/live-classes error:", err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: publicErrorMessage(err) }, { status: 500 });
   }
 }

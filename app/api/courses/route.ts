@@ -1,25 +1,41 @@
-import pool, { ensureTables } from "@/lib/db";
+import { query, getDbProvider, toDbBoolean, fromDbBoolean, lowerKeys } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
 
 export async function POST(request: Request) {
-  await ensureTables();
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, title, level, levelLabel, gradientClass } = await request.json();
+  const provider = getDbProvider();
+  const courseId = id || `course-${Date.now()}`;
 
-  const { rows } = await pool.query(
-    `INSERT INTO courses (id, title, level, level_label, gradient_class, instructor_id, is_open, enroll_code)
-     VALUES ($1, $2, $3, $4, $5, $6, FALSE, NULL)
-     RETURNING id`,
-    [id || `course-${Date.now()}`, title, level, levelLabel, gradientClass, auth.userId]
-  );
+  if (provider === "oracle") {
+    await query(
+      `INSERT INTO courses (id, title, course_level, level_label, gradient_class, instructor_id, is_open, enroll_code)
+       VALUES (:id, :title, :courseLevel, :levelLabel, :gradientClass, :instructorId, :isOpen, :enrollCode)`,
+      {
+        id: courseId,
+        title,
+        courseLevel: level,
+        levelLabel,
+        gradientClass,
+        instructorId: auth.userId,
+        isOpen: toDbBoolean(false),
+        enrollCode: null,
+      }
+    );
+  } else {
+    await query(
+      `INSERT INTO courses (id, title, level, level_label, gradient_class, instructor_id, is_open, enroll_code)
+       VALUES ($1, $2, $3, $4, $5, $6, FALSE, NULL)`,
+      [courseId, title, level, levelLabel, gradientClass, auth.userId]
+    );
+  }
 
-  return Response.json({ id: rows[0].id });
+  return Response.json({ id: courseId });
 }
 
 export async function PUT(request: Request) {
-  await ensureTables();
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -27,56 +43,92 @@ export async function PUT(request: Request) {
   if (!id) return Response.json({ error: "Missing course id" }, { status: 400 });
 
   const hasMetadataUpdate = level !== undefined || levelLabel !== undefined;
+  const provider = getDbProvider();
 
   if (hasMetadataUpdate) {
     if (auth.role !== "admin") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    await pool.query(
-      `UPDATE courses
-       SET level = COALESCE($1, level),
-           level_label = COALESCE($2, level_label),
-           updated_at = now()
-       WHERE id = $3`,
-      [level ?? null, levelLabel ?? null, id]
-    );
+    if (provider === "oracle") {
+      await query(
+        `UPDATE courses
+         SET course_level = COALESCE(:courseLevel, course_level),
+             level_label = COALESCE(:levelLabel, level_label),
+             updated_at = SYSTIMESTAMP
+         WHERE id = :id`,
+        { courseLevel: level ?? null, levelLabel: levelLabel ?? null, id }
+      );
+    } else {
+      await query(
+        `UPDATE courses
+         SET level = COALESCE($1, level),
+             level_label = COALESCE($2, level_label),
+             updated_at = now()
+         WHERE id = $3`,
+        [level ?? null, levelLabel ?? null, id]
+      );
+    }
 
     return Response.json({ success: true });
   }
 
   if (auth.role !== "admin") {
     // Verify requester is instructor
-    const courseQuery = await pool.query(
-      "SELECT instructor_id FROM courses WHERE id = $1",
-      [id]
+    const courseQuery = await query(
+      provider === "oracle"
+        ? "SELECT instructor_id FROM courses WHERE id = :id"
+        : "SELECT instructor_id FROM courses WHERE id = $1",
+      provider === "oracle" ? { id } : [id]
     );
     if (courseQuery.rows.length === 0) {
       return Response.json({ error: "Course not found" }, { status: 404 });
     }
-    if (courseQuery.rows[0].instructor_id !== auth.userId) {
+    const course = (provider === "oracle" ? lowerKeys(courseQuery.rows[0] as Record<string, unknown>) : courseQuery.rows[0]) as { instructor_id: string };
+    if (course.instructor_id !== auth.userId) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
   }
 
-  await pool.query(
-    `UPDATE courses
-     SET is_open = COALESCE($1, is_open),
-         enroll_code = $2,
-         show_scores = COALESCE($3, show_scores),
-         sequential_lessons = COALESCE($4, sequential_lessons),
-         quiz_review_mode = COALESCE($5, quiz_review_mode),
-         updated_at = now()
-     WHERE id = $6`,
-    [
-      isOpen !== undefined ? isOpen : null,
-      enrollCode || null,
-      showScores !== undefined ? showScores : null,
-      sequentialLessons !== undefined ? sequentialLessons : null,
-      quizReviewMode !== undefined ? quizReviewMode : null,
-      id,
-    ]
-  );
+  if (provider === "oracle") {
+    await query(
+      `UPDATE courses
+       SET is_open = COALESCE(:isOpen, is_open),
+           enroll_code = :enrollCode,
+           show_scores = COALESCE(:showScores, show_scores),
+           sequential_lessons = COALESCE(:sequentialLessons, sequential_lessons),
+           quiz_review_mode = COALESCE(:quizReviewMode, quiz_review_mode),
+           updated_at = SYSTIMESTAMP
+       WHERE id = :id`,
+      {
+        isOpen: isOpen !== undefined ? toDbBoolean(isOpen) : null,
+        enrollCode: enrollCode || null,
+        showScores: showScores !== undefined ? toDbBoolean(showScores) : null,
+        sequentialLessons: sequentialLessons !== undefined ? toDbBoolean(sequentialLessons) : null,
+        quizReviewMode: quizReviewMode !== undefined ? quizReviewMode : null,
+        id,
+      }
+    );
+  } else {
+    await query(
+      `UPDATE courses
+       SET is_open = COALESCE($1, is_open),
+           enroll_code = $2,
+           show_scores = COALESCE($3, show_scores),
+           sequential_lessons = COALESCE($4, sequential_lessons),
+           quiz_review_mode = COALESCE($5, quiz_review_mode),
+           updated_at = now()
+       WHERE id = $6`,
+      [
+        isOpen !== undefined ? isOpen : null,
+        enrollCode || null,
+        showScores !== undefined ? showScores : null,
+        sequentialLessons !== undefined ? sequentialLessons : null,
+        quizReviewMode !== undefined ? quizReviewMode : null,
+        id,
+      ]
+    );
+  }
 
   return Response.json({ success: true });
 }

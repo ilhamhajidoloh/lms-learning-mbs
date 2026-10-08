@@ -1,15 +1,19 @@
-import pool, { ensureTables } from "@/lib/db";
+import { query, getDbProvider } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
 
 export async function GET(request: Request) {
-  await ensureTables();
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { rows } = await pool.query(
-    "SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC"
+  const provider = getDbProvider();
+  const result = await query(
+    provider === "oracle"
+      ? "SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC"
+      : "SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC",
+    []
   );
 
+  const rows = result.rows as Array<{ id: string; username: string; display_name: string; role: string; created_at: Date | string | number }>;
   return Response.json(
     rows.map((p) => ({
       id: p.id,
@@ -22,7 +26,6 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  await ensureTables();
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -33,44 +36,72 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const fields: string[] = [];
-  const values: unknown[] = [];
-  let idx = 1;
+  const provider = getDbProvider();
+  const updates: string[] = [];
+  const binds: Record<string, unknown> = { id: targetId };
 
   if (username !== undefined) {
-    fields.push(`username = $${idx++}`);
-    values.push(username.trim());
+    updates.push("username");
+    binds.username = username.trim();
   }
   if (displayName !== undefined) {
-    fields.push(`display_name = $${idx++}`);
-    values.push(displayName.trim());
+    updates.push("display_name");
+    binds.displayName = displayName.trim();
   }
   if (role !== undefined && auth.role === "admin") {
     if (role === "admin") {
-      const { rows: existingAdmins } = await pool.query(
-        "SELECT id FROM users WHERE role = 'admin'"
+      const adminResult = await query(
+        provider === "oracle"
+          ? "SELECT id FROM users WHERE role = 'admin'"
+          : "SELECT id FROM users WHERE role = 'admin'",
+        []
       );
-      const hasOtherAdmin = existingAdmins.some((a) => a.id !== targetId);
+      const adminRows = adminResult.rows as Array<{ id: string }>;
+      const hasOtherAdmin = adminRows.some((a) => a.id !== targetId);
       if (hasOtherAdmin) {
         return Response.json({ error: "ระบบมีผู้ดูแลระบบอยู่แล้ว ไม่สามารถกำหนด Admin คนที่สองได้" }, { status: 409 });
       }
     }
-    fields.push(`role = $${idx++}`);
-    values.push(role);
+    updates.push("role");
+    binds.role = role;
   }
 
-  if (fields.length === 0) {
+  if (updates.length === 0) {
     return Response.json({ error: "No fields to update" }, { status: 400 });
   }
 
-  values.push(targetId);
-  await pool.query(`UPDATE users SET ${fields.join(", ")} WHERE id = $${idx}`, values);
+  if (provider === "oracle") {
+    const setClauses = updates.map((field) => {
+      if (field === "display_name") return "display_name = :displayName";
+      return `${field} = :${field}`;
+    });
+    await query(`UPDATE users SET ${setClauses.join(", ")} WHERE id = :id`, binds);
+  } else {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (username !== undefined) {
+      fields.push(`username = $${idx++}`);
+      values.push(username.trim());
+    }
+    if (displayName !== undefined) {
+      fields.push(`display_name = $${idx++}`);
+      values.push(displayName.trim());
+    }
+    if (role !== undefined && auth.role === "admin") {
+      fields.push(`role = $${idx++}`);
+      values.push(role);
+    }
+
+    values.push(targetId);
+    await query(`UPDATE users SET ${fields.join(", ")} WHERE id = $${idx}`, values);
+  }
 
   return Response.json({ success: true });
 }
 
 export async function DELETE(request: Request) {
-  await ensureTables();
   const auth = authenticate(request);
   if (!auth || auth.role !== "admin") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -83,6 +114,11 @@ export async function DELETE(request: Request) {
     return Response.json({ error: "ไม่สามารถลบบัญชีของตัวเองได้" }, { status: 400 });
   }
 
-  await pool.query("DELETE FROM users WHERE id = $1", [id]);
+  const provider = getDbProvider();
+  await query(
+    provider === "oracle" ? "DELETE FROM users WHERE id = :id" : "DELETE FROM users WHERE id = $1",
+    provider === "oracle" ? { id } : [id]
+  );
+
   return Response.json({ success: true });
 }

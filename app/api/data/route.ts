@@ -1,24 +1,75 @@
-import pool, { ensureTables } from "@/lib/db";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { query, getDbProvider, fromDbBoolean, parseJson, normalizeEmptyText, lowerKeys } from "@/lib/database";
+import type { JsonValue } from "@/lib/database/json";
 import { authenticate } from "@/lib/auth";
 import { calculateQuestionScore } from "@/lib/quizScoring";
 
 type QuizAnswer = number | number[] | string | Record<number, number>;
+type Row = Record<string, any>;
 
 // Disable caching for this endpoint
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// node-oracledb requires the Node.js runtime; PostgreSQL continues to work here too.
+export const runtime = "nodejs";
+
+const BOOLEAN_COLUMNS = [
+  "is_open", "show_scores", "sequential_lessons", "is_published", "is_locked", "is_required",
+  "allow_edit_submission", "allow_cancel_submission", "is_manually_graded",
+];
+const JSON_COLUMNS = ["options", "correct_indices", "matching_pairs", "question_scores", "answers"];
+
+/**
+ * Oracle rows become the shape PostgreSQL already returns, so the response-building code below is shared:
+ * lower-case keys, NUMBER(1) -> boolean, CLOB JSON -> structures, EMPTY_CLOB text fields -> "".
+ * Only documented empty-string fields are normalized; other nullable columns keep their NULL.
+ */
+function normalizeOracleRow(raw: Row): Row {
+  const row = lowerKeys(raw) as Row;
+  for (const column of BOOLEAN_COLUMNS) if (column in row) row[column] = fromDbBoolean(row[column]);
+  for (const column of JSON_COLUMNS) if (column in row) row[column] = parseJson(row[column] as JsonValue);
+  if ("description" in row) row.description = normalizeEmptyText(row.description);
+  if ("explanation" in row) row.explanation = normalizeEmptyText(row.explanation);
+  return row;
+}
+
+/** One read per provider; SQL is written explicitly for each (no runtime rewriting). */
+async function read(oracleSql: string, oracleBinds: Record<string, unknown>, postgresSql: string, postgresBinds: unknown[]): Promise<{ rows: Row[] }> {
+  if (getDbProvider() === "oracle") {
+    const result = await query<Row>(oracleSql, oracleBinds);
+    return { rows: result.rows.map(normalizeOracleRow) };
+  }
+  const result = await query<Row>(postgresSql, postgresBinds);
+  return { rows: result.rows };
+}
 
 export async function GET(request: Request) {
-  await ensureTables();
   const auth = authenticate(request);
   if (!auth) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { userId, role } = auth;
+  const noRows = Promise.resolve({ rows: [] as Row[] });
 
-  // Optimize courses query - use LEFT JOIN instead of subquery for lessons_count
-  const coursesQuery = pool.query(`
+  // Oracle aliases restore the API names: course_level -> level, assignment_type / submission_type -> type.
+  // LEVEL is reserved in Oracle, so the compatibility aliases are quoted.
+  const coursesQuery = read(`
+    SELECT c.id, c.title, c.course_level AS "level", c.level_label, c.gradient_class, c.instructor_id,
+           c.is_open, c.enroll_code, c.show_scores, c.sequential_lessons, c.quiz_review_mode,
+           u.display_name AS instructor_name,
+           COALESCE(lc.lesson_count, 0) AS lessons_count
+    FROM courses c
+    JOIN users u ON u.id = c.instructor_id
+    LEFT JOIN (
+      SELECT ch.course_id, COUNT(l.id) AS lesson_count
+      FROM lessons l
+      JOIN topics t ON l.topic_id = t.id
+      JOIN chapters ch ON t.chapter_id = ch.id
+      GROUP BY ch.course_id
+    ) lc ON lc.course_id = c.id
+    ORDER BY c.created_at DESC
+  `, {}, `
     SELECT c.id, c.title, c.level, c.level_label, c.gradient_class, c.instructor_id,
            c.is_open, c.enroll_code, c.show_scores, c.sequential_lessons, c.quiz_review_mode,
            u.display_name AS instructor_name,
@@ -33,103 +84,127 @@ export async function GET(request: Request) {
       GROUP BY ch.course_id
     ) lc ON lc.course_id = c.id
     ORDER BY c.created_at DESC
-  `);
+  `, []);
 
-  const chaptersQuery = pool.query(`
+  const chaptersSql = `
     SELECT ch.id, ch.course_id, ch.title, ch.sort_order, ch.is_published, ch.is_locked
     FROM chapters ch
     ORDER BY ch.course_id, ch.sort_order
-  `);
+  `;
+  const chaptersQuery = read(chaptersSql, {}, chaptersSql, []);
 
-  const topicsQuery = pool.query(`
+  const topicsSql = `
     SELECT t.id, t.chapter_id, t.title, t.sort_order, t.is_published, t.is_locked
     FROM topics t
     ORDER BY t.chapter_id, t.sort_order
-  `);
+  `;
+  const topicsQuery = read(topicsSql, {}, topicsSql, []);
 
-  const lessonsQuery = pool.query(`
+  const lessonsSql = `
     SELECT l.id, l.topic_id, l.course_id, l.title, l.description, l.video_url, l.sort_order, l.is_published, l.is_locked
     FROM lessons l
     ORDER BY l.topic_id, l.sort_order
-  `);
+  `;
+  const lessonsQuery = read(lessonsSql, {}, lessonsSql, []);
 
-  // Optimize segments query - only fetch if there are lessons
-  const segmentsQuery = pool.query(`
+  const segmentsSql = `
     SELECT ls.id, ls.lesson_id, ls.title, ls.duration, ls.sort_order
     FROM lesson_segments ls
     WHERE EXISTS (SELECT 1 FROM lessons l WHERE l.id = ls.lesson_id)
     ORDER BY ls.lesson_id, ls.sort_order
-  `);
+  `;
+  const segmentsQuery = read(segmentsSql, {}, segmentsSql, []);
 
-  // Optimize assignments query - reduce columns and add limit for initial load
-  const assignmentsQuery = pool.query(`
-    SELECT a.id, a.course_id, a.lesson_id, a.type, a.title, a.due_date, a.points,
+  const assignmentColumns = (typeColumn: string, dueDateColumn = "a.due_date") => `
+    SELECT a.id, a.course_id, a.lesson_id, ${typeColumn}, a.title, ${dueDateColumn}, a.points,
            a.instructions, a.time_limit, a.created_at, a.show_scores, a.quiz_review_mode, a.is_open, a.multi_select_scoring_mode,
            a.allow_edit_submission, a.allow_cancel_submission, a.quiz_attempt_limit, a.open_at, a.close_at
     FROM assignments a
-    ORDER BY a.created_at DESC
-    LIMIT 1000
-  `);
+    ORDER BY a.created_at DESC`;
+  const assignmentsQuery = read(
+    `${assignmentColumns('a.assignment_type AS "type"', "TO_CHAR(a.due_date, 'YYYY-MM-DD') AS due_date")} FETCH FIRST 1000 ROWS ONLY`, {},
+    `${assignmentColumns("a.type")} LIMIT 1000`, [],
+  );
 
-  const quizQuestionsQuery = pool.query(`
+  const quizQuestionsSql = `
     SELECT qq.id, qq.assignment_id, qq.question_text, qq.question_type, qq.options,
            qq.correct_index, qq.correct_indices, qq.correct_answer, qq.matching_pairs, qq.explanation, qq.points, qq.is_required, qq.sort_order
     FROM quiz_questions qq
     ORDER BY qq.assignment_id, qq.sort_order
-  `);
+  `;
+  const quizQuestionsQuery = read(quizQuestionsSql, {}, quizQuestionsSql, []);
 
-  // Optimize submissions query with limit
+  const submissionColumns = (typeColumn: string) => `
+        SELECT s.id, s.assignment_id, s.student_id, ${typeColumn}, s.file_name,
+               s.score, s.previous_score, s.question_scores, s.answers, s.is_manually_graded, s.submitted_at, u.display_name AS student_name`;
   const submissionsQuery = role === "student"
-    ? pool.query(`
-        SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
-               s.score, s.previous_score, s.question_scores, s.answers, s.is_manually_graded, s.submitted_at, u.display_name AS student_name
+    ? read(`${submissionColumns('s.submission_type AS "type"')}
+        FROM submissions s
+        JOIN users u ON u.id = s.student_id
+        WHERE s.student_id = :userId
+        ORDER BY s.submitted_at DESC
+        FETCH FIRST 500 ROWS ONLY`, { userId },
+      `${submissionColumns("s.type")}
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         WHERE s.student_id = $1
         ORDER BY s.submitted_at DESC
-        LIMIT 500
-      `, [userId])
-    : (role === "teacher" ? pool.query(`
-        SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
-               s.score, s.previous_score, s.question_scores, s.answers, s.is_manually_graded, s.submitted_at, u.display_name AS student_name
+        LIMIT 500`, [userId])
+    : (role === "teacher" ? read(`${submissionColumns('s.submission_type AS "type"')}
+        FROM submissions s
+        JOIN users u ON u.id = s.student_id
+        JOIN assignments a ON a.id = s.assignment_id
+        JOIN courses c ON c.id = a.course_id
+        WHERE c.instructor_id = :userId
+        ORDER BY s.submitted_at DESC
+        FETCH FIRST 1000 ROWS ONLY`, { userId },
+      `${submissionColumns("s.type")}
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         JOIN assignments a ON a.id = s.assignment_id
         JOIN courses c ON c.id = a.course_id
         WHERE c.instructor_id = $1
         ORDER BY s.submitted_at DESC
-        LIMIT 1000
-      `, [userId]) : pool.query(`
-        SELECT s.id, s.assignment_id, s.student_id, s.type, s.file_name,
-               s.score, s.previous_score, s.question_scores, s.answers, s.is_manually_graded, s.submitted_at, u.display_name AS student_name
+        LIMIT 1000`, [userId]) : read(`${submissionColumns('s.submission_type AS "type"')}
         FROM submissions s
         JOIN users u ON u.id = s.student_id
         ORDER BY s.submitted_at DESC
-        LIMIT 1000
-      `));
+        FETCH FIRST 1000 ROWS ONLY`, {},
+      `${submissionColumns("s.type")}
+        FROM submissions s
+        JOIN users u ON u.id = s.student_id
+        ORDER BY s.submitted_at DESC
+        LIMIT 1000`, []));
 
-  // Optimize enrollments query
   const enrollmentsQuery = role === "teacher"
-    ? pool.query(`
+    ? read(`
+        SELECT ce.course_id, ce.student_id, ce.progress, u.display_name AS student_name, u.username AS student_username
+        FROM course_enrollments ce
+        JOIN users u ON u.id = ce.student_id
+        WHERE ce.course_id IN (SELECT id FROM courses WHERE instructor_id = :userId)
+      `, { userId }, `
         SELECT ce.course_id, ce.student_id, ce.progress, u.display_name AS student_name, u.username AS student_username
         FROM course_enrollments ce
         JOIN users u ON u.id = ce.student_id
         WHERE ce.course_id IN (SELECT id FROM courses WHERE instructor_id = $1)
       `, [userId])
     : (role === "student"
-       ? pool.query("SELECT course_id, progress FROM course_enrollments WHERE student_id = $1", [userId])
-       : Promise.resolve({ rows: [] }));
+       ? read("SELECT course_id, progress FROM course_enrollments WHERE student_id = :userId", { userId },
+              "SELECT course_id, progress FROM course_enrollments WHERE student_id = $1", [userId])
+       : noRows);
 
-  // Optimize profiles query - limit results
   const profilesQuery = role === "admin"
-    ? pool.query("SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC LIMIT 1000")
+    ? read("SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC FETCH FIRST 1000 ROWS ONLY", {},
+           "SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC LIMIT 1000", [])
     : (role === "teacher"
-       ? pool.query("SELECT id, username, display_name, role, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC LIMIT 500")
-       : Promise.resolve({ rows: [] }));
+       ? read("SELECT id, username, display_name, role, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC FETCH FIRST 500 ROWS ONLY", {},
+              "SELECT id, username, display_name, role, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC LIMIT 500", [])
+       : noRows);
 
   const completedLessonsQuery = role === "student"
-    ? pool.query("SELECT lesson_id FROM student_lesson_completions WHERE student_id = $1", [userId])
-    : Promise.resolve({ rows: [] });
+    ? read("SELECT lesson_id FROM student_lesson_completions WHERE student_id = :userId", { userId },
+           "SELECT lesson_id FROM student_lesson_completions WHERE student_id = $1", [userId])
+    : noRows;
 
   // Execute all queries in parallel with timeout handling
   const [
@@ -395,6 +470,6 @@ export async function GET(request: Request) {
     submissions,
     appUsers,
     enrollments,
-    completedLessonIds: completedLessonsRes.rows.map((r: { lesson_id: string }) => r.lesson_id),
+    completedLessonIds: completedLessonsRes.rows.map((r) => r.lesson_id as string),
   });
 }
