@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   if (provider === "oracle") {
     await query(
       `INSERT INTO courses (id, title, description, course_level, level_label, gradient_class, instructor_id, is_open, enroll_code)
-       VALUES (:id, :title, :description, :courseLevel, :levelLabel, :gradientClass, :instructorId, :isOpen, :enrollCode)`,
+       VALUES (:id, :title, TO_CLOB(:description), :courseLevel, :levelLabel, :gradientClass, :instructorId, :isOpen, :enrollCode)`,
       {
         id: courseId,
         title,
@@ -104,7 +104,7 @@ export async function PUT(request: Request) {
       await query(
         `UPDATE courses
          SET title = COALESCE(:title, title),
-             description = COALESCE(:description, description),
+             description = CASE WHEN :description IS NULL THEN description ELSE TO_CLOB(:description) END,
              course_level = COALESCE(:courseLevel, course_level),
              level_label = COALESCE(:levelLabel, level_label),
              gradient_class = COALESCE(:gradientClass, gradient_class),
