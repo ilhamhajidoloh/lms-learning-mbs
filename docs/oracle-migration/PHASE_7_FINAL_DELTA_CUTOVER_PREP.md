@@ -162,3 +162,156 @@ The Phase 4 ledger and the old 41-row expectation are not used in `--phase7` mod
 - `validate-phase4c-import.cjs` without `--phase7` remains bound to the Phase 4 ledger and 41-row export.
 - `npm run build` passed in this session (the Google Fonts failure from earlier phases did not recur).
 - Lint: 0 errors; warnings are pre-existing unused `eslint-disable` directives in migration scripts.
+
+## 10. Phase 7B/7C Rehearsal Results
+
+Rehearsal date: 2026-10-08. This section records only work actually performed; it does not authorize the production freeze, final Cockroach export, LMS_APP delta, provider switch, or Phase 8.
+
+### Phase 7B — Write Freeze
+
+- **Result: BLOCKED (real HTTP freeze).** An already-running local Next development server on port 5001 answered `GET /api/health` with 200 and `POST /api/courses` with 401 (not the freeze response), establishing that its current process was unfrozen. Its health response identified its local provider as `oracle`; no conclusion about the production provider was drawn from that local process.
+- A separate local server with `WRITE_FREEZE=1` could not be started because Next detected the existing development-server lock for this checkout. The existing process was deliberately not stopped or reconfigured. Therefore the required real-HTTP frozen reads, all 41 frozen mutation responses, authenticated login, and cron invocation were not claimed as passed.
+- Unauthenticated representative GETs reached their normal authorization behavior: `/api/data`, `/api/levels`, `/api/profiles`, `/api/live-classes`, and `/api/private-lesson-requests` returned 401 rather than a maintenance response. Credentials for a safe rehearsal user were not available, so authenticated reads were not attempted.
+- Offline freeze proof passed: `test-write-freeze.cjs` 8/8, and `test-write-freeze-middleware.cjs` verified the complete route inventory — 41/41 write handlers return 503 under freeze, all 41 are unblocked with freeze off, GET/login remain available, and the maintenance response is the non-sensitive `MAINTENANCE_WRITE_FREEZE` body. The SQL classifier rejects INSERT, UPDATE, DELETE, MERGE, DDL, locks, `SELECT … FOR UPDATE`, and data-modifying CTEs; source inspection confirms both adapters call this classifier before execution. An independent adapter-execution probe was not run, so that sub-check remains blocked rather than marked PASS.
+- Hidden writer design review passed: `purgeExpiredPrivateLessonRequests()` returns 0 before issuing SQL while frozen, covering both `GET /api/private-lesson-requests` and the ten-minute cron route. It was not invoked over frozen HTTP because the required process could not be launched.
+- Freeze was not enabled in any production environment. The existing local process was left unchanged.
+
+### Phase 7C — Scratch Oracle Delta
+
+- **Result: BLOCKED_SCRATCH_SCHEMA.** The configured Oracle connection is not accompanied by a separately provisioned disposable account/schema, and no DBA authorization to create `LMS_PHASE7_REHEARSAL` was available. Per the safety rule, no schema was created, inspected for DDL privileges, or substituted with `LMS_APP`/`MYLIFE_APP`.
+- Consequently no synthetic snapshots, dry run, execute, reconciliation, idempotency, drift, rollback, FK-delete-order, numeric, CLOB, or JSON Oracle execution test was performed. `apply-phase7-delta.cjs` retains its production-only execute guard (`--target-schema=LMS_APP` and matching Oracle schema); it was not weakened.
+- Offline delta logic passed 10/10 in `test-phase7-delta.cjs`, including INSERT/UPDATE/DELETE detection, idempotent classification, target-drift stop classification, and child-before-parent deletion order.
+
+### Static checks
+
+- `npm run lint`: PASS with 0 errors and 15 existing warnings.
+- `npx tsc --noEmit`: PASS.
+- `npm run build`: PASS after the environment was permitted to retrieve the configured Google Fonts. The initial sandbox-only build attempt failed only on those font fetches.
+
+Production safeguards remain unchanged: production `WRITE_FREEZE` was not enabled, no Cockroach writes were issued, no LMS_APP business-data writes were issued, no provider switch occurred, and Phase 8 was not started. Phase 7 production execution readiness is **NOT READY** until both a dedicated frozen local/preview HTTP deployment and an explicitly authorized disposable Oracle schema have completed the required rehearsal matrix.
+
+## 11. Rehearsal continuation (2026-10-09)
+
+### 7B isolated frozen HTTP server
+
+- **Isolation PASS:** an isolated Git worktree was created from committed HEAD and served on port 5002. The existing port-5001 server was neither stopped nor reconfigured. A shared dependency junction was rejected by Turbopack, so the isolated server was restarted with `next dev --webpack -p 5002`; this is a worktree-only startup change, not a production change.
+- **Real HTTP mutation freeze PASS:** all 41 audited mutation handlers returned HTTP 503 with `code=MAINTENANCE_WRITE_FREEZE` over `http://localhost:5002`. No 401 or 403 result was counted as a pass.
+- **Login endpoint reached, but normal-login workflow BLOCKED_CREDENTIALS:** `POST /api/auth/login` with an intentionally incomplete body returned validation HTTP 400 rather than freeze 503. No reusable Phase 6 password, token, or browser session was available, so an authenticated login was not attempted.
+- **Health and authenticated reads BLOCKED_ORACLE_CONNECTIVITY:** the isolated Oracle-backed process returned health HTTP 503 (`Database connection failed`; underlying queue timeout). An unauthenticated private-request read returned its normal 401. No authenticated read, hidden-purge HTTP proof, or authorized cron invocation was claimed.
+- **Adapter backstops PASS:** isolated fake-driver probes prove both adapters allow SELECT, SHOW and read-only WITH while intercepting INSERT, UPDATE, DELETE, MERGE, DDL and SELECT FOR UPDATE before driver execution. Existing freeze, route-inventory and delta tests also passed.
+
+### 7C scratch Oracle schema
+
+> Superseded by section 12. At the time of this subsection no scratch schema existed; it was provisioned afterwards by the Oracle administrator and the 7C rehearsal is recorded in section 12.
+
+No authorized Oracle administrator session or existing `LMS_PHASE7_REHEARSAL` credentials were available. No schema creation, migration, import, delta execution, or query was attempted against `LMS_APP`, `MYLIFE_APP`, Cockroach, or any other production target.
+
+The canonical migrations create 19 LMS business tables plus `SCHEMA_MIGRATIONS`; they contain table constraints and 27 indexes, but no sequences, triggers, views, packages, or cross-schema references. The minimum dedicated-user privileges are therefore `CREATE SESSION`, `CREATE TABLE`, and `CREATE INDEX`, plus a bounded quota in its own default tablespace. An Oracle Autonomous Database administrator may provision the disposable schema with:
+
+```sql
+CREATE USER LMS_PHASE7_REHEARSAL
+  IDENTIFIED BY "<CHOOSE_STRONG_PASSWORD_LOCALLY>";
+
+GRANT CREATE SESSION TO LMS_PHASE7_REHEARSAL;
+GRANT CREATE TABLE TO LMS_PHASE7_REHEARSAL;
+GRANT CREATE INDEX TO LMS_PHASE7_REHEARSAL;
+ALTER USER LMS_PHASE7_REHEARSAL QUOTA 1G ON DATA;
+```
+
+`DATA` is the expected Autonomous Database user tablespace; the administrator must substitute the account's approved user tablespace if it differs. Do not grant DBA, `CREATE ANY ...`, or privileges on `LMS_APP` / `MYLIFE_APP`.
+
+`apply-phase7-delta.cjs` now keeps production execution limited to `LMS_APP` with its existing confirmations, and adds a separate rehearsal execution path requiring all of `--execute --rehearsal --target-schema=LMS_PHASE7_REHEARSAL --confirm-rehearsal-target` and an Oracle current-schema match. `MYLIFE_APP` remains refused. No rehearsal execution was run because the scratch schema does not exist.
+
+## 12. Phase 7C scratch rehearsal results (2026-10-09)
+
+Target: dedicated schema `LMS_PHASE7_REHEARSAL` (credentials only from `PHASE7_REHEARSAL_ORACLE_*`, loaded by the rehearsal-only preload `scripts/migration/lib/rehearsal-env.cjs`, which also pins `DB_PROVIDER=postgres`). Every rehearsal helper refuses unless both `USER` and `CURRENT_SCHEMA` equal `LMS_PHASE7_REHEARSAL`. Nothing was run against `LMS_APP`, `MYLIFE_APP` or Cockroach. The data is synthetic (15-row baseline, 13-row final, delta +1 ~3 -3, 9 unchanged); no production rows were used.
+
+**Result: Phase 7C COMPLETE.** This does not authorize the production freeze, final export, `LMS_APP` delta, provider switch or Phase 8.
+
+### Tooling added (rehearsal-only, no secrets)
+
+| Script | Purpose |
+|---|---|
+| `reconcile-phase7-rehearsal.cjs` | Read-only reconciliation of the scratch schema against a snapshot. Does not use `apply-phase7-delta.cjs` or `lib/delta.cjs`. |
+| `reset-phase7-rehearsal.cjs` | Resets scratch business rows to a rehearsal snapshot or to empty, using row-level DELETE and INSERT only. |
+| `rehearsal-guard-matrix.cjs` | 22 wrong-target and flag-misuse cases. |
+| `rehearsal-target-drift.cjs` | Target-drift test. |
+| `rehearsal-rollback.cjs` | Controlled rollback test. |
+| `rehearsal-negative-rounding.cjs` | Negative `NUMBER(12,4)` rounding test. |
+| `lib/rehearsal-state.cjs` | Raw scratch-state hash used as zero-write evidence. |
+
+### Hardening of `apply-phase7-delta.cjs` found by the matrix
+
+- `--confirm-rehearsal-target` is refused in production mode.
+- Production confirmations are refused together with `--rehearsal`.
+- `--rehearsal-fail-after-operation` with no value is refused explicitly.
+
+### Fixture defect found and fixed
+
+The first independent run of `validate-phase4c-import.cjs --phase7` against the scratch schema reported logical parity 8/19. The cause was in the synthetic fixture, not the apply path. The fixture wrote a placeholder `logical_sha256` (a hash of the file text) instead of the exporter's aggregate of per-row transformed values, and the chapter/topic rows did not carry the synthesized `is_published=1`/`is_locked=0` defaults. The fixture builder now computes the exporter-style logical hash and sets those defaults. The apply script's own checks and the independent reconciler had agreed throughout; only the checksum-file comparison differed. All destructive tests below were re-run after the fix.
+
+### Results
+
+| Check | Result |
+|---|---|
+| Guard matrix (22 cases: production mode + scratch user, missing confirmations, wrong `--target-schema`, wrong `CURRENT_SCHEMA`, fault injection without `--rehearsal` / N=0 / negative / non-numeric / fractional / empty / valueless, missing `--execute`, rehearsal-only flag in production mode, mixed confirmations) | PASS, 0 failures. Raw state hash and ledger unchanged after every case. |
+| Independent reconciliation after delta | PASS: 13 rows, PK 19/19, logical 19/19, field mismatches 0, FK orphans 0, duplicate groups 0. JSON, timestamps, dates, booleans, CLOB, numeric, Thai Unicode (16 fields, byte-compared) all 0 mismatches. A negative control (baseline state compared with the final snapshot) correctly failed. |
+| Target drift | PASS. `courses.title` altered after baseline reset. Both `--check-target` and `--execute` stopped with `ORACLE_TARGET_DRIFT` (exit 2), 0 writes, altered value intact, ledger unchanged. |
+| Controlled rollback | PASS for fail-after-operation 1, 4, 6 and 7 (of 7 operations). Each: controlled failure, ledger `ROLLED_BACK` with N operations executed, raw Oracle state hash equal to baseline, independent reconcile of baseline PASS. |
+| Negative rounding `-1.23455` | PASS. Compare without approval: `SCALE_ROUNDING_NOT_AUTHORIZED`; apply refused the blocked delta with 0 writes. With `--allow-scale-rounding`: committed, Oracle read-back `-1.2346`. Column `quiz_questions.points`, because `assignments.points` and `submissions.score` carry `> 0` / `>= 0` checks. |
+| Final clean delta | PASS: 7 operations committed, independent reconciliation PASS, `validate-phase4c-import.cjs --phase7` PASS (19/19 counts, PK and logical; passwords 2/2). |
+| Idempotency | PASS: re-run reports 0 pending operations, `NOTHING TO DO`, reconciliation still PASS. |
+| Scratch cleanup | PASS: business rows 0, `SCHEMA_MIGRATIONS` rows 10, FK orphans 0, duplicate groups 0. 20 tables, 70 indexes and all constraints (P 20, R 31, U 7, C 183) unchanged and ENABLED. Method: row-level DELETE children-first. No DROP, TRUNCATE or DDL. |
+
+Reports in `migration-reports/` (git-ignored, no secrets): `phase7-rehearsal.json`, `-guard-matrix.json`, `-target-drift.json`, `-rollback.json`, `-negative-rounding.json`, `-reconciliation.json`, `-cleanup-reconciliation.json`, `-validate.json`.
+
+### Static checks and tests
+
+- `npm run lint`: 0 errors, 15 warnings (pre-existing unused `eslint-disable` directives in migration scripts).
+- `npx tsc --noEmit`: PASS.
+- `npm run build`: PASS (no Google Fonts failure this time).
+- `test-phase7-delta.cjs` 10/10, `test-write-freeze.cjs` 8/8 (needs `node --experimental-strip-types`), `test-write-freeze-middleware.cjs` 41/41 handlers, `test-write-freeze-adapters.cjs` Postgres and Oracle PASS, `selftest.cjs` 17/17.
+
+### What this does not prove
+
+Phase 7B items still open: Oracle health over HTTP, authenticated login, authenticated reads, hidden GET purge over HTTP and the cron purge (see section 11 for the causes). The rehearsal exercised synthetic data in a scratch schema, so production data volume and real LOB sizes remain untested. Production execution readiness stays **NOT READY**.
+
+## 13. Phase 7B completion (2026-10-09)
+
+Supersedes the BLOCKED items in sections 10 and 11. Target was `LMS_PHASE7_REHEARSAL` only. No production setting, `LMS_APP`, `MYLIFE_APP` or Cockroach was touched.
+
+### Oracle connectivity on port 5002
+
+- **Standalone probe PASS.** A SELECT-only `node-oracledb` probe (thin mode, 7.0.1) with the scratch credentials and the app's pool options returned `USER = CURRENT_SCHEMA = LMS_PHASE7_REHEARSAL` for both a single connection (736 ms) and a pooled connection (485 ms).
+- **Next.js PASS.** `GET /api/health` returned 200 with `provider: oracle` under both `next start -p 5002` and `next dev --webpack -p 5002`.
+- **Variables compared** (names and presence only, no values): all `ORACLE_*` variables, pool and timeout settings, the wallet path (absolute, directory present with `tnsnames.ora`, `sqlnet.ora`, `cwallet.sso`), and `TNS_ADMIN` (unset in both paths, not needed because `configDir` is passed explicitly). Pool options in `lib/database/oracle.ts` match the probe.
+- **Finding: a plain `.env.local` load maps `ORACLE_*` to `LMS_APP`.** The scratch account lives under `PHASE7_REHEARSAL_ORACLE_*`. A server that is simply started from this checkout would connect as `LMS_APP`. The rehearsal launcher `scripts/migration/rehearsal-phase7b-server.cjs` therefore remaps the variables through `lib/rehearsal-env.cjs`, points `DATABASE_URL` at an unreachable address so Cockroach cannot be contacted, and sets `WRITE_FREEZE=1` and `DB_PROVIDER=oracle` for that child process only.
+- **Root cause of the earlier 503: not reproduced.** The earlier isolated worktree no longer exists, so its exact failure could not be replayed. The most likely explanation is that it did not receive the Oracle credentials and wallet environment (a worktree has no `.env.local`), so pool requests waited until `queueTimeout`. This is unconfirmed. No production Oracle setting was changed.
+
+### Results (real HTTP, `WRITE_FREEZE=1`)
+
+| Check | Result |
+|---|---|
+| Health | PASS, 200, provider `oracle` |
+| Login (rehearsal teacher, normal bcrypt flow) | PASS, 200 with token, not the freeze 503. Wrong password returns 401. |
+| Authenticated reads: `/api/data`, `/api/levels`, `/api/profiles`, `/api/live-classes`, `/api/private-lesson-requests` | PASS, all 200. Unauthenticated read returns 401. |
+| Mutation freeze | PASS: 41/41 from section 11, plus a `POST /api/courses` with a valid token returns 503 `MAINTENANCE_WRITE_FREEZE` |
+| Hidden GET purge | PASS: one expired accepted private lesson request; 3 authenticated `GET /api/private-lesson-requests` returned 200; row count and raw scratch state hash identical before and after (DELETE writes 0) |
+| Purge control | With `WRITE_FREEZE=0` (scratch only) the same GET deleted the expired row, so the fixture row was genuinely purgeable |
+| Cron purge | PASS: no auth 401, wrong secret 401, correct local-only `CRON_SECRET` 200 `{"deletedCount":0}`; row count and state hash unchanged |
+
+The rehearsal password, JWT secret and `CRON_SECRET` were random, held in the environment only, and deleted afterwards. Authenticated response bodies were not logged.
+
+### Cleanup
+
+Scratch returned to business rows 0, `SCHEMA_MIGRATIONS` 10, FK orphans 0, duplicate groups 0; 20 tables, 70 indexes and all constraints still ENABLED. The server on port 5002 was stopped and temporary secret files removed.
+
+One tooling fix came out of cleanup: the Autonomous `high` service intermittently failed row-level deletes with `ORA-12860` (sibling row lock deadlock from auto-parallel DML) after the HTTP run. `lib/rehearsal-state.cjs` now issues `ALTER SESSION DISABLE PARALLEL DML` on its own session. This is session-level, rehearsal-only and has no schema effect.
+
+### Overall
+
+All Phase 7B and 7C rehearsal items now PASS. Static checks after the last change: lint 0 errors (15 warnings, pre-existing directives), `tsc` PASS, `npm run build` PASS, `test-phase7-delta` 10/10, `test-write-freeze` 8/8, middleware 41 handlers, adapters PASS, `selftest` 17/17.
+
+Overall Phase 7 rehearsal: **COMPLETE**. Production execution readiness: **READY**, meaning the rehearsal gates are satisfied. It authorizes nothing: the production freeze, final export, `LMS_APP` delta, provider switch and Phase 8 each still need explicit approval.
+
+Not proven by this rehearsal: the freeze behavior on a real Vercel deployment (`WRITE_FREEZE` is an environment variable and needs a redeploy, see runbook step B), production data volume, and LOB sizes above the 30,000-byte bind limit (the apply tool refuses those up front).

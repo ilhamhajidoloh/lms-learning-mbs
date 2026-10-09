@@ -3,7 +3,8 @@
 // Phase 7 final-delta applier. DRY RUN IS THE DEFAULT and writes nothing anywhere.
 //   Offline plan (no DB):      node scripts/migration/apply-phase7-delta.cjs --delta=migration-reports/phase7-delta-manifest.json
 //   Plan + Oracle precheck:    ... --check-target          (Oracle SELECT only)
-//   EXECUTE (Oracle writes):   ... --execute --confirm-target-oracle --target-schema=LMS_APP --confirm-final-delta --confirm-source-frozen
+//   EXECUTE (production):      ... --execute --confirm-target-oracle --target-schema=LMS_APP --confirm-final-delta --confirm-source-frozen
+//   EXECUTE (rehearsal only):  ... --execute --rehearsal --target-schema=LMS_PHASE7_REHEARSAL --confirm-rehearsal-target
 // It never touches Cockroach. One Oracle transaction: DELETE (children first) -> INSERT -> UPDATE, each by exact primary key,
 // verified inside the transaction against the expected final logical rows; COMMIT happens only if every check passes.
 const fs = require("fs");
@@ -82,8 +83,13 @@ const pkBinds = (def, id) => Object.fromEntries(id.split("|").map((v, i) => ["k"
 
 async function main() {
   common.loadEnv();
-  const args = common.parseArgs(), manifest = common.loadManifest(), execute = args.has("execute");
+  const args = common.parseArgs(), manifest = common.loadManifest(), execute = args.has("execute"), rehearsal = args.has("rehearsal");
+  const failAfter = args.values["rehearsal-fail-after-operation"] === undefined ? null : Number(args.values["rehearsal-fail-after-operation"]);
   if (execute && args.has("dry-run")) throw new Error("Choose either --execute or --dry-run");
+  if (args.has("rehearsal-fail-after-operation")) throw new Error("--rehearsal-fail-after-operation requires a value (=N)");
+  if (failAfter !== null && (!rehearsal || !Number.isInteger(failAfter) || failAfter < 1)) throw new Error("--rehearsal-fail-after-operation requires --rehearsal and a positive integer");
+  if (!rehearsal && args.has("confirm-rehearsal-target")) throw new Error("--confirm-rehearsal-target is rehearsal-only; refusing in production mode");
+  if (rehearsal && (args.has("confirm-target-oracle") || args.has("confirm-final-delta") || args.has("confirm-source-frozen"))) throw new Error("production confirmations are not accepted together with --rehearsal");
   const baseDir = path.resolve(args.values["baseline-dir"] || BASELINE_DEFAULT);
   const deltaFile = path.resolve(args.values.delta || path.join(common.REPORT_DIR, "phase7-delta-manifest.json"));
   const ledgerFile = path.resolve(args.values.ledger || path.join(common.REPORT_DIR, "phase7-delta-ledger.json"));
@@ -98,7 +104,7 @@ async function main() {
   if (problems.length) throw new Error("snapshot verification failed: " + problems.join("; "));
   if (sha(fs.readFileSync(path.join(finalDir, "manifest.json"), "utf8")) !== delta.final_snapshot.manifest_sha256) throw new Error("final snapshot changed since the delta manifest was generated");
   if (sha(fs.readFileSync(path.join(baseDir, "manifest.json"), "utf8")) !== delta.baseline_snapshot.manifest_sha256) throw new Error("baseline snapshot changed since the delta manifest was generated");
-  if (!/^migration-data[\\/]phase7-final-\d{8}T\d{6}Z$/.test(delta.final_snapshot.dir) && execute) throw new Error("EXECUTE requires a frozen final snapshot named migration-data/phase7-final-<timestamp>, not a preview");
+  if (!/^migration-data[\\/]phase7-final-\d{8}T\d{6}Z$/.test(delta.final_snapshot.dir) && execute && !rehearsal) throw new Error("EXECUTE requires a frozen final snapshot named migration-data/phase7-final-<timestamp>, not a preview");
 
   const states = expectedStates(manifest, base.order, baseDir, finalDir, delta);
   // LOB bind safety (planned operations only)
@@ -112,9 +118,12 @@ async function main() {
   console.log("delta: insert=" + delta.totals.insert + " update=" + delta.totals.update + " delete=" + delta.totals.delete + " unchanged=" + delta.totals.unchanged + " (verified against snapshots)");
 
   if (execute) {
-    const need = ["confirm-target-oracle", "confirm-final-delta", "confirm-source-frozen"].filter((f) => !args.has(f));
+    const expectedSchema = rehearsal ? "LMS_PHASE7_REHEARSAL" : "LMS_APP";
+    const need = rehearsal
+      ? ["confirm-rehearsal-target"].filter((f) => !args.has(f))
+      : ["confirm-target-oracle", "confirm-final-delta", "confirm-source-frozen"].filter((f) => !args.has(f));
     if (need.length) throw new Error("EXECUTE requires " + need.map((f) => "--" + f).join(", "));
-    if (args.values["target-schema"] !== "LMS_APP" || id.schema !== "LMS_APP") throw new Error("EXECUTE requires ORACLE_USER and --target-schema=LMS_APP (found " + id.schema + ")");
+    if (args.values["target-schema"] !== expectedSchema || id.schema !== expectedSchema) throw new Error("EXECUTE requires ORACLE_USER and --target-schema=" + expectedSchema + " (found " + id.schema + ")");
     if (/MYLIFE/i.test(id.schema + " " + id.service)) throw new Error("target looks like MYLIFE_APP; refusing");
     const prov = (process.env.DB_PROVIDER || "postgres").trim().toLowerCase();
     if (prov !== "postgres") throw new Error("DB_PROVIDER is " + prov + " in this environment; Phase 7 requires production to remain postgres until Phase 8");
@@ -132,7 +141,8 @@ async function main() {
   const ledger = { ledger_version: 1, phase: 7, delta_manifest_sha256: sha(fs.readFileSync(deltaFile, "utf8")), final_snapshot: delta.final_snapshot.dir, created_at: new Date().toISOString(), status: "RUNNING", operations: [] };
   try {
     const who = (await conn.execute("SELECT sys_context('USERENV','CURRENT_SCHEMA') AS S FROM dual", [], { outFormat: oracledb.OUT_FORMAT_OBJECT })).rows[0].S;
-    if (execute && who !== "LMS_APP") throw new Error("Oracle current schema is " + who + ", expected LMS_APP");
+    const expectedSchema = rehearsal ? "LMS_PHASE7_REHEARSAL" : "LMS_APP";
+    if (execute && who !== expectedSchema) throw new Error("Oracle current schema is " + who + ", expected " + expectedSchema);
     const expectedTables = base.order.map((t) => t.toUpperCase()).concat("SCHEMA_MIGRATIONS");
     const have = new Set((await conn.execute("SELECT table_name FROM user_tables", [], { outFormat: oracledb.OUT_FORMAT_OBJECT })).rows.map((r) => r.TABLE_NAME));
     const missing = expectedTables.filter((t) => !have.has(t));
@@ -163,6 +173,7 @@ async function main() {
         const r = await conn.execute(sql, binds, { autoCommit: false });
         if (r.rowsAffected !== 1) throw new Error(o.op + " " + o.table + " " + o.id + " affected " + r.rowsAffected + " rows (expected exactly 1)");
         ledger.operations.push({ ...o, rows_affected: 1 });
+        if (failAfter !== null && ledger.operations.length === failAfter) throw new Error("rehearsal-only injected failure after operation " + failAfter);
       }
       // Verify inside the same transaction BEFORE commit: Oracle must now equal the final snapshot exactly.
       const after = await classifyAll(conn, oracledb, base.order, states);

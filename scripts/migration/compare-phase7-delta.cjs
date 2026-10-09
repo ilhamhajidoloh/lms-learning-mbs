@@ -26,7 +26,7 @@ const readJson = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
 
 function main() {
   common.loadEnv();
-  const args = common.parseArgs(), manifest = common.loadManifest();
+  const args = common.parseArgs(), manifest = common.loadManifest(), rehearsal = args.has("rehearsal");
   const baseDir = path.resolve(args.values["baseline-dir"] || BASELINE_DEFAULT);
   if (!args.values["final-dir"]) throw new Error("--final-dir=<phase7 export dir> is required");
   const finalDir = path.resolve(args.values["final-dir"]);
@@ -46,12 +46,15 @@ function main() {
   if (!same(src(base.mf), src(fin.mf))) blockers.push({ classification: "SOURCE_MISMATCH", detail: "baseline and final exports come from different sources" });
   if (base.mf.migration_manifest_sha256 !== fin.mf.migration_manifest_sha256) blockers.push({ classification: "MANIFEST_MISMATCH", detail: "migration manifest differs between exports" });
   if (!same(base.order, fin.order)) blockers.push({ classification: "ORDER_MISMATCH", detail: "import order differs" });
-  if (base.mf.source_schema_fingerprint !== BASELINE_FINGERPRINT) blockers.push({ classification: "BASELINE_FINGERPRINT_UNEXPECTED", detail: base.mf.source_schema_fingerprint });
+  if (!rehearsal && base.mf.source_schema_fingerprint !== BASELINE_FINGERPRINT) blockers.push({ classification: "BASELINE_FINGERPRINT_UNEXPECTED", detail: base.mf.source_schema_fingerprint });
 
   // Schema drift gate. The fingerprint includes row counts, so it legitimately changes when data changes; the STRUCTURAL hash must not.
+  schema = { baseline_fingerprint: base.mf.source_schema_fingerprint, final_fingerprint: fin.mf.source_schema_fingerprint, classification: null };
+  if (rehearsal) {
+    schema.classification = "REHEARSAL_SYNTHETIC";
+  } else {
   const basePre = path.resolve(common.ROOT, String(base.mf.preflight.file || ""));
   const finPre = path.resolve(args.values["final-preflight"] || path.join(common.REPORT_DIR, "phase7-final-preflight.json"));
-  schema = { baseline_fingerprint: base.mf.source_schema_fingerprint, final_fingerprint: fin.mf.source_schema_fingerprint, classification: null };
   if (!fs.existsSync(basePre) || !fs.existsSync(finPre)) {
     blockers.push({ classification: "NEW_SCHEMA_DRIFT", detail: "cannot prove structure unchanged: preflight report missing (" + (fs.existsSync(basePre) ? "final" : "baseline") + ")" });
   } else {
@@ -68,6 +71,7 @@ function main() {
       schema.classification = schema.baseline_fingerprint === schema.final_fingerprint ? "EXPECTED_KNOWN_SOURCE_GAPS_IDENTICAL" : "EXPECTED_KNOWN_SOURCE_GAPS_STRUCTURE_IDENTICAL_COUNTS_CHANGED";
     }
     if (fp.issue_counts && fp.issue_counts.BLOCKER > 0) blockers.push({ classification: "FINAL_SOURCE_DATA_BLOCKER", detail: fp.issue_counts.BLOCKER + " data blocker(s) in final preflight" });
+  }
   }
 
   for (const t of base.order) {
