@@ -23,9 +23,9 @@ function optionalPositiveInteger(name: string, fallback: number): number {
 
 export function getDbProvider(): DbProvider {
   const provider = process.env.DB_PROVIDER?.trim().toLowerCase();
-  if (!provider || provider === "postgres") return "postgres";
+  if (provider === "postgres") return "postgres";
   if (provider === "oracle") return "oracle";
-  throw new DatabaseError("configuration", "DB_PROVIDER must be either postgres or oracle");
+  throw new DatabaseError("configuration", "DB_PROVIDER is required and must be either postgres or oracle");
 }
 
 export interface OracleConfig {

@@ -19,6 +19,7 @@
     "db:validate:oracle": "node scripts/validate-oracle-schema.cjs",
     "start": "next start",
     "lint": "eslint",
+    "test:db-provider": "node scripts/test-db-provider-selection.cjs",
     "db:verify:oracle": "node scripts/verify-oracle-live.cjs",
     "migrate:manifest": "node scripts/migration/build-manifest.cjs",
     "migrate:selftest": "node scripts/migration/selftest.cjs",

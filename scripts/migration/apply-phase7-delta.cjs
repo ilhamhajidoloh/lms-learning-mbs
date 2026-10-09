@@ -125,7 +125,8 @@ async function main() {
     if (need.length) throw new Error("EXECUTE requires " + need.map((f) => "--" + f).join(", "));
     if (args.values["target-schema"] !== expectedSchema || id.schema !== expectedSchema) throw new Error("EXECUTE requires ORACLE_USER and --target-schema=" + expectedSchema + " (found " + id.schema + ")");
     if (/MYLIFE/i.test(id.schema + " " + id.service)) throw new Error("target looks like MYLIFE_APP; refusing");
-    const prov = (process.env.DB_PROVIDER || "postgres").trim().toLowerCase();
+    const prov = process.env.DB_PROVIDER?.trim().toLowerCase();
+    if (!prov) throw new Error("DB_PROVIDER is required for Phase 7 execution");
     if (prov !== "postgres") throw new Error("DB_PROVIDER is " + prov + " in this environment; Phase 7 requires production to remain postgres until Phase 8");
     if (fs.existsSync(ledgerFile) && JSON.parse(fs.readFileSync(ledgerFile, "utf8")).status === "RUNNING") throw new Error("a previous Phase 7 run left a RUNNING ledger; inspect Oracle before retrying");
   }
