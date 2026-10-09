@@ -1,4 +1,5 @@
 import { DatabaseError } from "./errors";
+import { resolveOracleWalletLocation } from "./oracleWallet";
 import type { DbProvider } from "./types";
 
 const DEFAULTS = {
@@ -63,7 +64,7 @@ export function getOracleConfig(): OracleConfig {
     user,
     password,
     connectString,
-    walletLocation: process.env.ORACLE_WALLET_LOCATION || undefined,
+    walletLocation: resolveOracleWalletLocation(),
     walletPassword: process.env.ORACLE_WALLET_PASSWORD || undefined,
     poolMin,
     poolMax,

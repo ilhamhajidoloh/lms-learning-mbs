@@ -9,6 +9,7 @@
     "db:migrate:postgres": "node scripts/migrate.cjs",
     "db:migrate:oracle": "node database/oracle/runner/migrate.cjs",
     "db:test:oracle": "node scripts/test-oracle-connection.cjs",
+    "db:diagnose:oracle-wallet": "node scripts/diagnose-oracle-wallet.cjs",
     "db:test:phase3h:oracle": "node scripts/test-phase-3h.cjs",
     "db:test:phase3h:postgres": "node scripts/test-phase-3h.cjs --postgres",
     "db:test:phase3ij:oracle": "node scripts/test-phase-3ij.cjs",
