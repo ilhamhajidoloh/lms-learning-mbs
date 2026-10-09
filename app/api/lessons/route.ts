@@ -91,7 +91,7 @@ export async function PUT(request: Request) {
   if ((isPublished !== undefined || isLocked !== undefined) && title === undefined) {
     if (provider === "oracle") {
       await query(
-        "UPDATE lessons SET is_published = COALESCE(:isPublished, is_published), is_locked = COALESCE(:isLocked, is_locked), updated_at = SYSTIMESTAMP WHERE id = :id",
+        "UPDATE lessons SET is_published = COALESCE(CAST(:isPublished AS NUMBER), is_published), is_locked = COALESCE(CAST(:isLocked AS NUMBER), is_locked), updated_at = SYSTIMESTAMP WHERE id = :id",
         {
           isPublished: isPublished === undefined ? null : toDbBoolean(Boolean(isPublished)),
           isLocked: isLocked === undefined ? null : toDbBoolean(Boolean(isLocked)),

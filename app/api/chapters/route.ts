@@ -46,8 +46,8 @@ export async function PUT(request: Request) {
       // Oracle: UPDATE with authorization check using correlated subquery
       const updateResult = await query(
         `UPDATE chapters ch
-         SET is_published = COALESCE(:isPublished, ch.is_published),
-             is_locked = COALESCE(:isLocked, ch.is_locked),
+         SET is_published = COALESCE(CAST(:isPublished AS NUMBER), ch.is_published),
+             is_locked = COALESCE(CAST(:isLocked AS NUMBER), ch.is_locked),
              updated_at = SYSTIMESTAMP
          WHERE ch.id = :id
          AND EXISTS (
@@ -83,7 +83,7 @@ export async function PUT(request: Request) {
   if (sortOrder !== undefined) {
     if (provider === "oracle") {
       await query(
-        "UPDATE chapters SET title = COALESCE(:title, title), sort_order = COALESCE(:sortOrder, sort_order), updated_at = SYSTIMESTAMP WHERE id = :id",
+        "UPDATE chapters SET title = COALESCE(:title, title), sort_order = COALESCE(CAST(:sortOrder AS NUMBER), sort_order), updated_at = SYSTIMESTAMP WHERE id = :id",
         { title: title ?? null, sortOrder, id }
       );
     } else {
