@@ -58,3 +58,6 @@ next-env.d.ts
 # Phase 4 migration artifacts (contain production data; never commit)
 /migration-data/
 /migration-reports/
+
+.vercel
+.env*

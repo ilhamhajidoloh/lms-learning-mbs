@@ -11,7 +11,7 @@
 const fs = require("fs");
 const path = require("path");
 const common = require("./lib/common.cjs");
-const { diffTable, structuralHash, sha } = require("./lib/delta.cjs");
+const { diffTable, structuralHash, gateStructuralHash, approvedDriftPresent, sha } = require("./lib/delta.cjs");
 const { verifyExport, rows } = require("./import-oracle.cjs");
 
 const BASELINE_DEFAULT = "migration-data/phase4-production-20261007T180359Z";
@@ -61,14 +61,19 @@ function main() {
     const bp = readJson(basePre), fp = readJson(finPre);
     schema.baseline_structural_sha256 = structuralHash(bp);
     schema.final_structural_sha256 = structuralHash(fp);
+    // Only the exact approved duplicate FKs are removed before comparing (lib/delta.cjs APPROVED_BENIGN_DRIFT); everything else still drifts.
+    schema.baseline_gate_structural_sha256 = gateStructuralHash(bp);
+    schema.final_gate_structural_sha256 = gateStructuralHash(fp);
+    schema.approved_benign_drift_present = approvedDriftPresent(fp);
     schema.final_preflight_blockers = fp.issue_counts && fp.issue_counts.BLOCKER;
     schema.final_preflight_report_fingerprint = fp.source_schema_fingerprint;
     if (fp.source_schema_fingerprint !== fin.mf.source_schema_fingerprint) blockers.push({ classification: "PREFLIGHT_EXPORT_MISMATCH", detail: "final preflight fingerprint differs from final export manifest" });
-    if (schema.baseline_structural_sha256 !== schema.final_structural_sha256) {
+    if (schema.baseline_gate_structural_sha256 !== schema.final_gate_structural_sha256) {
       schema.classification = "NEW_SCHEMA_DRIFT";
       blockers.push({ classification: "NEW_SCHEMA_DRIFT", detail: "source tables/columns/constraints/indexes differ from the Phase 4 state; MIGRATION_BLOCKER until reviewed" });
     } else {
       schema.classification = schema.baseline_fingerprint === schema.final_fingerprint ? "EXPECTED_KNOWN_SOURCE_GAPS_IDENTICAL" : "EXPECTED_KNOWN_SOURCE_GAPS_STRUCTURE_IDENTICAL_COUNTS_CHANGED";
+      if (schema.approved_benign_drift_present.length) schema.classification += "_PLUS_APPROVED_BENIGN_DUPLICATE_FKS";
     }
     if (fp.issue_counts && fp.issue_counts.BLOCKER > 0) blockers.push({ classification: "FINAL_SOURCE_DATA_BLOCKER", detail: fp.issue_counts.BLOCKER + " data blocker(s) in final preflight" });
   }

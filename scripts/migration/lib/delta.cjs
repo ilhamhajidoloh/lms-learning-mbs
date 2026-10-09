@@ -86,4 +86,38 @@ function structuralHash(preflight) {
   });
 }
 
-module.exports = { sha, pkOf, logicalOf, diffTable, classifyRow, orderOperations, structuralHash };
+/**
+ * Exactly nine duplicate FOREIGN KEY constraints, approved as benign drift on 2026-10-09. Cause: three production Vercel builds
+ * (11:37Z, 11:39Z, 11:49Z) ran `npm run db:migrate && next build`; each run of migrateDatabase() re-issues
+ * `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ... REFERENCES ...` (lib/db.ts) and Cockroach adds a new FK each time (3 ALTERs x 3 runs).
+ * A constraint is ignored only if table, name, type AND definition all match; anything else stays NEW_SCHEMA_DRIFT.
+ */
+const FK = (col, ref) => `FOREIGN KEY (${col}) REFERENCES ${ref}(id) ON DELETE CASCADE`;
+const APPROVED_BENIGN_DRIFT = Object.freeze([
+  ...[135, 136, 137].map((n) => ({ table: "lessons", name: `lessons_course_id_fkey_${n}`, type: "f", definition: FK("course_id", "courses") })),
+  ...[134, 135, 136].map((n) => ({ table: "lessons", name: `lessons_topic_id_fkey_${n}`, type: "f", definition: FK("topic_id", "topics") })),
+  ...[172, 173, 174].map((n) => ({ table: "assignments", name: `assignments_lesson_id_fkey_${n}`, type: "f", definition: FK("lesson_id", "lessons") })),
+].map((e) => Object.freeze(e)));
+
+const isApproved = (table, c) => APPROVED_BENIGN_DRIFT.some((a) => a.table === table && a.name === c.name && a.type === c.type && a.definition === c.definition);
+
+/** Approved duplicate constraints present in this preflight (table.name), for reporting. */
+function approvedDriftPresent(preflight) {
+  const cx = ((preflight.sections || {}).source_constraints_and_indexes) || {};
+  const found = [];
+  for (const t of Object.keys(cx)) for (const c of (cx[t].constraints || [])) if (isApproved(t, c)) found.push(t + "." + c.name);
+  return found.sort();
+}
+
+/** structuralHash with ONLY the approved duplicate constraints removed. Every other structural difference still changes the hash. */
+function gateStructuralHash(preflight) {
+  const s = preflight.sections || {};
+  const cx = {};
+  for (const t of Object.keys(s.source_constraints_and_indexes || {})) {
+    const e = s.source_constraints_and_indexes[t];
+    cx[t] = { ...e, constraints: (e.constraints || []).filter((c) => !isApproved(t, c)) };
+  }
+  return structuralHash({ sections: { ...s, source_constraints_and_indexes: cx } });
+}
+
+module.exports = { sha, pkOf, logicalOf, diffTable, classifyRow, orderOperations, structuralHash, gateStructuralHash, approvedDriftPresent, APPROVED_BENIGN_DRIFT };

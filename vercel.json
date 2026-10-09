@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/private-lesson-cleanup",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 0 * * *"
     }
   ],
   "headers": [
