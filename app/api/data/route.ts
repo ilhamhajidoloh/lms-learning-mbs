@@ -55,7 +55,7 @@ export async function GET(request: Request) {
   // Oracle aliases restore the API names: course_level -> level, assignment_type / submission_type -> type.
   // LEVEL is reserved in Oracle, so the compatibility aliases are quoted.
   const coursesQuery = read(`
-    SELECT c.id, c.title, c.course_level AS "level", c.level_label, c.gradient_class, c.instructor_id,
+    SELECT c.id, c.title, c.description, c.course_level AS "level", c.level_label, c.gradient_class, c.instructor_id,
            c.is_open, c.enroll_code, c.show_scores, c.sequential_lessons, c.quiz_review_mode,
            u.display_name AS instructor_name,
            COALESCE(lc.lesson_count, 0) AS lessons_count
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
     ) lc ON lc.course_id = c.id
     ORDER BY c.created_at DESC
   `, {}, `
-    SELECT c.id, c.title, c.level, c.level_label, c.gradient_class, c.instructor_id,
+    SELECT c.id, c.title, c.description, c.level, c.level_label, c.gradient_class, c.instructor_id,
            c.is_open, c.enroll_code, c.show_scores, c.sequential_lessons, c.quiz_review_mode,
            u.display_name AS instructor_name,
            COALESCE(lc.lesson_count, 0) AS lessons_count
@@ -272,6 +272,7 @@ export async function GET(request: Request) {
     return {
       id: c.id,
       title: c.title,
+      description: c.description || "",
       level: c.level,
       levelLabel: c.level_label,
       gradientClass: c.gradient_class,

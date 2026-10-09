@@ -5,17 +5,18 @@ export async function POST(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, title, level, levelLabel, gradientClass } = await request.json();
+  const { id, title, description, level, levelLabel, gradientClass } = await request.json();
   const provider = getDbProvider();
   const courseId = id || `course-${Date.now()}`;
 
   if (provider === "oracle") {
     await query(
-      `INSERT INTO courses (id, title, course_level, level_label, gradient_class, instructor_id, is_open, enroll_code)
-       VALUES (:id, :title, :courseLevel, :levelLabel, :gradientClass, :instructorId, :isOpen, :enrollCode)`,
+      `INSERT INTO courses (id, title, description, course_level, level_label, gradient_class, instructor_id, is_open, enroll_code)
+       VALUES (:id, :title, :description, :courseLevel, :levelLabel, :gradientClass, :instructorId, :isOpen, :enrollCode)`,
       {
         id: courseId,
         title,
+        description: description || "",
         courseLevel: level,
         levelLabel,
         gradientClass,
@@ -26,9 +27,9 @@ export async function POST(request: Request) {
     );
   } else {
     await query(
-      `INSERT INTO courses (id, title, level, level_label, gradient_class, instructor_id, is_open, enroll_code)
-       VALUES ($1, $2, $3, $4, $5, $6, FALSE, NULL)`,
-      [courseId, title, level, levelLabel, gradientClass, auth.userId]
+      `INSERT INTO courses (id, title, description, level, level_label, gradient_class, instructor_id, is_open, enroll_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NULL)`,
+      [courseId, title, description || "", level, levelLabel, gradientClass, auth.userId]
     );
   }
 
@@ -80,34 +81,48 @@ export async function PUT(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, isOpen, enrollCode, level, levelLabel, showScores, sequentialLessons, quizReviewMode } = await request.json();
+  const { id, title, description, isOpen, enrollCode, level, levelLabel, gradientClass, showScores, sequentialLessons, quizReviewMode } = await request.json();
   if (!id) return Response.json({ error: "Missing course id" }, { status: 400 });
 
-  const hasMetadataUpdate = level !== undefined || levelLabel !== undefined;
+  const hasDetailsUpdate = title !== undefined || description !== undefined || level !== undefined || levelLabel !== undefined || gradientClass !== undefined;
   const provider = getDbProvider();
 
-  if (hasMetadataUpdate) {
+  if (hasDetailsUpdate) {
+    const courseQuery = await query(
+      provider === "oracle"
+        ? "SELECT instructor_id FROM courses WHERE id = :id"
+        : "SELECT instructor_id FROM courses WHERE id = $1",
+      provider === "oracle" ? { id } : [id]
+    );
+    if (courseQuery.rows.length === 0) return Response.json({ error: "Course not found" }, { status: 404 });
     if (auth.role !== "admin") {
-      return Response.json({ error: "Forbidden" }, { status: 403 });
+      const course = (provider === "oracle" ? lowerKeys(courseQuery.rows[0] as Record<string, unknown>) : courseQuery.rows[0]) as { instructor_id: string };
+      if (course.instructor_id !== auth.userId) return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (provider === "oracle") {
       await query(
         `UPDATE courses
-         SET course_level = COALESCE(:courseLevel, course_level),
+         SET title = COALESCE(:title, title),
+             description = COALESCE(:description, description),
+             course_level = COALESCE(:courseLevel, course_level),
              level_label = COALESCE(:levelLabel, level_label),
+             gradient_class = COALESCE(:gradientClass, gradient_class),
              updated_at = SYSTIMESTAMP
          WHERE id = :id`,
-        { courseLevel: level ?? null, levelLabel: levelLabel ?? null, id }
+        { title: title ?? null, description: description ?? null, courseLevel: level ?? null, levelLabel: levelLabel ?? null, gradientClass: gradientClass ?? null, id }
       );
     } else {
       await query(
         `UPDATE courses
-         SET level = COALESCE($1, level),
-             level_label = COALESCE($2, level_label),
+         SET title = COALESCE($1, title),
+             description = COALESCE($2, description),
+             level = COALESCE($3, level),
+             level_label = COALESCE($4, level_label),
+             gradient_class = COALESCE($5, gradient_class),
              updated_at = now()
-         WHERE id = $3`,
-        [level ?? null, levelLabel ?? null, id]
+         WHERE id = $6`,
+        [title ?? null, description ?? null, level ?? null, levelLabel ?? null, gradientClass ?? null, id]
       );
     }
 

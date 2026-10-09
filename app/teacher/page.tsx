@@ -17,7 +17,7 @@ import { AddStudentModal } from "./_components/AddStudentModal";
 import { TeacherPrivateLessonAvailabilityPanel } from "./_components/TeacherPrivateLessonAvailabilityPanel";
 
 function TeacherDashboardContent() {
-  const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, assignments, addAssignment, submissions, lessons, addLesson, updateLesson, courses, currentUserId, createCourse, deleteCourse, loadingData, enrollments, teacherAddStudent, teacherRemoveStudent, updateCourseSettings, appUsers, levels, chapters, addChapter, topics, addTopic } = useUser();
+  const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, assignments, addAssignment, submissions, lessons, addLesson, updateLesson, courses, currentUserId, createCourse, updateCourseDetails, deleteCourse, loadingData, enrollments, teacherAddStudent, teacherRemoveStudent, updateCourseSettings, appUsers, levels, chapters, addChapter, topics, addTopic } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<"dashboard" | "courses" | "students" | "availability">("dashboard");
@@ -78,6 +78,7 @@ function TeacherDashboardContent() {
     if (createCourse) {
       const { success, error } = await createCourse({
         title: courseTitle,
+        description: courseDesc,
         level: selectedLevel.value,
         levelLabel: selectedLevel.label,
         gradientClass: courseGradient,
@@ -246,6 +247,7 @@ function TeacherDashboardContent() {
             teacherCourses={teacherCourses}
             setSelectedCourseId={setSelectedCourseId}
             deleteCourse={deleteCourse}
+            updateCourseDetails={updateCourseDetails}
             setShowForm={setShowForm}
             setShowCourseForm={setShowCourseForm}
             detailTab={detailTab}

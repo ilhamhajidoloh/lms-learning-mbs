@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, Shield, RefreshCw, Radio, Trash2 } from "lucide-react";
+import { ArrowLeft, Shield, RefreshCw, Radio, Trash2, Pencil } from "lucide-react";
 import { tx } from "../../lib/theme";
 import { alert, toast } from "@/lib/swal";
 import { useUser, type Assignment, type Chapter, type Course, type Enrollment, type Lesson, type StudentSubmission, type Topic } from "../../context/UserContext";
@@ -9,11 +9,13 @@ import { StudentsPanel } from "./StudentsPanel";
 import { HeroBanner } from "../../components/HeroBanner";
 import { PrivateLessonRequestsPanel } from "../../components/PrivateLessonRequestsPanel";
 import { CourseAnnouncements } from "../../components/CourseAnnouncements";
+import { CourseEditModal } from "./CourseEditModal";
 
 interface CourseDetailPanelProps {
   selectedCourse: Course;
   setSelectedCourseId: (id: string | null) => void;
   deleteCourse: (id: string) => Promise<{ success: boolean; error?: string }>;
+  updateCourseDetails: (id: string, data: Pick<Course, "title" | "description" | "level" | "levelLabel" | "gradientClass">) => Promise<{ success: boolean; error?: string }>;
   setShowForm: (show: boolean) => void;
   detailTab: "assignments" | "lessons" | "students" | "announcements" | "private_lessons";
   setDetailTab: (tab: "assignments" | "lessons" | "students" | "announcements" | "private_lessons") => void;
@@ -44,6 +46,7 @@ export function CourseDetailPanel({
   selectedCourse,
   setSelectedCourseId,
   deleteCourse,
+  updateCourseDetails,
   setShowForm,
   detailTab,
   setDetailTab,
@@ -66,8 +69,9 @@ export function CourseDetailPanel({
   setShowAddStudentModal,
   teacherRemoveStudent,
 }: CourseDetailPanelProps) {
-  const { refreshData } = useUser();
+  const { refreshData, levels } = useUser();
   const [refreshing, setRefreshing] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -101,6 +105,14 @@ export function CourseDetailPanel({
           <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
           <span className="hidden sm:inline">กลับหน้าคอร์สเรียนทั้งหมด</span>
           <span className="sm:hidden">กลับ</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowEditModal(true)}
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600/80 hover:bg-indigo-600 border border-indigo-500/40 text-white font-bold px-4 py-2.5 rounded-2xl shadow-lg transition-transform hover:-translate-y-0.5 text-xs cursor-pointer btn-press"
+        >
+          <Pencil className="h-4 w-4" />
+          แก้ไขรายละเอียด
         </button>
         <button
           type="button"
@@ -224,6 +236,15 @@ export function CourseDetailPanel({
 
       {detailTab === "private_lessons" && (
         <PrivateLessonRequestsPanel courseId={selectedCourse.id} courseTitle={selectedCourse.title} />
+      )}
+
+      {showEditModal && (
+        <CourseEditModal
+          course={selectedCourse}
+          levels={levels}
+          onClose={() => setShowEditModal(false)}
+          updateCourseDetails={updateCourseDetails}
+        />
       )}
     </div>
   );

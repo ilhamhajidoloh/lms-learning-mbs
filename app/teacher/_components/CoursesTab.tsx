@@ -9,6 +9,7 @@ interface CoursesTabProps {
   teacherCourses: Course[];
   setSelectedCourseId: (id: string | null) => void;
   deleteCourse: (id: string) => Promise<{ success: boolean; error?: string }>;
+  updateCourseDetails: (id: string, data: Pick<Course, "title" | "description" | "level" | "levelLabel" | "gradientClass">) => Promise<{ success: boolean; error?: string }>;
   setShowForm: (show: boolean) => void;
   setShowCourseForm: (show: boolean) => void;
 
@@ -42,6 +43,7 @@ export function CoursesTab({
   teacherCourses,
   setSelectedCourseId,
   deleteCourse,
+  updateCourseDetails,
   setShowForm,
   setShowCourseForm,
   detailTab,
@@ -74,6 +76,7 @@ export function CoursesTab({
           selectedCourse={selectedCourse}
           setSelectedCourseId={setSelectedCourseId}
           deleteCourse={deleteCourse}
+          updateCourseDetails={updateCourseDetails}
           setShowForm={setShowForm}
           detailTab={detailTab}
           setDetailTab={setDetailTab}

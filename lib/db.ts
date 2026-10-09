@@ -94,6 +94,7 @@ export async function migrateDatabase() {
     CREATE TABLE IF NOT EXISTS courses (
       id             TEXT        PRIMARY KEY,
       title          TEXT        NOT NULL,
+      description    TEXT        NOT NULL DEFAULT '',
       level          TEXT        NOT NULL,
       level_label    TEXT        NOT NULL,
       gradient_class TEXT        NOT NULL DEFAULT 'from-indigo-500 to-purple-600',
@@ -104,6 +105,12 @@ export async function migrateDatabase() {
   `);
 
   // Dynamically drop level CHECK constraint from courses table if it exists
+  try {
+    await pool.query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''`);
+  } catch (err) {
+    console.error("Failed to add courses description column:", err);
+  }
+
   try {
     const res = await pool.query(`
       SELECT conname, pg_get_constraintdef(oid) as def 

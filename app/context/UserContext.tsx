@@ -11,6 +11,7 @@ export type CourseLevel = string;
 export interface Course {
   id: string;
   title: string;
+  description?: string;
   level: CourseLevel;
   levelLabel: string;
   gradientClass: string;
@@ -171,6 +172,7 @@ interface UserContextProps {
   toggleDarkMode: () => void;
   courses: Course[];
   createCourse: (data: Partial<Course>) => Promise<{success: boolean; error?: string}>;
+  updateCourseDetails: (id: string, data: Pick<Course, "title" | "description" | "level" | "levelLabel" | "gradientClass">) => Promise<{ success: boolean; error?: string }>;
   deleteCourse: (id: string) => Promise<{ success: boolean; error?: string }>;
   chapters: Chapter[];
   addChapter: (courseId: string, title: string) => Promise<{ success: boolean; id?: string; error?: string }>;
@@ -361,6 +363,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: JSON.stringify({
           title: data.title,
+          description: data.description,
           level: data.level,
           levelLabel: data.levelLabel,
           gradientClass: data.gradientClass,
@@ -378,6 +381,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
       loadingToast.close();
       const message = err instanceof Error ? err.message : "Unknown error";
       toast.error("สร้างหลักสูตรไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const updateCourseDetails = async (
+    id: string,
+    data: Pick<Course, "title" | "description" | "level" | "levelLabel" | "gradientClass">
+  ): Promise<{ success: boolean; error?: string }> => {
+    const loadingToast = toast.loading("กำลังบันทึกรายละเอียดคอร์ส...");
+    try {
+      const { error } = await apiFetch("/api/courses", {
+        method: "PUT",
+        body: JSON.stringify({ id, ...data }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("แก้ไขรายละเอียดคอร์สไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("แก้ไขรายละเอียดคอร์สสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("แก้ไขรายละเอียดคอร์สไม่สำเร็จ: " + message);
       return { success: false, error: message };
     }
   };
@@ -1337,6 +1366,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         toggleDarkMode,
         courses,
         createCourse,
+        updateCourseDetails,
         deleteCourse,
         chapters,
         addChapter,
