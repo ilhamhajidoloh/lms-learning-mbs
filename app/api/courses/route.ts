@@ -1,4 +1,4 @@
-import { query, getDbProvider, toDbBoolean, fromDbBoolean, lowerKeys } from "@/lib/database";
+import { query, getDbProvider, toDbBoolean, lowerKeys } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
 
 export async function POST(request: Request) {
@@ -33,6 +33,47 @@ export async function POST(request: Request) {
   }
 
   return Response.json({ id: courseId });
+}
+
+export async function DELETE(request: Request) {
+  const auth = authenticate(request);
+  if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await request.json();
+  if (!id) return Response.json({ error: "Missing course id" }, { status: 400 });
+
+  const provider = getDbProvider();
+  if (auth.role !== "admin") {
+    const courseQuery = await query(
+      provider === "oracle"
+        ? "SELECT instructor_id FROM courses WHERE id = :id"
+        : "SELECT instructor_id FROM courses WHERE id = $1",
+      provider === "oracle" ? { id } : [id]
+    );
+    if (courseQuery.rows.length === 0) {
+      return Response.json({ error: "Course not found" }, { status: 404 });
+    }
+
+    const course = (provider === "oracle"
+      ? lowerKeys(courseQuery.rows[0] as Record<string, unknown>)
+      : courseQuery.rows[0]) as { instructor_id: string };
+    if (course.instructor_id !== auth.userId) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  const result = await query(
+    provider === "oracle"
+      ? "DELETE FROM courses WHERE id = :id"
+      : "DELETE FROM courses WHERE id = $1",
+    provider === "oracle" ? { id } : [id]
+  );
+
+  if (result.rowCount === 0) {
+    return Response.json({ error: "Course not found" }, { status: 404 });
+  }
+
+  return Response.json({ success: true });
 }
 
 export async function PUT(request: Request) {

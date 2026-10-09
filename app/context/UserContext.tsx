@@ -171,6 +171,7 @@ interface UserContextProps {
   toggleDarkMode: () => void;
   courses: Course[];
   createCourse: (data: Partial<Course>) => Promise<{success: boolean; error?: string}>;
+  deleteCourse: (id: string) => Promise<{ success: boolean; error?: string }>;
   chapters: Chapter[];
   addChapter: (courseId: string, title: string) => Promise<{ success: boolean; id?: string; error?: string }>;
   updateChapter: (id: string, title: string) => Promise<{ success: boolean; error?: string }>;
@@ -377,6 +378,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
       loadingToast.close();
       const message = err instanceof Error ? err.message : "Unknown error";
       toast.error("สร้างหลักสูตรไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
+  const deleteCourse = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    if (!userId) return { success: false, error: "Not logged in" };
+    const loadingToast = toast.loading("กำลังลบคอร์สเรียน...");
+    try {
+      const { error } = await apiFetch("/api/courses", {
+        method: "DELETE",
+        body: JSON.stringify({ id }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("ลบคอร์สเรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success("ลบคอร์สเรียนสำเร็จ!");
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("ลบคอร์สเรียนไม่สำเร็จ: " + message);
       return { success: false, error: message };
     }
   };
@@ -1312,6 +1337,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         toggleDarkMode,
         courses,
         createCourse,
+        deleteCourse,
         chapters,
         addChapter,
         updateChapter,

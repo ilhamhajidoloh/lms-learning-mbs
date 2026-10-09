@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { ArrowLeft, Shield, RefreshCw, Radio } from "lucide-react";
+import { ArrowLeft, Shield, RefreshCw, Radio, Trash2 } from "lucide-react";
 import { tx } from "../../lib/theme";
-import { toast } from "@/lib/swal";
+import { alert, toast } from "@/lib/swal";
 import { useUser, type Assignment, type Chapter, type Course, type Enrollment, type Lesson, type StudentSubmission, type Topic } from "../../context/UserContext";
 import { AssignmentsPanel } from "./AssignmentsPanel";
 import { LessonsPanel } from "./LessonsPanel";
@@ -13,6 +13,7 @@ import { CourseAnnouncements } from "../../components/CourseAnnouncements";
 interface CourseDetailPanelProps {
   selectedCourse: Course;
   setSelectedCourseId: (id: string | null) => void;
+  deleteCourse: (id: string) => Promise<{ success: boolean; error?: string }>;
   setShowForm: (show: boolean) => void;
   detailTab: "assignments" | "lessons" | "students" | "announcements" | "private_lessons";
   setDetailTab: (tab: "assignments" | "lessons" | "students" | "announcements" | "private_lessons") => void;
@@ -42,6 +43,7 @@ interface CourseDetailPanelProps {
 export function CourseDetailPanel({
   selectedCourse,
   setSelectedCourseId,
+  deleteCourse,
   setShowForm,
   detailTab,
   setDetailTab,
@@ -72,6 +74,21 @@ export function CourseDetailPanel({
     await refreshData();
     setTimeout(() => setRefreshing(false), 500);
     toast.success("อัปเดตข้อมูลบทเรียนและงานล่าสุดเรียบร้อยแล้ว!");
+  };
+
+  const handleDeleteCourse = async () => {
+    const confirmed = await alert.confirm(
+      `ยืนยันการลบคอร์ส "${selectedCourse.title}"?`,
+      "เนื้อหา นักเรียน งาน และข้อมูลทั้งหมดในคอร์สนี้จะถูกลบอย่างถาวร",
+      "ลบคอร์ส"
+    );
+    if (!confirmed) return;
+
+    const result = await deleteCourse(selectedCourse.id);
+    if (result.success) {
+      setSelectedCourseId(null);
+      setShowForm(false);
+    }
   };
 
   const courseAssignments = assignments.filter(a => a.courseId === selectedCourse.id);
@@ -121,6 +138,14 @@ export function CourseDetailPanel({
             >
               <Shield className="h-4 w-4 text-indigo-300" />
               ตั้งค่าการลงทะเบียน
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteCourse}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-rose-600/80 hover:bg-rose-600 border border-rose-500/40 text-white font-bold px-4 py-2.5 rounded-2xl shadow-lg transition-transform hover:-translate-y-0.5 text-xs cursor-pointer btn-press"
+            >
+              <Trash2 className="h-4 w-4" />
+              ลบคอร์ส
             </button>
           </div>
         }
