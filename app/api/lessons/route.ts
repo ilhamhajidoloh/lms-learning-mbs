@@ -92,7 +92,11 @@ export async function PUT(request: Request) {
     if (provider === "oracle") {
       await query(
         "UPDATE lessons SET is_published = COALESCE(:isPublished, is_published), is_locked = COALESCE(:isLocked, is_locked), updated_at = SYSTIMESTAMP WHERE id = :id",
-        { isPublished: isPublished ?? null, isLocked: isLocked ?? null, id }
+        {
+          isPublished: isPublished === undefined ? null : toDbBoolean(Boolean(isPublished)),
+          isLocked: isLocked === undefined ? null : toDbBoolean(Boolean(isLocked)),
+          id,
+        }
       );
     } else {
       await query(
