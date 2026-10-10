@@ -97,14 +97,14 @@ export async function GET(request: Request) {
   `, role === "student" ? [userId] : []);
 
   const chaptersSql = `
-    SELECT ch.id, ch.course_id, ch.title, ch.sort_order, ch.is_published, ch.is_locked
+    SELECT ch.id, ch.course_id, ch.title, ch.target_group, ch.sort_order, ch.is_published, ch.is_locked
     FROM chapters ch
     ORDER BY ch.course_id, ch.sort_order
   `;
   const chaptersQuery = read(chaptersSql, {}, chaptersSql, []);
 
   const topicsSql = `
-    SELECT t.id, t.chapter_id, t.title, t.sort_order, t.is_published, t.is_locked
+    SELECT t.id, t.chapter_id, t.title, t.target_group, t.sort_order, t.is_published, t.is_locked
     FROM topics t
     ORDER BY t.chapter_id, t.sort_order
   `;
@@ -248,8 +248,12 @@ export async function GET(request: Request) {
     // Learning content is only returned for enrolled courses (the catalog itself comes from coursesRes).
     const visibleToStudent = (courseId: string | undefined, targetGroup: string | null | undefined) =>
       groupByCourse.has(courseId ?? "") && isVisibleToClass(targetGroup, groupByCourse.get(courseId ?? ""));
+    chaptersRes.rows = chaptersRes.rows.filter((chapter) => visibleToStudent(chapter.course_id, chapter.target_group));
+    const visibleChapterIds = new Set(chaptersRes.rows.map((chapter) => chapter.id as string));
+    topicsRes.rows = topicsRes.rows.filter((topic) => visibleChapterIds.has(topic.chapter_id as string) && visibleToStudent(chapterToCourseMap.get(topic.chapter_id as string), topic.target_group));
+    const visibleTopicIds = new Set(topicsRes.rows.map((topic) => topic.id as string));
     const knownLessonIds = new Set(lessonsRes.rows.map((l) => l.id as string));
-    lessonsRes.rows = lessonsRes.rows.filter((l) => visibleToStudent(topicToCourseMap.get(l.topic_id) ?? l.course_id, l.target_group));
+    lessonsRes.rows = lessonsRes.rows.filter((l) => visibleTopicIds.has(l.topic_id as string) && visibleToStudent(topicToCourseMap.get(l.topic_id) ?? l.course_id, l.target_group));
     // Children inherit the parent's class: an assignment is also hidden when its lesson is hidden.
     const visibleLessonIds = new Set(lessonsRes.rows.map((l) => l.id as string));
     assignmentsRes.rows = assignmentsRes.rows.filter((a) =>
@@ -325,6 +329,7 @@ export async function GET(request: Request) {
     order: ch.sort_order,
     isPublished: ch.is_published !== false,
     isLocked: ch.is_locked === true,
+    targetGroup: normalizeTargetGroup(ch.target_group) ?? undefined,
   }));
 
   const topics = topicsRes.rows.map((t) => ({
@@ -334,6 +339,7 @@ export async function GET(request: Request) {
     order: t.sort_order,
     isPublished: t.is_published !== false,
     isLocked: t.is_locked === true,
+    targetGroup: normalizeTargetGroup(t.target_group) ?? undefined,
   }));
 
   const lessons = lessonsRes.rows.map((l) => ({

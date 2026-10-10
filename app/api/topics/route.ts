@@ -24,15 +24,15 @@ export async function POST(request: Request) {
 
   if (provider === "oracle") {
     await query(
-      `INSERT INTO topics (id, chapter_id, title, sort_order)
-       VALUES (:id, :chapterId, :title, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM topics WHERE chapter_id = :chapterId))`,
-      { id: topicId, chapterId, title }
+      `INSERT INTO topics (id, chapter_id, title, target_group, sort_order)
+       VALUES (:id, :chapterId, :title, :targetGroup, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM topics WHERE chapter_id = :chapterId AND (target_group = :targetGroup OR (target_group IS NULL AND :targetGroup IS NULL))))`,
+      { id: topicId, chapterId, title, targetGroup: classContext }
     );
   } else {
     await query(
-      `INSERT INTO topics (id, chapter_id, title, sort_order)
-       VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM topics WHERE chapter_id = $2))`,
-      [topicId, chapterId, title]
+      `INSERT INTO topics (id, chapter_id, title, target_group, sort_order)
+       VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM topics WHERE chapter_id = $2 AND target_group IS NOT DISTINCT FROM $4))`,
+      [topicId, chapterId, title, classContext]
     );
   }
 

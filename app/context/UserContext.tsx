@@ -98,6 +98,7 @@ export interface Chapter {
   order: number;
   isPublished?: boolean;
   isLocked?: boolean;
+  targetGroup?: string;
 }
 
 export interface Topic {
@@ -107,6 +108,7 @@ export interface Topic {
   order: number;
   isPublished?: boolean;
   isLocked?: boolean;
+  targetGroup?: string;
 }
 
 export interface LessonSegment {

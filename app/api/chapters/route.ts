@@ -1,4 +1,4 @@
-import { query, getDbProvider, toDbBoolean, fromDbBoolean } from "@/lib/database";
+import { query, getDbProvider, toDbBoolean } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
 import { randomUUID } from "crypto";
 import { assertCanManageCourse, getChapterCourseId, getChapterContentGroups, requireClassContext } from "@/lib/courseAccess";
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   const denied = await assertCanManageCourse(auth, courseId);
   if (denied) return denied;
-  // Chapters are shared structure (no target_group) but are still only managed from a valid class context.
+  // A chapter is created for the actively selected, validated class context.
   const classContext = await requireClassContext(courseId, requestedContext);
   if (typeof classContext !== "string") return classContext;
 
@@ -24,15 +24,15 @@ export async function POST(request: Request) {
 
   if (provider === "oracle") {
     await query(
-      `INSERT INTO chapters (id, course_id, title, sort_order)
-       VALUES (:id, :courseId, :title, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM chapters WHERE course_id = :courseId))`,
-      { id: chapterId, courseId, title }
+      `INSERT INTO chapters (id, course_id, title, target_group, sort_order)
+       VALUES (:id, :courseId, :title, :targetGroup, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM chapters WHERE course_id = :courseId AND (target_group = :targetGroup OR (target_group IS NULL AND :targetGroup IS NULL))))`,
+      { id: chapterId, courseId, title, targetGroup: classContext }
     );
   } else {
     await query(
-      `INSERT INTO chapters (id, course_id, title, sort_order)
-       VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM chapters WHERE course_id = $2))`,
-      [chapterId, courseId, title]
+      `INSERT INTO chapters (id, course_id, title, target_group, sort_order)
+       VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM chapters WHERE course_id = $2 AND target_group IS NOT DISTINCT FROM $4))`,
+      [chapterId, courseId, title, classContext]
     );
   }
 

@@ -68,11 +68,11 @@ export function LessonsPanel({
   };
 
   // Filter chapters for this course
-  const courseChapters = chapters.filter((c) => c.courseId === courseId);
+  const courseChapters = chapters.filter((c) => c.courseId === courseId && (selectedClass === "all" || !c.targetGroup || c.targetGroup === selectedClass));
 
   // Unassigned lessons or direct course lessons
   const allCourseTopics = topics.filter((t) =>
-    chapters.some((c) => c.id === t.chapterId && c.courseId === courseId)
+    courseChapters.some((c) => c.id === t.chapterId) && (selectedClass === "all" || !t.targetGroup || t.targetGroup === selectedClass)
   );
 
   const courseLessons = lessons.filter((l) =>
