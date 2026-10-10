@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ArrowLeft, Shield, RefreshCw, Radio, Trash2, Pencil } from "lucide-react";
 import { tx } from "../../lib/theme";
 import { alert, toast } from "@/lib/swal";
@@ -10,6 +10,7 @@ import { HeroBanner } from "../../components/HeroBanner";
 import { PrivateLessonRequestsPanel } from "../../components/PrivateLessonRequestsPanel";
 import { CourseAnnouncements } from "../../components/CourseAnnouncements";
 import { CourseEditModal } from "./CourseEditModal";
+import { apiFetch } from "../../../lib/api";
 
 interface CourseDetailPanelProps {
   selectedCourse: Course;
@@ -69,9 +70,28 @@ export function CourseDetailPanel({
   setShowAddStudentModal,
   teacherRemoveStudent,
 }: CourseDetailPanelProps) {
-  const { refreshData, levels } = useUser();
+  const { refreshData, levels, appUsers, setContentClassContext } = useUser();
   const [refreshing, setRefreshing] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [courseLevels, setCourseLevels] = useState<string[]>([]);
+  // This is the sole class context for this course-detail view.  It is deliberately
+  // populated from enrolled students, never from the course-level configuration.
+  const [selectedClass, setSelectedClass] = useState<string>("all");
+
+  useEffect(() => {
+    void apiFetch<{ levels: string[] }>(`/api/courses/classes?courseId=${encodeURIComponent(selectedCourse.id)}`).then(({ data }) => {
+      setCourseLevels(data?.levels ?? []);
+      setSelectedClass("all");
+    });
+  }, [selectedCourse.id]);
+
+  // Publish the single class context for content writes; leaving the view resets it to read-only.
+  useEffect(() => {
+    setContentClassContext(selectedClass);
+    return () => setContentClassContext("all");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClass]);
+
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -95,7 +115,17 @@ export function CourseDetailPanel({
     }
   };
 
-  const courseAssignments = assignments.filter(a => a.courseId === selectedCourse.id);
+  const isReadOnly = selectedClass === "all";
+  const courseAssignments = assignments.filter((a) => a.courseId === selectedCourse.id && (isReadOnly || !a.targetGroup || a.targetGroup === selectedClass));
+  const visibleLessons = lessons.filter((lesson) => {
+    const topic = topics.find((item) => item.id === lesson.topicId);
+    const chapter = topic && chapters.find((item) => item.id === topic.chapterId);
+    return chapter?.courseId === selectedCourse.id && (isReadOnly || !lesson.targetGroup || lesson.targetGroup === selectedClass);
+  });
+  const visibleEnrollments = enrollments.filter((enrollment) => {
+    if (enrollment.courseId !== selectedCourse.id || isReadOnly) return enrollment.courseId === selectedCourse.id;
+    return appUsers.find((user) => user.id === enrollment.studentId)?.studentLevel === selectedClass;
+  });
 
   return (
     <div className="space-y-6 animate-fadeIn text-left">
@@ -163,8 +193,33 @@ export function CourseDetailPanel({
         }
       />
 
+      <section className="rounded-2xl border p-4 space-y-3" style={{ borderColor: tx.borderS, backgroundColor: tx.surface }}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="font-bold text-sm">ชั้นเรียนในคอร์สนี้</h3>
+            <p className="text-xs" style={{ color: tx.muted }}>ดึงจากชั้นเรียนของนักเรียนที่เพิ่มเข้าคอร์ส และใช้กรองเนื้อหาของแต่ละชั้น</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {courseLevels.map((value) => <span key={value} className="px-3 py-1.5 rounded-xl border text-xs font-bold" style={{ borderColor: tx.borderS, color: tx.secondary }}>{levels.find((level) => level.value === value)?.label ?? value}</span>)}
+          {courseLevels.length === 0 && <span className="text-xs" style={{ color: tx.muted }}>ยังไม่มีนักเรียนในคอร์สที่กำหนดชั้นเรียน</span>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t" style={{ borderColor: tx.borderS }}>
+          <label htmlFor="course-class-view" className="text-xs font-bold" style={{ color: tx.muted }}>กำลังดูชั้นเรียน:</label>
+          <select id="course-class-view" value={selectedClass} onChange={(event) => { setContentClassContext(event.target.value); setSelectedClass(event.target.value); setShowForm(false); setShowAddLessonModal(false); setEditingLesson(null); setViewingAssignmentId(null); }} className="min-w-48 px-3 py-2 rounded-xl border bg-transparent text-sm font-bold" style={{ borderColor: tx.borderS, color: tx.primary }}>
+            <option value="all">ทุกชั้น — ดูอย่างเดียว</option>
+            {courseLevels.map((value) => <option key={value} value={value}>{levels.find((level) => level.value === value)?.label ?? value}</option>)}
+          </select>
+        </div>
+      </section>
+
 
       {/* Tabs */}
+      {isReadOnly && (
+        <div className="rounded-xl border px-4 py-3 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/50">
+          ขณะนี้อยู่ในโหมดดูข้อมูลทุกชั้น กรุณาเลือกชั้นเรียนก่อนเพิ่ม แก้ไข หรือลบเนื้อหา
+        </div>
+      )}
       <div className="flex space-x-3 md:space-x-6 border-b pb-3 mb-6 overflow-x-auto" style={{ borderColor: tx.borderS }}>
         <button onClick={() => setDetailTab("assignments")} className="text-xs md:text-sm font-bold pb-2 border-b-2 transition-all px-1 shrink-0 btn-press whitespace-nowrap"
           style={detailTab === "assignments" ? { borderBottomColor: tx.accent, color: tx.accent } : { borderBottomColor: "transparent", color: tx.secondary }}>
@@ -192,36 +247,42 @@ export function CourseDetailPanel({
 
       {/* Tab 1: Assignments */}
       {detailTab === "assignments" && (
-        <AssignmentsPanel
-          courseId={selectedCourse.id}
-          courseAssignments={courseAssignments}
-          assignments={assignments}
-          submissions={submissions}
-          viewingAssignmentId={viewingAssignmentId}
-          setViewingAssignmentId={setViewingAssignmentId}
-          setShowForm={setShowForm}
-        />
+          <AssignmentsPanel
+            key={selectedClass}
+            courseId={selectedCourse.id}
+            courseAssignments={courseAssignments}
+            assignments={assignments}
+            submissions={submissions}
+            viewingAssignmentId={viewingAssignmentId}
+            setViewingAssignmentId={setViewingAssignmentId}
+            setShowForm={setShowForm}
+            selectedClass={selectedClass}
+            readOnly={isReadOnly}
+          />
       )}
 
        {/* Tab 2: Lessons */}
        {detailTab === "lessons" && (
-         <LessonsPanel
-           lessons={lessons}
-           chapters={chapters}
-           topics={topics}
-           courseId={selectedCourse.id}
-           setShowAddLessonModal={setShowAddLessonModal}
-           setEditingLesson={setEditingLesson}
-           setEditLessonTitle={setEditLessonTitle}
-           setEditLessonDescription={setEditLessonDescription}
-           setEditLessonVideoUrl={setEditLessonVideoUrl}
-         />
+           <LessonsPanel
+             key={selectedClass}
+             lessons={visibleLessons}
+             chapters={chapters}
+             topics={topics}
+             courseId={selectedCourse.id}
+             setShowAddLessonModal={setShowAddLessonModal}
+             setEditingLesson={setEditingLesson}
+             setEditLessonTitle={setEditLessonTitle}
+             setEditLessonDescription={setEditLessonDescription}
+             setEditLessonVideoUrl={setEditLessonVideoUrl}
+             selectedClass={selectedClass}
+             readOnly={isReadOnly}
+           />
        )}
 
       {/* Tab 3: Students */}
       {detailTab === "students" && (
         <StudentsPanel
-          enrollments={enrollments}
+          enrollments={visibleEnrollments}
           courseId={selectedCourse.id}
           submissions={submissions}
           courseAssignments={courseAssignments}
@@ -232,7 +293,7 @@ export function CourseDetailPanel({
         />
       )}
 
-      {detailTab === "announcements" && <CourseAnnouncements courseId={selectedCourse.id} canManage />}
+      {detailTab === "announcements" && <CourseAnnouncements key={`${selectedCourse.id}:${selectedClass}`} courseId={selectedCourse.id} canManage selectedClass={selectedClass} courseLevels={courseLevels} />}
 
       {detailTab === "private_lessons" && (
         <PrivateLessonRequestsPanel courseId={selectedCourse.id} courseTitle={selectedCourse.title} />

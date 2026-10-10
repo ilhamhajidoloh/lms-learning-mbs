@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { apiFetch, setToken, removeToken, getToken } from "../../lib/api";
 import { toast } from "../../lib/swal";
 
@@ -74,6 +74,7 @@ export interface Assignment {
   openAt?: string;
   closeAt?: string;
   multiSelectScoringMode?: MultiSelectScoringMode;
+  targetGroup?: string;
 }
 
 export interface StudentSubmission {
@@ -123,6 +124,7 @@ export interface Lesson {
   isPublished?: boolean;
   isLocked?: boolean;
   subLessons?: LessonSegment[];
+  targetGroup?: string;
 }
 
 export interface AppUser {
@@ -131,6 +133,7 @@ export interface AppUser {
   displayName: string;
   role: Role;
   createdAt: number;
+  studentLevel?: string;
 }
 
 export interface Credential {
@@ -153,6 +156,7 @@ export interface Enrollment {
   progress: number;
   studentName?: string;
   studentUsername?: string;
+  groupName?: string;
 }
 
 interface UserContextProps {
@@ -212,6 +216,8 @@ interface UserContextProps {
   toggleLessonPublished: (lessonId: string, isPublished: boolean) => Promise<{ success: boolean; error?: string }>;
   toggleLessonLocked: (lessonId: string, isLocked: boolean) => Promise<{ success: boolean; error?: string }>;
   deleteLesson: (id: string) => Promise<{ success: boolean; error?: string }>;
+  contentClass: string;
+  setContentClassContext: (value: string) => void;
   appUsers: AppUser[];
   addAppUser: (user: AppUser) => void;
   updateAppUser: (user: AppUser) => void;
@@ -219,7 +225,7 @@ interface UserContextProps {
   refreshData: () => Promise<void>;
   enrollments: Enrollment[];
   enrollInCourse: (courseId: string, enrollCode?: string) => Promise<{ success: boolean; error?: string }>;
-  teacherAddStudent: (courseId: string, studentId: string) => Promise<{ success: boolean; error?: string }>;
+  teacherAddStudent: (courseId: string, studentId: string, groupName?: string) => Promise<{ success: boolean; error?: string }>;
   teacherRemoveStudent: (courseId: string, studentId: string) => Promise<{ success: boolean; error?: string }>;
   updateCourseSettings: (courseId: string, isOpen: boolean, enrollCode: string | null, showScores?: boolean, sequentialLessons?: boolean, quizReviewMode?: "full" | "answers_only" | "none") => Promise<{ success: boolean; error?: string }>;
   levels: CourseLevelOption[];
@@ -462,6 +468,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setLevels([]);
   };
 
+  // Phase 3B: mirror of CourseDetailPanel's selectedClass (the only place a class is chosen). Content writes read
+  // it here so no form needs its own class state; the server re-validates it against enrolled students anyway.
+  const contentClassRef = useRef<string>("all");
+  const [contentClass, setContentClass] = useState<string>("all");
+  const setContentClassContext = (value: string) => {
+    contentClassRef.current = value;
+    setContentClass(value);
+  };
+  const withClassContext = <T extends Record<string, unknown>>(body: T) => ({ ...body, classContext: contentClassRef.current });
+  const classContextQuery = () => `&classContext=${encodeURIComponent(contentClassRef.current)}`;
+
   const toggleDarkMode = () => {
     setDarkMode((prev) => !prev);
   };
@@ -471,7 +488,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await apiFetch("/api/assignments", {
         method: "POST",
-        body: JSON.stringify({
+        body: JSON.stringify(withClassContext({
           id: assignment.id,
           courseId: assignment.courseId,
           lessonId: assignment.lessonId,
@@ -483,7 +500,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
           timeLimit: assignment.timeLimit,
           questions: assignment.questions,
           multiSelectScoringMode: assignment.multiSelectScoringMode,
-        }),
+          targetGroup: assignment.targetGroup,
+        })),
       });
       loadingToast.close();
       if (error) {
@@ -504,7 +522,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await apiFetch("/api/assignments", {
         method: "PUT",
-        body: JSON.stringify({
+        body: JSON.stringify(withClassContext({
           id: assignment.id,
           title: assignment.title,
           lessonId: assignment.lessonId,
@@ -514,7 +532,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           timeLimit: assignment.timeLimit,
           questions: assignment.questions,
           multiSelectScoringMode: assignment.multiSelectScoringMode,
-        }),
+        })),
       });
       loadingToast.close();
       if (error) {
@@ -535,7 +553,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const deleteAssignment = async (id: string): Promise<{ success: boolean; deletedSubmissionCount?: number; error?: string }> => {
     const loadingToast = toast.loading("กำลังลบข้อมูลและประวัติการส่งของนักเรียน...");
     try {
-      const { data, error } = await apiFetch<{ deletedSubmissionCount?: number }>(`/api/assignments?id=${encodeURIComponent(id)}`, {
+      const { data, error } = await apiFetch<{ deletedSubmissionCount?: number }>(`/api/assignments?id=${encodeURIComponent(id)}${classContextQuery()}`, {
         method: "DELETE",
       });
       loadingToast.close();
@@ -565,7 +583,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await apiFetch("/api/assignments", {
         method: "PUT",
-        body: JSON.stringify({ id: assignmentId, showScores, quizReviewMode }),
+        body: JSON.stringify(withClassContext({ id: assignmentId, showScores, quizReviewMode })),
       });
       if (error) {
         toast.error("บันทึกการตั้งค่าไม่สำเร็จ: " + error);
@@ -594,7 +612,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await apiFetch("/api/assignments", {
         method: "PUT",
-        body: JSON.stringify({ id: assignmentId, isOpen }),
+        body: JSON.stringify(withClassContext({ id: assignmentId, isOpen })),
       });
       if (error) {
         toast.error("อัปเดตสถานะงานไม่สำเร็จ: " + error);
@@ -626,7 +644,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await apiFetch("/api/assignments", {
         method: "PUT",
-        body: JSON.stringify({ id: assignmentId, ...settings }),
+        body: JSON.stringify(withClassContext({ id: assignmentId, ...settings })),
       });
       if (error) {
         toast.error("บันทึกการตั้งค่าไม่สำเร็จ: " + error);
@@ -773,7 +791,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await apiFetch("/api/lessons", {
         method: "PUT",
-        body: JSON.stringify({ id: lessonId, isPublished }),
+        body: JSON.stringify(withClassContext({ id: lessonId, isPublished })),
       });
       if (error) {
         toast.error("อัปเดตการมองเห็นบทเรียนไม่สำเร็จ: " + error);
@@ -793,7 +811,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await apiFetch("/api/lessons", {
         method: "PUT",
-        body: JSON.stringify({ id: lessonId, isLocked }),
+        body: JSON.stringify(withClassContext({ id: lessonId, isLocked })),
       });
       if (error) {
         toast.error("อัปเดตการล็อกบทเรียนไม่สำเร็จ: " + error);
@@ -815,13 +833,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const id = "lesson-" + Math.random().toString(36).substring(2, 9);
       const { error } = await apiFetch("/api/lessons", {
         method: "POST",
-        body: JSON.stringify({
+        body: JSON.stringify(withClassContext({
           id,
           topicId: lesson.topicId,
           title: lesson.title,
           description: lesson.description,
           videoUrl: lesson.videoUrl,
-        }),
+          targetGroup: lesson.targetGroup,
+        })),
       });
       loadingToast.close();
       if (error) {
@@ -844,7 +863,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const id = "chap-" + Math.random().toString(36).substring(2, 9);
       const { data, error } = await apiFetch<{ id: string }>("/api/chapters", {
         method: "POST",
-        body: JSON.stringify({ id, courseId, title }),
+        body: JSON.stringify(withClassContext({ id, courseId, title })),
       });
       if (error || !data) {
         return { success: false, error: error || "Failed to create chapter" };
@@ -862,7 +881,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const id = "topic-" + Math.random().toString(36).substring(2, 9);
       const { data, error } = await apiFetch<{ id: string }>("/api/topics", {
         method: "POST",
-        body: JSON.stringify({ id, chapterId, title }),
+        body: JSON.stringify(withClassContext({ id, chapterId, title })),
       });
       if (error || !data) {
         return { success: false, error: error || "Failed to create topic" };
@@ -879,7 +898,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await apiFetch("/api/chapters", {
         method: "PUT",
-        body: JSON.stringify({ id, title }),
+        body: JSON.stringify(withClassContext({ id, title })),
       });
       if (error) {
         toast.error("แก้ไขชื่อหน่วยเรียนไม่สำเร็จ: " + error);
@@ -896,14 +915,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleChapterPublished = async (id: string, isPublished: boolean): Promise<{ success: boolean; error?: string }> => {
-    const { error } = await apiFetch("/api/chapters", { method: "PUT", body: JSON.stringify({ id, isPublished }) });
+    const { error } = await apiFetch("/api/chapters", { method: "PUT", body: JSON.stringify(withClassContext({ id, isPublished })) });
     if (error) return { success: false, error };
     await fetchAllData();
     return { success: true };
   };
 
   const toggleChapterLocked = async (id: string, isLocked: boolean): Promise<{ success: boolean; error?: string }> => {
-    const { error } = await apiFetch("/api/chapters", { method: "PUT", body: JSON.stringify({ id, isLocked }) });
+    const { error } = await apiFetch("/api/chapters", { method: "PUT", body: JSON.stringify(withClassContext({ id, isLocked })) });
     if (error) return { success: false, error };
     await fetchAllData();
     return { success: true };
@@ -912,7 +931,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const deleteChapter = async (id: string): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังลบหน่วยเรียน...");
     try {
-      const { error } = await apiFetch(`/api/chapters?id=${encodeURIComponent(id)}`, {
+      const { error } = await apiFetch(`/api/chapters?id=${encodeURIComponent(id)}${classContextQuery()}`, {
         method: "DELETE",
       });
       loadingToast.close();
@@ -935,7 +954,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await apiFetch("/api/topics", {
         method: "PUT",
-        body: JSON.stringify({ id, title }),
+        body: JSON.stringify(withClassContext({ id, title })),
       });
       if (error) {
         toast.error("แก้ไขชื่อเรื่องไม่สำเร็จ: " + error);
@@ -952,14 +971,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleTopicPublished = async (id: string, isPublished: boolean): Promise<{ success: boolean; error?: string }> => {
-    const { error } = await apiFetch("/api/topics", { method: "PUT", body: JSON.stringify({ id, isPublished }) });
+    const { error } = await apiFetch("/api/topics", { method: "PUT", body: JSON.stringify(withClassContext({ id, isPublished })) });
     if (error) return { success: false, error };
     await fetchAllData();
     return { success: true };
   };
 
   const toggleTopicLocked = async (id: string, isLocked: boolean): Promise<{ success: boolean; error?: string }> => {
-    const { error } = await apiFetch("/api/topics", { method: "PUT", body: JSON.stringify({ id, isLocked }) });
+    const { error } = await apiFetch("/api/topics", { method: "PUT", body: JSON.stringify(withClassContext({ id, isLocked })) });
     if (error) return { success: false, error };
     await fetchAllData();
     return { success: true };
@@ -968,7 +987,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const deleteTopic = async (id: string): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังลบเรื่อง...");
     try {
-      const { error } = await apiFetch(`/api/topics?id=${encodeURIComponent(id)}`, {
+      const { error } = await apiFetch(`/api/topics?id=${encodeURIComponent(id)}${classContextQuery()}`, {
         method: "DELETE",
       });
       loadingToast.close();
@@ -992,12 +1011,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await apiFetch("/api/lessons", {
         method: "PUT",
-        body: JSON.stringify({
+        body: JSON.stringify(withClassContext({
           id: updatedLesson.id,
           title: updatedLesson.title,
           description: updatedLesson.description,
           videoUrl: updatedLesson.videoUrl,
-        }),
+          targetGroup: updatedLesson.targetGroup,
+        })),
       });
       loadingToast.close();
       if (error) {
@@ -1016,7 +1036,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const deleteLesson = async (id: string): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังลบบทเรียน...");
     try {
-      const { error } = await apiFetch(`/api/lessons?id=${encodeURIComponent(id)}`, {
+      const { error } = await apiFetch(`/api/lessons?id=${encodeURIComponent(id)}${classContextQuery()}`, {
         method: "DELETE",
       });
       loadingToast.close();
@@ -1120,12 +1140,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const teacherAddStudent = async (courseId: string, studentId: string): Promise<{ success: boolean; error?: string }> => {
+  const teacherAddStudent = async (courseId: string, studentId: string, groupName?: string): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังเพิ่มผู้เรียนเข้าคอร์ส...");
     try {
       const { error } = await apiFetch("/api/courses/enroll", {
         method: "POST",
-        body: JSON.stringify({ courseId, studentId }),
+        body: JSON.stringify({ courseId, studentId, groupName }),
       });
       loadingToast.close();
       if (error) {
@@ -1399,6 +1419,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         toggleLessonPublished,
         toggleLessonLocked,
         deleteLesson,
+        contentClass,
+        setContentClassContext,
         appUsers,
         addAppUser,
         updateAppUser,

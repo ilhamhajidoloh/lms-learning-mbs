@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, withTransaction, getDbProvider, fromDbBoolean, runForProvider, DatabaseError } from "@/lib/database";
 import type { DbConnection } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
+import { getLessonContext, authorizeCourseRead } from "@/lib/courseAccess";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -58,6 +59,11 @@ export async function GET(request: Request) {
           { sql: "SELECT 1 FROM course_enrollments WHERE course_id = $1 AND student_id = $2", binds: [lesson.course_id, auth.userId] },
         );
         if (!enrolled.rows[0]) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        // Enrolled is not enough: the lesson's class must also match users.student_level (or be shared).
+        const lessonContext = await getLessonContext(lessonId);
+        if (!lessonContext || !(await authorizeCourseRead(auth, lessonContext.courseId, [lessonContext.targetGroup]))) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
       } else if (auth.role === "teacher") {
         const owned = await runForProvider(
           rootDb,

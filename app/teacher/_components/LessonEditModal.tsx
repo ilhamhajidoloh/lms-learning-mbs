@@ -52,7 +52,7 @@ export function LessonEditModal({
                 ...editingLesson,
                 title: editLessonTitle,
                 description: editLessonDescription,
-                videoUrl: editLessonVideoUrl.trim() || undefined
+                videoUrl: editLessonVideoUrl.trim() || undefined,
               });
               setEditingLesson(null);
             }}

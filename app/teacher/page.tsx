@@ -17,7 +17,7 @@ import { AddStudentModal } from "./_components/AddStudentModal";
 import { TeacherPrivateLessonAvailabilityPanel } from "./_components/TeacherPrivateLessonAvailabilityPanel";
 
 function TeacherDashboardContent() {
-  const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, assignments, addAssignment, submissions, lessons, addLesson, updateLesson, courses, currentUserId, createCourse, updateCourseDetails, deleteCourse, loadingData, enrollments, teacherAddStudent, teacherRemoveStudent, updateCourseSettings, appUsers, levels, chapters, addChapter, topics, addTopic } = useUser();
+  const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, assignments, addAssignment, submissions, lessons, addLesson, updateLesson, courses, currentUserId, createCourse, updateCourseDetails, deleteCourse, loadingData, enrollments, teacherAddStudent, teacherRemoveStudent, updateCourseSettings, appUsers, levels, chapters, addChapter, topics, addTopic, contentClass } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<"dashboard" | "courses" | "students" | "availability">("dashboard");
@@ -44,6 +44,7 @@ function TeacherDashboardContent() {
 
   const handleCreateLesson = async (e: FormEvent, customTopicId?: string) => {
     e.preventDefault();
+    if (contentClass === "all") return;
     const topicIdToUse = customTopicId || selectedTopicId;
     if (!addLessonTitle.trim() || !topicIdToUse) return;
     const res = await addLesson({
@@ -140,13 +141,17 @@ function TeacherDashboardContent() {
     return courseTopics.length > 0 ? lessons.filter(lesson => courseTopics.some(t => t.id === lesson.topicId)) : [];
   }, [courseTopics, lessons]);
 
-  const effectiveAssignLessonId = assignLessonId && selectedCourseLessons.some(lesson => lesson.id === assignLessonId)
+  const assignableLessons = React.useMemo(
+    () => selectedCourseLessons.filter((lesson) => !lesson.targetGroup || lesson.targetGroup === contentClass),
+    [selectedCourseLessons, contentClass]
+  );
+  const effectiveAssignLessonId = assignLessonId && assignableLessons.some(lesson => lesson.id === assignLessonId)
     ? assignLessonId
-    : (selectedCourseLessons[0]?.id ?? "");
+    : (assignableLessons[0]?.id ?? "");
 
   const handleCreateAssignment = (e: FormEvent) => {
     e.preventDefault();
-    if (!assignTitle.trim()) return;
+    if (!assignTitle.trim() || contentClass === "all") return;
 
     const targetLessonId = assignLessonId || effectiveAssignLessonId;
 
@@ -160,6 +165,7 @@ function TeacherDashboardContent() {
       points: Number(assignPoints),
       createdAt: Date.now(),
       instructions: assignInstructions,
+      // target_group is assigned by the server from the central class context / parent lesson
     };
 
     addAssignment(newAssignment);
@@ -213,13 +219,13 @@ function TeacherDashboardContent() {
       {showCourseForm && (
         <CourseCreationModal
           setShowCourseForm={setShowCourseForm}
+          levels={levels}
           courseTitle={courseTitle}
           setCourseTitle={setCourseTitle}
           courseDesc={courseDesc}
           setCourseDesc={setCourseDesc}
           courseLevelValue={courseLevelValue}
           setCourseLevelValue={setCourseLevelValue}
-          levels={levels}
           courseGradient={courseGradient}
           setCourseGradient={setCourseGradient}
           courseSaving={courseSaving}
@@ -300,7 +306,7 @@ function TeacherDashboardContent() {
       {showForm && (
         <AssignmentFormModal
           setShowForm={setShowForm}
-          lessons={selectedCourseLessons}
+          lessons={assignableLessons}
           assignLessonId={effectiveAssignLessonId}
           setAssignLessonId={setAssignLessonId}
           assignTitle={assignTitle}

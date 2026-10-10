@@ -14,7 +14,7 @@ import { UserTable } from "./_components/UserTable";
 import { UserFormModal } from "./_components/UserFormModal";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
 
-const EMPTY_FORM = { username: "", displayName: "", role: "student" as Role };
+const EMPTY_FORM = { username: "", displayName: "", role: "student" as Role, studentLevel: "" };
 
 export default function AdminPage() {
   const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, loadingData, courses, refreshData, levels, addLevel, deleteLevel, currentUserId } = useUser();
@@ -86,7 +86,7 @@ export default function AdminPage() {
 
   const openEdit = (user: AppUser) => {
     setEditingUser(user);
-    setFormData({ username: user.username, displayName: user.displayName, role: user.role });
+    setFormData({ username: user.username, displayName: user.displayName, role: user.role, studentLevel: user.studentLevel || "" });
     setFormError(null);
     setShowForm(true);
   };
@@ -112,6 +112,7 @@ export default function AdminPage() {
           username: formData.username.trim(),
           displayName: formData.displayName.trim(),
           role: formData.role,
+          studentLevel: formData.studentLevel,
         }),
       });
 
@@ -129,6 +130,7 @@ export default function AdminPage() {
           username: formData.username.trim(),
           displayName: formData.displayName.trim(),
           role: formData.role,
+          studentLevel: formData.studentLevel,
         }),
       });
 
@@ -217,6 +219,7 @@ export default function AdminPage() {
           closeForm={closeForm}
           handleSubmit={handleSubmit}
           hasOtherAdmin={hasOtherAdmin}
+          levels={levels}
         />
       )}
 

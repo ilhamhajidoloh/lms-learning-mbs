@@ -5,6 +5,8 @@ export async function POST(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (auth.role !== "teacher" && auth.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
+
   const { id, title, description, level, levelLabel, gradientClass } = await request.json();
   const provider = getDbProvider();
   const courseId = id || `course-${Date.now()}`;

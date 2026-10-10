@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isVisibleToClass, normalizeTargetGroup } from "@/lib/targetGroup";
 import { query, getDbProvider, fromDbBoolean, parseJson, normalizeEmptyText, lowerKeys } from "@/lib/database";
 import type { JsonValue } from "@/lib/database/json";
 import { authenticate } from "@/lib/auth";
@@ -101,7 +102,7 @@ export async function GET(request: Request) {
   const topicsQuery = read(topicsSql, {}, topicsSql, []);
 
   const lessonsSql = `
-    SELECT l.id, l.topic_id, l.course_id, l.title, l.description, l.video_url, l.sort_order, l.is_published, l.is_locked
+    SELECT l.id, l.topic_id, l.course_id, l.title, l.description, l.video_url, l.target_group, l.sort_order, l.is_published, l.is_locked
     FROM lessons l
     ORDER BY l.topic_id, l.sort_order
   `;
@@ -116,7 +117,7 @@ export async function GET(request: Request) {
   const segmentsQuery = read(segmentsSql, {}, segmentsSql, []);
 
   const assignmentColumns = (typeColumn: string, dueDateColumn = "a.due_date") => `
-    SELECT a.id, a.course_id, a.lesson_id, ${typeColumn}, a.title, ${dueDateColumn}, a.points,
+    SELECT a.id, a.course_id, a.lesson_id, a.target_group, ${typeColumn}, a.title, ${dueDateColumn}, a.points,
            a.instructions, a.time_limit, a.created_at, a.show_scores, a.quiz_review_mode, a.is_open, a.multi_select_scoring_mode,
            a.allow_edit_submission, a.allow_cancel_submission, a.quiz_attempt_limit, a.open_at, a.close_at
     FROM assignments a
@@ -178,27 +179,27 @@ export async function GET(request: Request) {
 
   const enrollmentsQuery = role === "teacher"
     ? read(`
-        SELECT ce.course_id, ce.student_id, ce.progress, u.display_name AS student_name, u.username AS student_username
+        SELECT ce.course_id, ce.student_id, ce.progress, ce.group_name, u.display_name AS student_name, u.username AS student_username
         FROM course_enrollments ce
         JOIN users u ON u.id = ce.student_id
         WHERE ce.course_id IN (SELECT id FROM courses WHERE instructor_id = :userId)
       `, { userId }, `
-        SELECT ce.course_id, ce.student_id, ce.progress, u.display_name AS student_name, u.username AS student_username
+        SELECT ce.course_id, ce.student_id, ce.progress, ce.group_name, u.display_name AS student_name, u.username AS student_username
         FROM course_enrollments ce
         JOIN users u ON u.id = ce.student_id
         WHERE ce.course_id IN (SELECT id FROM courses WHERE instructor_id = $1)
       `, [userId])
     : (role === "student"
-       ? read("SELECT course_id, progress FROM course_enrollments WHERE student_id = :userId", { userId },
-              "SELECT course_id, progress FROM course_enrollments WHERE student_id = $1", [userId])
+       ? read("SELECT ce.course_id, ce.progress, u.student_level FROM course_enrollments ce JOIN users u ON u.id = ce.student_id WHERE ce.student_id = :userId", { userId },
+              "SELECT ce.course_id, ce.progress, u.student_level FROM course_enrollments ce JOIN users u ON u.id = ce.student_id WHERE ce.student_id = $1", [userId])
        : noRows);
 
   const profilesQuery = role === "admin"
-    ? read("SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC FETCH FIRST 1000 ROWS ONLY", {},
-           "SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC LIMIT 1000", [])
+    ? read("SELECT id, username, display_name, role, student_level, created_at FROM users ORDER BY created_at DESC FETCH FIRST 1000 ROWS ONLY", {},
+           "SELECT id, username, display_name, role, student_level, created_at FROM users ORDER BY created_at DESC LIMIT 1000", [])
     : (role === "teacher"
-       ? read("SELECT id, username, display_name, role, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC FETCH FIRST 500 ROWS ONLY", {},
-              "SELECT id, username, display_name, role, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC LIMIT 500", [])
+       ? read("SELECT id, username, display_name, role, student_level, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC FETCH FIRST 500 ROWS ONLY", {},
+              "SELECT id, username, display_name, role, student_level, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC LIMIT 500", [])
        : noRows);
 
   const completedLessonsQuery = role === "student"
@@ -229,6 +230,24 @@ export async function GET(request: Request) {
     if (courseId) {
       topicToCourseMap.set(t.id, courseId);
     }
+  }
+
+  // A blank target group means shared content. Students receive only content for
+  // their own group, while teachers/admins retain the complete course view.
+  if (role === "student") {
+    const groupByCourse = new Map(enrollmentsRes.rows.map((e) => [e.course_id as string, (e.student_level as string | null) ?? ""]));
+    // Learning content is only returned for enrolled courses (the catalog itself comes from coursesRes).
+    const visibleToStudent = (courseId: string | undefined, targetGroup: string | null | undefined) =>
+      groupByCourse.has(courseId ?? "") && isVisibleToClass(targetGroup, groupByCourse.get(courseId ?? ""));
+    const knownLessonIds = new Set(lessonsRes.rows.map((l) => l.id as string));
+    lessonsRes.rows = lessonsRes.rows.filter((l) => visibleToStudent(topicToCourseMap.get(l.topic_id) ?? l.course_id, l.target_group));
+    // Children inherit the parent's class: an assignment is also hidden when its lesson is hidden.
+    const visibleLessonIds = new Set(lessonsRes.rows.map((l) => l.id as string));
+    assignmentsRes.rows = assignmentsRes.rows.filter((a) =>
+      visibleToStudent(a.course_id, a.target_group) && (!a.lesson_id || !knownLessonIds.has(a.lesson_id as string) || visibleLessonIds.has(a.lesson_id as string)));
+    segmentsRes.rows = segmentsRes.rows.filter((s) => visibleLessonIds.has(s.lesson_id as string));
+    const visibleAssignmentIds = new Set(assignmentsRes.rows.map((a) => a.id as string));
+    quizQuestionsRes.rows = quizQuestionsRes.rows.filter((q) => visibleAssignmentIds.has(q.assignment_id as string));
   }
 
   const completedLessonSet = new Set(completedLessonsRes.rows.map((r) => r.lesson_id));
@@ -314,6 +333,7 @@ export async function GET(request: Request) {
     title: l.title,
     description: l.description,
     videoUrl: l.video_url || undefined,
+    targetGroup: normalizeTargetGroup(l.target_group) ?? undefined,
     isPublished: l.is_published !== false,
     isLocked: l.is_locked === true,
     subLessons: (segmentsByLesson[l.id] ?? []).map((s) => ({
@@ -334,6 +354,7 @@ export async function GET(request: Request) {
     id: a.id,
     courseId: a.course_id,
     lessonId: a.lesson_id || undefined,
+    targetGroup: normalizeTargetGroup(a.target_group) ?? undefined,
     type: a.type,
     title: a.title,
     dueDate: a.due_date,
@@ -452,6 +473,7 @@ export async function GET(request: Request) {
     progress: e.progress,
     studentName: e.student_name,
     studentUsername: e.student_username,
+    groupName: e.group_name || undefined,
   }));
 
   const appUsers = profilesRes.rows.map((p) => ({
@@ -460,6 +482,7 @@ export async function GET(request: Request) {
     displayName: p.display_name,
     role: p.role,
     createdAt: new Date(p.created_at).getTime(),
+    studentLevel: p.student_level || undefined,
   }));
 
   return Response.json({

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Only admin can create users" }, { status: 403 });
   }
 
-  const { username, displayName, role, password } = await request.json();
+  const { username, displayName, role, password, studentLevel } = await request.json();
 
   if (!username?.trim() || !displayName?.trim() || !role) {
     return Response.json({ error: "กรุณากรอกข้อมูลให้ครบ" }, { status: 400 });
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   try {
     if (provider === "oracle") {
       await query(
-        "INSERT INTO users (id, email, password_hash, username, display_name, role, password_changed) VALUES (:id, :email, :hash, :username, :displayName, :role, :passwordChanged)",
+        "INSERT INTO users (id, email, password_hash, username, display_name, role, student_level, password_changed) VALUES (:id, :email, :hash, :username, :displayName, :role, :studentLevel, :passwordChanged)",
         {
           id: userId,
           email: signupEmail,
@@ -65,6 +65,7 @@ export async function POST(request: Request) {
           username: username.trim(),
           displayName: displayName.trim(),
           role,
+          studentLevel: role === "student" ? (studentLevel || null) : null,
           passwordChanged: toDbBoolean(false),
         }
       );
@@ -90,10 +91,10 @@ export async function POST(request: Request) {
       });
     } else {
       const result = await query(
-        `INSERT INTO users (email, password_hash, username, display_name, role, password_changed)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO users (email, password_hash, username, display_name, role, student_level, password_changed)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id, username, display_name, role, created_at`,
-        [signupEmail, passwordHash, username.trim(), displayName.trim(), role, false]
+        [signupEmail, passwordHash, username.trim(), displayName.trim(), role, role === "student" ? (studentLevel || null) : null, false]
       );
 
       const user = result.rows[0];

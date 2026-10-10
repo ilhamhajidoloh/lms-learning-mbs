@@ -14,6 +14,58 @@
   --font-mono: monospace;
 }
 
+/*
+   Application palette
+   The interface previously mixed saturated indigo, purple, pink and neon
+   accents page by page.  Tailwind utilities resolve through these tokens, so
+   keeping the palette here gives every route a vivid, consistent appearance.
+   The primary family is a fresh green. Status colours stay distinct,
+   using bright green, ochre and brick tones.
+*/
+@theme {
+  --color-indigo-50: #f0fdf4;  --color-indigo-100: #dcfce7; --color-indigo-200: #bbf7d0;
+  --color-indigo-300: #86efac; --color-indigo-400: #4ade80; --color-indigo-500: #22c55e;
+  --color-indigo-600: #16a34a; --color-indigo-700: #15803d; --color-indigo-800: #166534;
+  --color-indigo-900: #14532d; --color-indigo-950: #052e16;
+
+  --color-blue-50: #f0fdf4;    --color-blue-100: #dcfce7;   --color-blue-200: #bbf7d0;
+  --color-blue-300: #86efac;   --color-blue-400: #4ade80;   --color-blue-500: #22c55e;
+  --color-blue-600: #16a34a;   --color-blue-700: #15803d;   --color-blue-800: #166534;
+  --color-blue-900: #14532d;   --color-blue-950: #052e16;
+
+  --color-purple-50: #f0fdf4;  --color-purple-100: #dcfce7; --color-purple-200: #bbf7d0;
+  --color-purple-300: #86efac; --color-purple-400: #4ade80; --color-purple-500: #22c55e;
+  --color-purple-600: #16a34a; --color-purple-700: #15803d; --color-purple-800: #166534;
+  --color-purple-900: #14532d; --color-purple-950: #052e16;
+
+  --color-violet-300: #86efac; --color-violet-400: #4ade80; --color-violet-500: #22c55e;
+  --color-violet-600: #16a34a; --color-violet-700: #15803d;
+  --color-pink-500: #22c55e;   --color-fuchsia-500: #16a34a;
+  --color-cyan-500: #22c55e;   --color-teal-500: #16a34a;
+
+  --color-emerald-50: #f0fdf4; --color-emerald-100: #dcfce7; --color-emerald-200: #bbf7d0;
+  --color-emerald-300: #86efac; --color-emerald-400: #4ade80; --color-emerald-500: #22c55e;
+  --color-emerald-600: #16a34a; --color-emerald-700: #15803d; --color-emerald-800: #166534;
+  --color-emerald-900: #14532d; --color-emerald-950: #052e16;
+
+  --color-amber-50: #faf7ef;   --color-amber-100: #f1ead7; --color-amber-200: #e4d6b8;
+  --color-amber-300: #d2bb8b;  --color-amber-400: #b99a67; --color-amber-500: #9a7b4e;
+  --color-amber-600: #80643f;  --color-amber-700: #6a5237; --color-amber-800: #594532;
+  --color-amber-900: #493a2c;  --color-amber-950: #30261e;
+
+  --color-orange-400: #b98a63; --color-orange-500: #9d704f;
+
+  --color-red-50: #faf4f3;     --color-red-100: #f0e1de;   --color-red-200: #e1c8c2;
+  --color-red-300: #cba69e;    --color-red-400: #ae7e75;   --color-red-500: #8e5e57;
+  --color-red-600: #764d48;    --color-red-700: #643f3b;   --color-red-800: #543633;
+  --color-red-900: #45302e;    --color-red-950: #2d211f;
+
+  --color-rose-50: #faf4f3;    --color-rose-100: #f0e1de;  --color-rose-200: #e1c8c2;
+  --color-rose-300: #cba69e;   --color-rose-400: #ae7e75;  --color-rose-500: #8e5e57;
+  --color-rose-600: #764d48;   --color-rose-700: #643f3b;  --color-rose-800: #543633;
+  --color-rose-900: #45302e;   --color-rose-950: #2d211f;
+}
+
 /* =============================================
    LIGHT MODE TOKENS
    ─ 3-tier background system:
@@ -46,9 +98,9 @@
   --glass-border:   rgba(148,163,184,0.55); /* slate-400 @55% — visible header border */
 
   /* accent colors */
-  --color-accent:      #4f46e5; /* indigo-600 */
-  --color-accent-hover:#4338ca; /* indigo-700 */
-  --color-accent-bg:   rgba(79,70,229,0.1);
+  --color-accent:      #16a34a; /* vivid green */
+  --color-accent-hover:#15803d;
+  --color-accent-bg:   rgba(22,163,74,0.14);
 }
 
 /* =============================================
@@ -79,9 +131,9 @@
   --glass-border:   rgba(255,255,255,0.12); /* slightly brighter for visible header border */
 
   /* accent colors */
-  --color-accent:      #818cf8; /* indigo-400 */
-  --color-accent-hover:#a5b4fc; /* indigo-300 */
-  --color-accent-bg:   rgba(129,140,248,0.15);
+  --color-accent:      #4ade80; /* vivid green for dark surfaces */
+  --color-accent-hover:#86efac;
+  --color-accent-bg:   rgba(74,222,128,0.18);
 }
 
 /* =============================================
@@ -297,8 +349,8 @@ header a,
    PULSE GLOW (CTA Buttons)
    ============================================= */
 @keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
-  50%       { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(73,107,88,0.32); }
+  50%       { box-shadow: 0 0 0 8px rgba(73,107,88,0); }
 }
 .animate-pulseGlow {
   animation: pulseGlow 2s ease-in-out infinite;
@@ -488,17 +540,17 @@ header a,
 }
 
 .btn-primary {
-  background: linear-gradient(to right, var(--color-accent), #7c3aed);
+  background: var(--color-accent);
   color: white;
   font-weight: 700;
   border-radius: 0.75rem;
-  box-shadow: 0 4px 6px -1px rgba(99,102,241,0.2), 0 2px 4px -1px rgba(99,102,241,0.1);
+  box-shadow: 0 4px 6px -1px rgba(73,107,88,0.2), 0 2px 4px -1px rgba(73,107,88,0.1);
   transition: all 0.2s ease;
 }
 .btn-primary:hover {
   filter: brightness(1.1);
   transform: translateY(-1px);
-  box-shadow: 0 10px 20px -4px rgba(99,102,241,0.3);
+  box-shadow: 0 10px 20px -4px rgba(73,107,88,0.28);
 }
 .btn-primary:active {
   transform: scale(0.97) translateY(0);
@@ -576,18 +628,18 @@ header a,
 }
 
 .swal2-confirm {
-  background: linear-gradient(to right, #4f46e5, #7c3aed) !important; /* indigo-600 to violet-600 */
+  background: var(--color-accent) !important;
   border-radius: 0.75rem !important;
   font-weight: 700 !important;
   font-size: 0.875rem !important;
   padding: 0.625rem 1.5rem !important;
-  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2), 0 2px 4px -1px rgba(79, 70, 229, 0.1) !important;
+  box-shadow: 0 4px 6px -1px rgba(73, 107, 88, 0.2), 0 2px 4px -1px rgba(73, 107, 88, 0.1) !important;
   transition: all 0.2s !important;
   border: none !important;
 }
 
 .swal2-confirm:hover {
-  background: linear-gradient(to right, #4338ca, #6d28d9) !important; /* darker hover */
+  background: var(--color-accent-hover) !important;
   transform: translateY(-1px) !important;
 }
 
@@ -632,5 +684,4 @@ header a,
   margin: 0 !important;
   padding: 0 0.5rem !important;
 }
-
 

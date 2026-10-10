@@ -1,3 +1,4 @@
+import { assertCanManageCourse, authorizeCourseRead, getAssignmentContext, getSubmissionCourseId } from "@/lib/courseAccess";
 import { query, withTransaction, getDbProvider, fromDbBoolean, oracleUtcInstant, DatabaseError } from "@/lib/database";
 import type { DbConnection } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
@@ -69,14 +70,27 @@ export async function POST(request: Request) {
   try {
     const { assignmentId, type, fileName, score, questionScores, answers, submittedAt } = await request.json();
 
-    // Check assignment open window if student is submitting
-    if (auth.role === "student") {
+    if (auth.role !== "student") {
+      return Response.json({ error: "Only students can submit work" }, { status: 403 });
+    }
+
+    // Enrollment and class come from the database (course_enrollments + users.student_level), never from the request.
+    // The assignment must pass its own target_group and its parent lesson's target_group.
+    const context = assignmentId ? await getAssignmentContext(assignmentId) : null;
+    if (!context) return Response.json({ error: "Assignment not found" }, { status: 404 });
+    if (!(await authorizeCourseRead(auth, context.courseId, context.groups))) {
+      return Response.json({ error: "This assignment is not available for you" }, { status: 403 });
+    }
+
+    // Check assignment open window
+    {
       const assignRows = await run(
         rootDb,
-        { sql: `SELECT is_open, open_at, close_at, due_date FROM assignments WHERE id = :assignmentId`, binds: { assignmentId } },
-        { sql: `SELECT is_open, open_at, close_at, due_date FROM assignments WHERE id = $1`, binds: [assignmentId] },
+        { sql: `SELECT a.is_open, a.open_at, a.close_at, a.due_date FROM assignments a WHERE a.id = :assignmentId`, binds: { assignmentId } },
+        { sql: `SELECT a.is_open, a.open_at, a.close_at, a.due_date FROM assignments a WHERE a.id = $1`, binds: [assignmentId] },
       ).catch(() => [] as Row[]);
       const assign = assignRows[0];
+      if (!assign) return Response.json({ error: "Assignment not found" }, { status: 404 });
       if (assign && isSubmissionWindowClosed(assign)) {
         return Response.json(
           { error: "งานนี้ปิดรับการส่งอยู่ในขณะนี้ (หรือยังไม่ถึงเวลาเปิดรับส่ง)" },
@@ -194,6 +208,7 @@ export async function PUT(request: Request) {
         if (sub.student_id !== auth.userId) {
           return Response.json({ error: "Forbidden" }, { status: 403 });
         }
+        if (auth.role !== "student") return Response.json({ error: "Forbidden" }, { status: 403 });
         if (isSubmissionWindowClosed(sub)) {
           return Response.json({ error: "งานนี้ปิดรับการส่งอยู่ในขณะนี้" }, { status: 403 });
         }
@@ -285,6 +300,10 @@ export async function PUT(request: Request) {
         return Response.json({ success: true, score: total });
       });
     }
+
+    // Grading by score alone must also be limited to the owner of the submission's course.
+    const gradeDenied = await assertCanManageCourse(auth, await getSubmissionCourseId(submissionId));
+    if (gradeDenied) return gradeDenied;
 
     const finalScore = reset || score === null ? null : Number(score);
     if (finalScore !== null && !Number.isFinite(finalScore)) {

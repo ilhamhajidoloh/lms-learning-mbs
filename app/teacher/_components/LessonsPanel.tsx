@@ -16,6 +16,8 @@ interface LessonsPanelProps {
   setEditLessonTitle: (v: string) => void;
   setEditLessonDescription: (v: string) => void;
   setEditLessonVideoUrl: (v: string) => void;
+  selectedClass: string;
+  readOnly: boolean;
 }
 
 export function LessonsPanel({
@@ -28,6 +30,8 @@ export function LessonsPanel({
   setEditLessonTitle,
   setEditLessonDescription,
   setEditLessonVideoUrl,
+  selectedClass,
+  readOnly,
 }: LessonsPanelProps) {
   const {
     addChapter,
@@ -163,6 +167,7 @@ export function LessonsPanel({
           <button
             type="button"
             onClick={() => setShowAddChapterModal(true)}
+            disabled={readOnly}
             className="px-3 md:px-3.5 py-2 text-[11px] md:text-xs font-bold rounded-xl border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <FolderPlus className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -172,6 +177,7 @@ export function LessonsPanel({
           <button
             type="button"
             onClick={() => setShowAddLessonModal(true)}
+            disabled={readOnly}
             className="btn-primary px-3 md:px-4 py-2 text-[11px] md:text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -191,6 +197,7 @@ export function LessonsPanel({
           <button
             type="button"
             onClick={() => setShowAddChapterModal(true)}
+            disabled={readOnly}
             className="btn-primary px-4 py-2 text-xs rounded-xl cursor-pointer"
           >
             + สร้างหน่วยเรียนแรก
@@ -262,7 +269,7 @@ export function LessonsPanel({
                   </div>
 
                   {/* Chapter Actions */}
-                  <div className="flex items-center gap-1 md:gap-1.5 shrink-0 self-end sm:self-auto">
+                  <div hidden={readOnly} className="flex items-center gap-1 md:gap-1.5 shrink-0 self-end sm:self-auto">
                     <button
                       type="button"
                       onClick={() => void toggleChapterPublished(chap.id, chap.isPublished === false)}
@@ -401,7 +408,7 @@ export function LessonsPanel({
                               )}
 
                               {/* Topic Actions */}
-                              <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
+                              <div hidden={readOnly} className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
                                 <button
                                   type="button"
                                   onClick={() => void toggleTopicPublished(top.id, top.isPublished === false)}
@@ -472,6 +479,9 @@ export function LessonsPanel({
                                           <h6 className="font-bold text-xs md:text-sm text-slate-800 dark:text-slate-100 break-words">
                                             {l.title}
                                           </h6>
+                                          {!l.targetGroup && selectedClass !== "all" && (
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">เนื้อหาร่วม</span>
+                                          )}
                                           {!isPub && (
                                             <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                                               ซ่อนอยู่
@@ -499,7 +509,7 @@ export function LessonsPanel({
                                       </div>
 
                                       {/* Lesson Control Actions */}
-                                      <div className="flex items-center gap-1 md:gap-2 shrink-0 flex-wrap">
+                                      <div hidden={readOnly || !l.targetGroup} className="flex items-center gap-1 md:gap-2 shrink-0 flex-wrap">
                                         <LessonBroadcastButton
                                           lessonId={l.id}
                                           lessonTitle={l.title}

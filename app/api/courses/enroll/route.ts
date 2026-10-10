@@ -6,7 +6,7 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "An unexpected error occurred";
 }
 
-async function upsertEnrollment(provider: string, courseId: string, studentId: string) {
+async function upsertEnrollment(provider: string, courseId: string, studentId: string, groupName?: string) {
   if (provider === "oracle") {
     // Use MERGE for Oracle UPSERT
     await query(
@@ -14,16 +14,17 @@ async function upsertEnrollment(provider: string, courseId: string, studentId: s
        USING (SELECT :courseId AS course_id, :studentId AS student_id FROM DUAL) s
        ON (t.course_id = s.course_id AND t.student_id = s.student_id)
        WHEN NOT MATCHED THEN
-         INSERT (id, course_id, student_id, progress)
-         VALUES (:id, s.course_id, s.student_id, 0)`,
-      { courseId, studentId, id: randomUUID() }
+         INSERT (id, course_id, student_id, progress, group_name)
+         VALUES (:id, s.course_id, s.student_id, 0, :groupName)
+       WHEN MATCHED THEN UPDATE SET group_name = :groupName`,
+      { courseId, studentId, groupName: groupName?.trim() || null, id: randomUUID() }
     );
   } else {
     await query(
-      `INSERT INTO course_enrollments (course_id, student_id, progress)
-       VALUES ($1, $2, 0)
-       ON CONFLICT (course_id, student_id) DO NOTHING`,
-      [courseId, studentId]
+      `INSERT INTO course_enrollments (course_id, student_id, progress, group_name)
+       VALUES ($1, $2, 0, $3)
+       ON CONFLICT (course_id, student_id) DO UPDATE SET group_name = EXCLUDED.group_name`,
+      [courseId, studentId, groupName?.trim() || null]
     );
   }
 }
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { courseId, studentId, enrollCode } = await request.json();
+  const { courseId, studentId, enrollCode, groupName } = await request.json();
   if (!courseId) return Response.json({ error: "Missing course id" }, { status: 400 });
 
   const provider = getDbProvider();
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      await upsertEnrollment(provider, courseId, studentId);
+      await upsertEnrollment(provider, courseId, studentId, groupName);
       return Response.json({ success: true });
     } catch (error: unknown) {
       return Response.json({ error: errorMessage(error) }, { status: 500 });

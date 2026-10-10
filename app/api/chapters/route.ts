@@ -1,15 +1,23 @@
 import { query, getDbProvider, toDbBoolean, fromDbBoolean } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
 import { randomUUID } from "crypto";
+import { assertCanManageCourse, getChapterCourseId, getChapterContentGroups, requireClassContext } from "@/lib/courseAccess";
+import { canDeleteSharedStructure } from "@/lib/accessPolicy";
 
 export async function POST(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, courseId, title } = await request.json();
+  const { id, courseId, title, classContext: requestedContext } = await request.json();
   if (!courseId || !title) {
     return Response.json({ error: "Missing courseId or title" }, { status: 400 });
   }
+
+  const denied = await assertCanManageCourse(auth, courseId);
+  if (denied) return denied;
+  // Chapters are shared structure (no target_group) but are still only managed from a valid class context.
+  const classContext = await requireClassContext(courseId, requestedContext);
+  if (typeof classContext !== "string") return classContext;
 
   const provider = getDbProvider();
   const chapterId = id || randomUUID();
@@ -35,9 +43,15 @@ export async function PUT(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, title, sortOrder, isPublished, isLocked } = await request.json();
+  const { id, title, sortOrder, isPublished, isLocked, classContext: requestedContext } = await request.json();
   if (!id) return Response.json({ error: "Missing chapter id" }, { status: 400 });
   if (auth.role !== "teacher" && auth.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
+
+  const putCourseId = await getChapterCourseId(id);
+  const putDenied = await assertCanManageCourse(auth, putCourseId);
+  if (putDenied) return putDenied;
+  const putClass = await requireClassContext(putCourseId as string, requestedContext);
+  if (typeof putClass !== "string") return putClass;
 
   const provider = getDbProvider();
 
@@ -80,6 +94,9 @@ export async function PUT(request: Request) {
     return Response.json({ success: true });
   }
 
+  const denied = await assertCanManageCourse(auth, await getChapterCourseId(id));
+  if (denied) return denied;
+
   if (sortOrder !== undefined) {
     if (provider === "oracle") {
       await query(
@@ -110,6 +127,16 @@ export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
   if (!id) return Response.json({ error: "Missing chapter id" }, { status: 400 });
+
+  const courseId = await getChapterCourseId(id);
+  const denied = await assertCanManageCourse(auth, courseId);
+  if (denied) return denied;
+  const classContext = await requireClassContext(courseId as string, searchParams.get("classContext"));
+  if (typeof classContext !== "string") return classContext;
+  // Shared structure holding another class's (or shared) lessons/quizzes must not be deleted from this class.
+  if (!canDeleteSharedStructure(await getChapterContentGroups(id), classContext)) {
+    return Response.json({ error: "Chapter contains content of other classes or shared content" }, { status: 409 });
+  }
 
   const provider = getDbProvider();
   await query(

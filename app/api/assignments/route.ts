@@ -1,4 +1,7 @@
 import { query, withTransaction, getDbProvider, toDbBoolean, serializeJson, oracleUtcInstant } from "@/lib/database";
+import { normalizeTargetGroup } from "@/lib/targetGroup";
+import { assertCanManageCourse, getAssignmentContext, getLessonContext, requireClassContext } from "@/lib/courseAccess";
+import { childTargetGroupOnCreate, isSameCourse, canWriteClassContent } from "@/lib/accessPolicy";
 import { authenticate } from "@/lib/auth";
 import { calculateQuestionScore, type QuizAnswer } from "@/lib/quizScoring";
 import { randomUUID } from "crypto";
@@ -14,7 +17,7 @@ export async function POST(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, courseId, lessonId, type, title, dueDate, points, instructions, timeLimit, questions, multiSelectScoringMode } =
+  const { id, courseId, lessonId, type, title, dueDate, points, instructions, timeLimit, questions, multiSelectScoringMode, targetGroup: requestedGroup, classContext: requestedContext } =
     await request.json();
   const resolvedMultiSelectScoringMode = multiSelectScoringMode === "penalize_incorrect"
     ? "penalize_incorrect"
@@ -23,6 +26,31 @@ export async function POST(request: Request) {
   const provider = getDbProvider();
   const assignmentId = id || randomUUID();
   const oracleDueDate = toOracleDueDate(dueDate);
+
+  const denied = await assertCanManageCourse(auth, courseId);
+  if (denied) return denied;
+
+  // Phase 3B: creation happens only inside a selected class that has enrolled students.
+  const classContext = await requireClassContext(courseId, requestedContext);
+  if (typeof classContext !== "string") return classContext;
+  const requestedNormalized = normalizeTargetGroup(requestedGroup);
+  if (requestedNormalized !== null && requestedNormalized !== classContext) {
+    return Response.json({ error: "target_group must match the selected class" }, { status: 400 });
+  }
+
+  // A lesson supplied by the client must belong to this course; its class is inherited by the assignment.
+  let parentLessonGroup: string | null = null;
+  if (lessonId) {
+    const lessonContext = await getLessonContext(lessonId);
+    if (!lessonContext || !isSameCourse(courseId, lessonContext.courseId)) {
+      return Response.json({ error: "Lesson not found in this course" }, { status: 404 });
+    }
+    parentLessonGroup = lessonContext.targetGroup;
+    // A parent lesson of another class cannot host content created from this class.
+    if (parentLessonGroup !== null && parentLessonGroup !== classContext) {
+      return Response.json({ error: "Lesson belongs to another class" }, { status: 403 });
+    }
+  }
 
   let resolvedLessonId = lessonId || null;
   if (!resolvedLessonId) {
@@ -43,12 +71,22 @@ export async function POST(request: Request) {
       provider === "oracle" ? { courseId } : [courseId]
     ).catch(() => ({ rows: [] }));
     resolvedLessonId = (lessonQuery.rows[0] as { id: string } | undefined)?.id ?? null;
+    // The auto-linked lesson is a real parent: visibility already requires it, so the class must match too.
+    if (resolvedLessonId) {
+      parentLessonGroup = (await getLessonContext(resolvedLessonId))?.targetGroup ?? null;
+      // Never auto-link to a lesson of another class: the item stays independent in the selected class instead.
+      if (parentLessonGroup !== null && parentLessonGroup !== classContext) {
+        resolvedLessonId = null;
+        parentLessonGroup = null;
+      }
+    }
   }
+  const assignmentTargetGroup = childTargetGroupOnCreate(parentLessonGroup, classContext);
 
   if (provider === "oracle") {
     await query(
-      `INSERT INTO assignments (id, course_id, lesson_id, created_by, assignment_type, title, due_date, points, instructions, time_limit, multi_select_scoring_mode)
-       VALUES (:id, :courseId, :lessonId, :createdBy, :type, :title, TO_DATE(:dueDate, 'YYYY-MM-DD'), :points, :instructions, :timeLimit, :multiSelectScoringMode)`,
+      `INSERT INTO assignments (id, course_id, lesson_id, created_by, assignment_type, title, due_date, points, instructions, time_limit, multi_select_scoring_mode, target_group)
+       VALUES (:id, :courseId, :lessonId, :createdBy, :type, :title, TO_DATE(:dueDate, 'YYYY-MM-DD'), :points, :instructions, :timeLimit, :multiSelectScoringMode, :targetGroup)`,
       {
         id: assignmentId,
         courseId,
@@ -61,13 +99,14 @@ export async function POST(request: Request) {
         instructions: instructions ?? null,
         timeLimit: timeLimit ?? null,
         multiSelectScoringMode: resolvedMultiSelectScoringMode,
+        targetGroup: assignmentTargetGroup,
       }
     );
   } else {
     await query(
-      `INSERT INTO assignments (id, course_id, lesson_id, created_by, type, title, due_date, points, instructions, time_limit, multi_select_scoring_mode)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [assignmentId, courseId, resolvedLessonId, auth.userId, type, title, dueDate, points, instructions ?? null, timeLimit ?? null, resolvedMultiSelectScoringMode]
+      `INSERT INTO assignments (id, course_id, lesson_id, created_by, type, title, due_date, points, instructions, time_limit, multi_select_scoring_mode, target_group)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [assignmentId, courseId, resolvedLessonId, auth.userId, type, title, dueDate, points, instructions ?? null, timeLimit ?? null, resolvedMultiSelectScoringMode, assignmentTargetGroup]
     );
   }
 
@@ -218,6 +257,17 @@ export async function DELETE(request: Request) {
   const id = searchParams.get("id");
   if (!id) return Response.json({ error: "ไม่พบรหัสงานหรือควิซ" }, { status: 400 });
 
+  const deleteContext = await getAssignmentContext(id);
+  if (!deleteContext) return Response.json({ error: "ไม่พบงานหรือควิซนี้" }, { status: 404 });
+  const deleteDenied = await assertCanManageCourse(auth, deleteContext.courseId);
+  if (deleteDenied) return deleteDenied;
+
+  const deleteClass = await requireClassContext(deleteContext.courseId as string, searchParams.get("classContext"));
+  if (typeof deleteClass !== "string") return deleteClass;
+  if (!canWriteClassContent(deleteContext.ownGroup, deleteClass, [deleteContext.lessonGroup])) {
+    return Response.json({ error: "Assignment does not belong to the selected class" }, { status: 403 });
+  }
+
   const provider = getDbProvider();
 
   try {
@@ -293,9 +343,34 @@ export async function PUT(request: Request) {
     timeLimit,
     questions,
     multiSelectScoringMode,
+    classContext: requestedContext,
   } = body;
 
   if (!id) return Response.json({ error: "Missing assignment id" }, { status: 400 });
+
+  const putContext = await getAssignmentContext(id);
+  if (!putContext) return Response.json({ error: "Assignment not found" }, { status: 404 });
+  const putDenied = await assertCanManageCourse(auth, putContext.courseId);
+  if (putDenied) return putDenied;
+
+  // Phase 3B: only items of the selected class (not shared, not another class) can be edited. target_group is
+  // never read from the body here; it changes only through inheritance from a re-linked lesson.
+  const putClass = await requireClassContext(putContext.courseId as string, requestedContext);
+  if (typeof putClass !== "string") return putClass;
+  if (!canWriteClassContent(putContext.ownGroup, putClass, [putContext.lessonGroup])) {
+    return Response.json({ error: "Assignment does not belong to the selected class" }, { status: 403 });
+  }
+
+  // Re-linking to another lesson is allowed only inside the same course and the same class (or a shared lesson).
+  if (lessonId !== undefined && lessonId !== null && lessonId !== "") {
+    const newLesson = await getLessonContext(lessonId);
+    if (!newLesson || !isSameCourse(putContext.courseId, newLesson.courseId)) {
+      return Response.json({ error: "Lesson not found in this course" }, { status: 404 });
+    }
+    if (newLesson.targetGroup !== null && newLesson.targetGroup !== putClass) {
+      return Response.json({ error: "Lesson belongs to another class" }, { status: 403 });
+    }
+  }
 
   const provider = getDbProvider();
   const oracleDueDate = toOracleDueDate(dueDate);
@@ -395,6 +470,23 @@ export async function PUT(request: Request) {
             id,
           ]
         );
+      }
+
+      // Re-linked to a class-specific lesson: the assignment/quiz takes that lesson's class (same transaction).
+      if (lessonId !== undefined && lessonId !== null && lessonId !== "") {
+        const lessonRes = await tx.query(
+          provider === "oracle" ? "SELECT target_group FROM lessons WHERE id = :lessonId" : "SELECT target_group FROM lessons WHERE id = $1",
+          provider === "oracle" ? { lessonId } : [lessonId]
+        );
+        const lessonRow = lessonRes.rows[0] as Record<string, unknown> | undefined;
+        const lessonGroup = lessonRow ? (lessonRow.target_group ?? lessonRow.TARGET_GROUP) : null;
+        const inherited = childTargetGroupOnCreate(lessonGroup, putContext.ownGroup);
+        if (inherited !== putContext.ownGroup) {
+          await tx.query(
+            provider === "oracle" ? "UPDATE assignments SET target_group = :targetGroup WHERE id = :id" : "UPDATE assignments SET target_group = $1 WHERE id = $2",
+            provider === "oracle" ? { targetGroup: inherited, id } : [inherited, id]
+          );
+        }
       }
 
       // If questions are provided, replace existing questions for this quiz

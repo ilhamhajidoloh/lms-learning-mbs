@@ -8,15 +8,15 @@ export async function GET(request: Request) {
   const provider = getDbProvider();
   const result = await query(
     provider === "oracle"
-      ? "SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC"
-      : "SELECT id, username, display_name, role, created_at FROM users ORDER BY created_at DESC",
+      ? "SELECT id, username, display_name, role, student_level, created_at FROM users ORDER BY created_at DESC"
+      : "SELECT id, username, display_name, role, student_level, created_at FROM users ORDER BY created_at DESC",
     provider === "oracle" ? {} : []
   );
 
   const rows = result.rows.map((row) => provider === "oracle"
     ? lowerKeys(row as Record<string, unknown>)!
     : row
-  ) as Array<{ id: string; username: string; display_name: string; role: string; created_at: Date | string | number }>;
+  ) as Array<{ id: string; username: string; display_name: string; role: string; student_level?: string; created_at: Date | string | number }>;
   return Response.json(
     rows.map((p) => ({
       id: p.id,
@@ -24,6 +24,7 @@ export async function GET(request: Request) {
       displayName: p.display_name,
       role: p.role,
       createdAt: new Date(p.created_at).getTime(),
+      studentLevel: p.student_level || undefined,
     }))
   );
 }
@@ -32,7 +33,7 @@ export async function PUT(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, username, displayName, role } = await request.json();
+  const { id, username, displayName, role, studentLevel } = await request.json();
   const targetId = id || auth.userId;
 
   if (id && id !== auth.userId && auth.role !== "admin") {
@@ -71,6 +72,10 @@ export async function PUT(request: Request) {
     updates.push("role");
     binds.role = role;
   }
+  if (studentLevel !== undefined && auth.role === "admin") {
+    updates.push("student_level");
+    binds.studentLevel = studentLevel || null;
+  }
 
   if (updates.length === 0) {
     return Response.json({ error: "No fields to update" }, { status: 400 });
@@ -79,6 +84,7 @@ export async function PUT(request: Request) {
   if (provider === "oracle") {
     const setClauses = updates.map((field) => {
       if (field === "display_name") return "display_name = :displayName";
+      if (field === "student_level") return "student_level = :studentLevel";
       return `${field} = :${field}`;
     });
     await query(`UPDATE users SET ${setClauses.join(", ")} WHERE id = :id`, binds);
@@ -98,6 +104,10 @@ export async function PUT(request: Request) {
     if (role !== undefined && auth.role === "admin") {
       fields.push(`role = $${idx++}`);
       values.push(role);
+    }
+    if (studentLevel !== undefined && auth.role === "admin") {
+      fields.push(`student_level = $${idx++}`);
+      values.push(studentLevel || null);
     }
 
     values.push(targetId);

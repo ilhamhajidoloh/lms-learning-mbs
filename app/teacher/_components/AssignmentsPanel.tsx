@@ -19,6 +19,8 @@ interface AssignmentsPanelProps {
   viewingAssignmentId: string | null;
   setViewingAssignmentId: (id: string | null) => void;
   setShowForm: (show: boolean) => void;
+  selectedClass: string;
+  readOnly: boolean;
 }
 
 interface AssignmentControlModalProps {
@@ -296,6 +298,8 @@ export function AssignmentsPanel({
   viewingAssignmentId,
   setViewingAssignmentId,
   setShowForm,
+  selectedClass,
+  readOnly,
 }: AssignmentsPanelProps) {
   const router = useRouter();
   const { gradeSubmission, cancelSubmissionScore, deleteAssignment, lessons, topics, chapters, enrollments } = useUser();
@@ -306,6 +310,7 @@ export function AssignmentsPanel({
   const [isCreatingQuiz, setIsCreatingQuiz] = useState<boolean>(false);
 
   const startCopyQuiz = (quiz: Assignment) => {
+    if (readOnly) return;
     setCopyingQuiz({
       ...quiz,
       title: `${quiz.title} (สำเนา)`,
@@ -326,10 +331,11 @@ export function AssignmentsPanel({
     );
     const courseTopics = topics.filter((topic) => courseChapterIds.has(topic.chapterId));
 
+    // Only shared lessons or lessons of the selected class can parent an assignment/quiz created here.
     return courseTopics.flatMap((topic) =>
-      lessons.filter((lesson) => lesson.topicId === topic.id)
+      lessons.filter((lesson) => lesson.topicId === topic.id && (!lesson.targetGroup || selectedClass === "all" || lesson.targetGroup === selectedClass))
     );
-  }, [chapters, courseId, lessons, topics]);
+  }, [chapters, courseId, lessons, topics, selectedClass]);
 
   const groupedAssignments = React.useMemo(() => {
     const map = new Map<string, Assignment[]>();
@@ -456,6 +462,7 @@ export function AssignmentsPanel({
   };
 
   const handleDeleteAssignment = async (assignment: Assignment) => {
+    if (readOnly) return;
     const relatedSubmissions = submissions.filter((submission) => submission.assignmentId === assignment.id).length;
     const itemLabel = assignment.type === "quiz" ? "ควิซ" : "งาน";
     const confirmed = await Swal.fire({
@@ -520,6 +527,7 @@ export function AssignmentsPanel({
           <button
             type="button"
             onClick={() => setShowForm(true)}
+            disabled={readOnly}
             className="flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 font-bold hover:bg-slate-100 dark:hover:bg-slate-750 transition-all cursor-pointer active:scale-95"
             style={{ color: tx.primary }}
           >
@@ -528,6 +536,7 @@ export function AssignmentsPanel({
           <button
             type="button"
             onClick={() => setIsCreatingQuiz(true)}
+            disabled={readOnly}
             className="btn-primary flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl shadow-md cursor-pointer transition-all active:scale-95"
           >
             <Plus className="h-4 w-4" /> สร้างแบบทดสอบ (Quiz Editor)
@@ -584,7 +593,7 @@ export function AssignmentsPanel({
                     คะแนนเต็ม {activeAssignment.points} คะแนน · กำหนดส่ง {activeAssignment.closeAt ? formatThaiDateTime(activeAssignment.closeAt) : formatThaiDate(activeAssignment.dueDate)}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div hidden={readOnly || !activeAssignment.targetGroup} className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => {
@@ -829,6 +838,7 @@ export function AssignmentsPanel({
                       <div className="flex justify-between items-start gap-4">
                         <div className="space-y-1.5 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
+                            {!a.targetGroup && selectedClass !== "all" && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">เนื้อหาร่วม</span>}
                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                               a.type === 'file'
                                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
@@ -882,7 +892,7 @@ export function AssignmentsPanel({
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div hidden={readOnly || !a.targetGroup} className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => {

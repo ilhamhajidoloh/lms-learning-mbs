@@ -1,19 +1,20 @@
 import type { FormEvent, Dispatch, SetStateAction } from "react";
 import { UserPlus, Pencil, X, Check, AlertTriangle } from "lucide-react";
 import { tx } from "../../lib/theme";
-import type { AppUser, Role } from "../../context/UserContext";
+import type { AppUser, CourseLevelOption, Role } from "../../context/UserContext";
 import { ROLE_CONFIG } from "./RoleBadge";
 import { Portal } from "@/app/components/Portal";
 
 interface UserFormModalProps {
   editingUser: AppUser | null;
-  formData: { username: string; displayName: string; role: Role };
-  setFormData: Dispatch<SetStateAction<{ username: string; displayName: string; role: Role }>>;
+  formData: { username: string; displayName: string; role: Role; studentLevel: string };
+  setFormData: Dispatch<SetStateAction<{ username: string; displayName: string; role: Role; studentLevel: string }>>;
   formError: string | null;
   setFormError: (error: string | null) => void;
   closeForm: () => void;
   handleSubmit: (e: FormEvent) => void;
   hasOtherAdmin: boolean;
+  levels: CourseLevelOption[];
 }
 
 export function UserFormModal({
@@ -25,6 +26,7 @@ export function UserFormModal({
   closeForm,
   handleSubmit,
   hasOtherAdmin,
+  levels,
 }: UserFormModalProps) {
   return (
     <Portal>
@@ -106,6 +108,16 @@ export function UserFormModal({
             })}
           </div>
         </div>
+
+        {formData.role === "student" && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ชั้นเรียน</label>
+            <select value={formData.studentLevel} onChange={e => setFormData(p => ({ ...p, studentLevel: e.target.value }))} className="w-full px-4 py-3 rounded-xl border bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }}>
+              <option value="">-- ยังไม่กำหนดชั้นเรียน --</option>
+              {levels.map(level => <option key={level.id} value={level.value}>{level.label}</option>)}
+            </select>
+          </div>
+        )}
 
         {/* Error */}
         {formError && (

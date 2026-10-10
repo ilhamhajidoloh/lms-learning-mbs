@@ -401,6 +401,7 @@ export async function migrateDatabase() {
     `ALTER TABLE lessons ALTER COLUMN course_id DROP NOT NULL`,
     `ALTER TABLE lessons ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT TRUE`,
     `ALTER TABLE lessons ADD COLUMN IF NOT EXISTS is_locked BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE lessons ADD COLUMN IF NOT EXISTS target_group TEXT`,
   ];
 
   for (const query of lessonMigrations) {
@@ -435,6 +436,17 @@ export async function migrateDatabase() {
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS multi_select_scoring_mode TEXT NOT NULL DEFAULT 'correct_only'`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS open_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS close_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS target_group TEXT`);
+  await pool.query(`ALTER TABLE course_announcements ADD COLUMN IF NOT EXISTS target_group TEXT`);
+  await pool.query(`ALTER TABLE course_enrollments ADD COLUMN IF NOT EXISTS group_name TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS student_level TEXT`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS course_class_levels (
+      course_id TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      level_value TEXT NOT NULL,
+      PRIMARY KEY (course_id, level_value)
+    )
+  `);
   await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS question_type TEXT NOT NULL DEFAULT 'multiple_choice'`);
   await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS correct_answer TEXT`);
   await pool.query(`ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS matching_pairs JSONB`);

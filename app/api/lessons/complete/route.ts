@@ -1,6 +1,7 @@
 import { query, withTransaction, getDbProvider, lowerKeys } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
 import { randomUUID } from "crypto";
+import { authorizeCourseRead, getLessonContext } from "@/lib/courseAccess";
 import type { DbConnection } from "@/lib/database";
 
 export async function POST(request: Request) {
@@ -15,6 +16,13 @@ export async function POST(request: Request) {
 
   const userId = auth.userId;
   const provider = getDbProvider();
+
+  // Only enrolled students whose class may see this lesson can mark it complete.
+  const lessonContext = await getLessonContext(lessonId);
+  if (!lessonContext) return Response.json({ error: "Lesson not found" }, { status: 404 });
+  if (!(await authorizeCourseRead(auth, lessonContext.courseId, [lessonContext.targetGroup]))) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const progress = await withTransaction(async (tx: DbConnection) => {
