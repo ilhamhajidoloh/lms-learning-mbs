@@ -168,7 +168,8 @@ export function LessonsPanel({
             type="button"
             onClick={() => setShowAddChapterModal(true)}
             disabled={readOnly}
-            className="px-3 md:px-3.5 py-2 text-[11px] md:text-xs font-bold rounded-xl border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center gap-1.5 cursor-pointer"
+            title={readOnly ? "เลือกชั้นเรียนก่อนจึงจะเพิ่มหรือแก้ไขเนื้อหาได้" : undefined}
+            className="px-3 md:px-3.5 py-2 text-[11px] md:text-xs font-bold rounded-xl border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
             <FolderPlus className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">+ เพิ่มหน่วยเรียน (Chapter)</span>
@@ -178,7 +179,8 @@ export function LessonsPanel({
             type="button"
             onClick={() => setShowAddLessonModal(true)}
             disabled={readOnly}
-            className="btn-primary px-3 md:px-4 py-2 text-[11px] md:text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer"
+            title={readOnly ? "เลือกชั้นเรียนก่อนจึงจะเพิ่มหรือแก้ไขเนื้อหาได้" : undefined}
+            className="btn-primary px-3 md:px-4 py-2 text-[11px] md:text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
             <Plus className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">เพิ่มบทเรียนใหม่</span>
@@ -198,7 +200,8 @@ export function LessonsPanel({
             type="button"
             onClick={() => setShowAddChapterModal(true)}
             disabled={readOnly}
-            className="btn-primary px-4 py-2 text-xs rounded-xl cursor-pointer"
+            title={readOnly ? "เลือกชั้นเรียนก่อนจึงจะเพิ่มหรือแก้ไขเนื้อหาได้" : undefined}
+            className="btn-primary px-4 py-2 text-xs rounded-xl cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
             + สร้างหน่วยเรียนแรก
           </button>

@@ -528,7 +528,8 @@ export function AssignmentsPanel({
             type="button"
             onClick={() => setShowForm(true)}
             disabled={readOnly}
-            className="flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 font-bold hover:bg-slate-100 dark:hover:bg-slate-750 transition-all cursor-pointer active:scale-95"
+            title={readOnly ? "เลือกชั้นเรียนก่อนจึงจะเพิ่มหรือแก้ไขเนื้อหาได้" : undefined}
+            className="flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 font-bold hover:bg-slate-100 dark:hover:bg-slate-750 transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             style={{ color: tx.primary }}
           >
             <Plus className="h-4 w-4 text-indigo-500" /> สร้างงานส่งไฟล์ (File)
@@ -537,7 +538,8 @@ export function AssignmentsPanel({
             type="button"
             onClick={() => setIsCreatingQuiz(true)}
             disabled={readOnly}
-            className="btn-primary flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl shadow-md cursor-pointer transition-all active:scale-95"
+            title={readOnly ? "เลือกชั้นเรียนก่อนจึงจะเพิ่มหรือแก้ไขเนื้อหาได้" : undefined}
+            className="btn-primary flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
             <Plus className="h-4 w-4" /> สร้างแบบทดสอบ (Quiz Editor)
           </button>
