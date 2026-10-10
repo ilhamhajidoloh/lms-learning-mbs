@@ -1,4 +1,4 @@
-import { query, withTransaction, getDbProvider, toDbBoolean, serializeJson, oracleUtcInstant } from "@/lib/database";
+import { query, withTransaction, getDbProvider, toDbBoolean, serializeJson, oracleUtcInstant, lowerKeys } from "@/lib/database";
 import { normalizeTargetGroup } from "@/lib/targetGroup";
 import { assertCanManageCourse, getAssignmentContext, getLessonContext, requireClassContext } from "@/lib/courseAccess";
 import { childTargetGroupOnCreate, isSameCourse, canWriteClassContent } from "@/lib/accessPolicy";
@@ -70,7 +70,8 @@ export async function POST(request: Request) {
            LIMIT 1`,
       provider === "oracle" ? { courseId } : [courseId]
     ).catch(() => ({ rows: [] }));
-    resolvedLessonId = (lessonQuery.rows[0] as { id: string } | undefined)?.id ?? null;
+    // Oracle returns upper-case column keys; read through lowerKeys so both providers resolve the same lesson.
+    resolvedLessonId = (lowerKeys(lessonQuery.rows[0] as Record<string, unknown> | undefined) as { id?: string } | undefined)?.id ?? null;
     // The auto-linked lesson is a real parent: visibility already requires it, so the class must match too.
     if (resolvedLessonId) {
       parentLessonGroup = (await getLessonContext(resolvedLessonId))?.targetGroup ?? null;
