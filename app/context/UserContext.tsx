@@ -370,8 +370,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           title: data.title,
           description: data.description,
-          level: data.level,
-          levelLabel: data.levelLabel,
+          level: data.level || "all",
+          levelLabel: data.levelLabel || "ทุกชั้นเรียน",
           gradientClass: data.gradientClass,
         }),
       });

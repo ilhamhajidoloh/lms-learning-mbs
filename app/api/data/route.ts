@@ -52,6 +52,13 @@ export async function GET(request: Request) {
 
   const { userId, role } = auth;
   const noRows = Promise.resolve({ rows: [] as Row[] });
+  // Single-class courses are not exposed to students outside their profile class.
+  const oracleCourseAudience = role === "student"
+    ? "WHERE (c.course_level = 'all' OR c.course_level = (SELECT student_level FROM users WHERE id = :userId))"
+    : "";
+  const postgresCourseAudience = role === "student"
+    ? "WHERE (c.level = 'all' OR c.level = (SELECT student_level FROM users WHERE id = $1))"
+    : "";
 
   // Oracle aliases restore the API names: course_level -> level, assignment_type / submission_type -> type.
   // LEVEL is reserved in Oracle, so the compatibility aliases are quoted.
@@ -69,8 +76,9 @@ export async function GET(request: Request) {
       JOIN chapters ch ON t.chapter_id = ch.id
       GROUP BY ch.course_id
     ) lc ON lc.course_id = c.id
+    ${oracleCourseAudience}
     ORDER BY c.created_at DESC
-  `, {}, `
+  `, role === "student" ? { userId } : {}, `
     SELECT c.id, c.title, c.description, c.level, c.level_label, c.gradient_class, c.instructor_id,
            c.is_open, c.enroll_code, c.show_scores, c.sequential_lessons, c.quiz_review_mode,
            u.display_name AS instructor_name,
@@ -84,8 +92,9 @@ export async function GET(request: Request) {
       JOIN chapters ch ON t.chapter_id = ch.id
       GROUP BY ch.course_id
     ) lc ON lc.course_id = c.id
+    ${postgresCourseAudience}
     ORDER BY c.created_at DESC
-  `, []);
+  `, role === "student" ? [userId] : []);
 
   const chaptersSql = `
     SELECT ch.id, ch.course_id, ch.title, ch.sort_order, ch.is_published, ch.is_locked

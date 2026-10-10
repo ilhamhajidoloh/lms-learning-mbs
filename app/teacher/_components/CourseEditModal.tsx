@@ -23,7 +23,9 @@ export function CourseEditModal({ course, levels, onClose, updateCourseDetails }
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    const selectedLevel = levels.find((item) => item.value === level);
+    const selectedLevel = level === "all"
+      ? { value: "all", label: "ทุกชั้นเรียน" }
+      : levels.find((item) => item.value === level);
     if (!title.trim() || !selectedLevel) {
       setError("กรุณากรอกชื่อคอร์สและเลือกระดับชั้นเรียน");
       return;
@@ -64,6 +66,7 @@ export function CourseEditModal({ course, levels, onClose, updateCourseDetails }
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <select value={level} onChange={(event) => setLevel(event.target.value)} required className="w-full px-4 py-3 rounded-xl border bg-transparent text-sm" style={{ borderColor: tx.border }}>
+                <option value="all">ทุกชั้นเรียน</option>
                 {levels.map((item) => <option key={item.id} value={item.value}>{item.label}</option>)}
               </select>
               <select value={gradientClass} onChange={(event) => setGradientClass(event.target.value)} className="w-full px-4 py-3 rounded-xl border bg-transparent text-sm" style={{ borderColor: tx.border }}>

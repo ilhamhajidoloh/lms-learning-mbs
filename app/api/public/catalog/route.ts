@@ -16,6 +16,7 @@ export async function GET() {
                    u.display_name AS instructor_name
             FROM courses c
             JOIN users u ON u.id = c.instructor_id
+            WHERE c.course_level = 'all'
             ORDER BY c.created_at DESC
             FETCH FIRST 100 ROWS ONLY
           `)
@@ -24,6 +25,7 @@ export async function GET() {
                    u.display_name AS instructor_name
             FROM courses c
             JOIN users u ON u.id = c.instructor_id
+            WHERE c.level = 'all'
             ORDER BY c.created_at DESC
             LIMIT 100
           `),

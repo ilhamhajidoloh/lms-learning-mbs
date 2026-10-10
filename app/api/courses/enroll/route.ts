@@ -29,6 +29,22 @@ async function upsertEnrollment(provider: string, courseId: string, studentId: s
   }
 }
 
+/** A single-class course may only contain students whose profile class matches it. */
+async function canEnrollInCourse(provider: string, courseId: string, studentId: string): Promise<boolean | null> {
+  const result = await query(
+    provider === "oracle"
+      ? `SELECT c.course_level, u.student_level FROM courses c JOIN users u ON u.id = :studentId WHERE c.id = :courseId`
+      : `SELECT c.level, u.student_level FROM courses c JOIN users u ON u.id = $1 WHERE c.id = $2`,
+    provider === "oracle" ? { courseId, studentId } : [studentId, courseId],
+  );
+  if (result.rows.length === 0) return null;
+  const rawRow = result.rows[0] as Record<string, unknown>;
+  const row: Record<string, unknown> = provider === "oracle" ? (lowerKeys(rawRow) ?? {}) : rawRow;
+  const courseLevel = String(row.course_level ?? row.level ?? "").trim();
+  const studentLevel = typeof row.student_level === "string" ? row.student_level.trim() : "";
+  return courseLevel === "all" || (studentLevel !== "" && courseLevel === studentLevel);
+}
+
 export async function POST(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -58,6 +74,9 @@ export async function POST(request: Request) {
     }
 
     try {
+      const eligible = await canEnrollInCourse(provider, courseId, studentId);
+      if (eligible === null) return Response.json({ error: "Course or student not found" }, { status: 404 });
+      if (!eligible) return Response.json({ error: "นักเรียนไม่ได้อยู่ในชั้นเรียนของคอร์สนี้" }, { status: 403 });
       await upsertEnrollment(provider, courseId, studentId, groupName);
       return Response.json({ success: true });
     } catch (error: unknown) {
@@ -72,18 +91,22 @@ export async function POST(request: Request) {
 
   const courseQuery = await query(
     provider === "oracle"
-      ? "SELECT is_open, enroll_code FROM courses WHERE id = :courseId"
-      : "SELECT is_open, enroll_code FROM courses WHERE id = $1",
-    provider === "oracle" ? { courseId } : [courseId]
+      ? "SELECT c.is_open, c.enroll_code, c.course_level, u.student_level FROM courses c JOIN users u ON u.id = :userId WHERE c.id = :courseId"
+      : "SELECT c.is_open, c.enroll_code, c.level, u.student_level FROM courses c JOIN users u ON u.id = $1 WHERE c.id = $2",
+    provider === "oracle" ? { courseId, userId: auth.userId } : [auth.userId, courseId]
   );
 
   if (courseQuery.rows.length === 0) {
     return Response.json({ error: "Course not found" }, { status: 404 });
   }
 
-  const courseRow = (provider === "oracle" ? lowerKeys(courseQuery.rows[0] as Record<string, unknown>) : courseQuery.rows[0]) as { is_open: unknown; enroll_code: string | null };
+  const courseRow = (provider === "oracle" ? lowerKeys(courseQuery.rows[0] as Record<string, unknown>) : courseQuery.rows[0]) as { is_open: unknown; enroll_code: string | null; course_level?: string; level?: string; student_level?: string | null };
   const is_open = provider === "oracle" ? fromDbBoolean(courseRow.is_open) : courseRow.is_open;
   const enroll_code = courseRow.enroll_code;
+  const courseLevel = (courseRow.course_level ?? courseRow.level ?? "").trim();
+  if (courseLevel !== "all" && courseRow.student_level?.trim() !== courseLevel) {
+    return Response.json({ error: "คอร์สนี้เปิดให้เฉพาะนักเรียนในชั้นเรียนที่กำหนด" }, { status: 403 });
+  }
 
   if (is_open) {
     try {

@@ -90,7 +90,7 @@ export default function StudentDashboard() {
 
   const filtered = visibleCourses.filter(c =>
     c.title.toLowerCase().includes(search.toLowerCase()) &&
-    (levelFilter === "all" || c.level === levelFilter)
+    (levelFilter === "all" || c.level === "all" || c.level === levelFilter)
   );
 
   return (

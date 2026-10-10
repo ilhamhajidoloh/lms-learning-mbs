@@ -35,7 +35,7 @@ export function CoursesTab({
             const uniqueLevelsMap: Record<string, string> = {};
 
             courses.forEach(c => {
-              if (c.level) {
+              if (c.level && c.level !== "all") {
                 uniqueLevelsMap[c.level] = c.levelLabel || c.level;
               }
             });

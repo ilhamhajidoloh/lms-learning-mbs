@@ -23,6 +23,16 @@ export async function getCourseInstructorId(courseId: string): Promise<string | 
   return text(result.rows[0]?.instructor_id);
 }
 
+/** `all` is a multi-class course; any other value is restricted to that student level. */
+export async function getCourseAudienceLevel(courseId: string): Promise<string | null> {
+  const result = await runForProvider(
+    db,
+    { sql: "SELECT course_level FROM courses WHERE id = :courseId", binds: { courseId } },
+    { sql: "SELECT level FROM courses WHERE id = $1", binds: [courseId] },
+  );
+  return normalizeTargetGroup(Object.values(result.rows[0] as Record<string, unknown> | undefined ?? {})[0]);
+}
+
 export async function getChapterCourseId(chapterId: string): Promise<string | null> {
   const result = await runForProvider(
     db,
@@ -183,6 +193,8 @@ export async function authorizeCourseRead(auth: JwtPayload, courseId: string | n
   }
   if (auth.role === "student") {
     const enrollment = await getEnrollmentLevel(auth.userId, courseId);
+    const courseLevel = await getCourseAudienceLevel(courseId);
+    if (courseLevel !== "all" && courseLevel !== enrollment.level) return false;
     return canReadCourseContent({ role: "student", ownsCourse: false, enrolled: enrollment.enrolled, studentLevel: enrollment.level, targetGroups: groups });
   }
   return false;

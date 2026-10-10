@@ -27,7 +27,7 @@ export function PublicHome() {
 
   const filteredCourses = selectedLevel === "all"
     ? courses
-    : courses.filter((course) => course.level === selectedLevel);
+    : courses.filter((course) => course.level === "all" || course.level === selectedLevel);
   const selectedLevelLabel = levels.find((level) => level.value === selectedLevel)?.label;
 
   useEffect(() => {

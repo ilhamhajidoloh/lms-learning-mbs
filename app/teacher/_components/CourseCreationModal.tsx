@@ -10,6 +10,8 @@ interface CourseCreationModalProps {
   setCourseTitle: (v: string) => void;
   courseDesc: string;
   setCourseDesc: (v: string) => void;
+  courseMode: "multi" | "single";
+  setCourseMode: (v: "multi" | "single") => void;
   courseLevelValue: string;
   setCourseLevelValue: (v: string) => void;
   levels: CourseLevelOption[];
@@ -26,6 +28,8 @@ export function CourseCreationModal({
   setCourseTitle,
   courseDesc,
   setCourseDesc,
+  courseMode,
+  setCourseMode,
   courseLevelValue,
   setCourseLevelValue,
   levels,
@@ -63,23 +67,30 @@ export function CourseCreationModal({
               <textarea value={courseDesc} onChange={(e) => setCourseDesc(e.target.value)} rows={3} className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }} placeholder="อธิบายเนื้อหาและจุดประสงค์ของคอร์สนี้..." />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ระดับชั้นเรียน <span className="text-rose-500">*</span></label>
-              {levels.length === 0 ? (
-                <p className="text-xs p-3 rounded-xl bg-amber-500/10 text-amber-600 font-bold">
-                  ยังไม่มีระดับชั้นเรียนในระบบ กรุณาแจ้งแอดมินให้เพิ่มระดับก่อนสร้างคอร์ส
-                </p>
-              ) : (
-                <select value={courseLevelValue} onChange={(e) => setCourseLevelValue(e.target.value)} required className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }}>
-                  <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">-- เลือกระดับชั้นเรียน --</option>
-                  {levels.map((lvl) => (
-                    <option key={lvl.id} value={lvl.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                      {lvl.label}
-                    </option>
-                  ))}
-                </select>
-              )}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>รูปแบบคอร์ส</label>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <label className={`rounded-xl border p-3 cursor-pointer ${courseMode === "multi" ? "border-indigo-500 bg-indigo-500/10" : ""}`} style={{ borderColor: courseMode === "multi" ? undefined : tx.borderS }}>
+                  <input className="mr-2" type="radio" checked={courseMode === "multi"} onChange={() => setCourseMode("multi")} />
+                  <span className="font-bold text-sm">หลายชั้นเรียน</span>
+                  <p className="mt-1 text-xs" style={{ color: tx.secondary }}>ใช้ร่วมกันได้ทุกชั้น และแยกเนื้อหา/งานตามชั้นภายหลังได้</p>
+                </label>
+                <label className={`rounded-xl border p-3 cursor-pointer ${courseMode === "single" ? "border-indigo-500 bg-indigo-500/10" : ""}`} style={{ borderColor: courseMode === "single" ? undefined : tx.borderS }}>
+                  <input className="mr-2" type="radio" checked={courseMode === "single"} onChange={() => setCourseMode("single")} />
+                  <span className="font-bold text-sm">ชั้นเรียนเดียว</span>
+                  <p className="mt-1 text-xs" style={{ color: tx.secondary }}>นักเรียนที่อยู่ในชั้นที่เลือกเท่านั้นจึงจะเห็นและลงทะเบียนได้</p>
+                </label>
+              </div>
             </div>
+
+            {courseMode === "single" && <div className="space-y-1">
+              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>ชั้นเรียน <span className="text-rose-500">*</span></label>
+              <select value={courseLevelValue} onChange={(e) => setCourseLevelValue(e.target.value)} required className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-transparent text-sm" style={{ borderColor: tx.border, color: tx.primary }}>
+                <option value="" disabled>-- เลือกชั้นเรียน --</option>
+                {levels.map((level) => <option key={level.id} value={level.value}>{level.label}</option>)}
+              </select>
+            </div>
+            }
 
             <div className="space-y-1">
               <label className="text-xs font-bold uppercase tracking-wider" style={{ color: tx.muted }}>สไตล์สี (Gradient)</label>
@@ -106,7 +117,7 @@ export function CourseCreationModal({
           <button type="button" onClick={() => setShowCourseForm(false)} disabled={courseSaving} className="btn-cancel px-5 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50">
             ยกเลิก
           </button>
-          <button type="submit" form="createCourseForm" disabled={courseSaving || levels.length === 0} className="btn-primary px-6 py-2.5 rounded-xl text-sm shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer">
+          <button type="submit" form="createCourseForm" disabled={courseSaving} className="btn-primary px-6 py-2.5 rounded-xl text-sm shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer">
             {courseSaving ? "กำลังบันทึก..." : <><Plus className="h-4 w-4" /> ยืนยันการสร้างคอร์ส</>}
           </button>
         </div>

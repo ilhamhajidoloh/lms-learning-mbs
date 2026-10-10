@@ -28,6 +28,7 @@ function TeacherDashboardContent() {
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDesc, setCourseDesc] = useState("");
   const [courseGradient, setCourseGradient] = useState("from-indigo-600 to-purple-600");
+  const [courseMode, setCourseMode] = useState<"multi" | "single">("multi");
   const [courseLevelValue, setCourseLevelValue] = useState("");
   const [courseSaving, setCourseSaving] = useState(false);
   const [courseError, setCourseError] = useState("");
@@ -67,9 +68,9 @@ function TeacherDashboardContent() {
     e.preventDefault();
     if (!courseTitle.trim()) return;
 
-    const selectedLevel = levels.find((lvl) => lvl.value === courseLevelValue);
-    if (!selectedLevel) {
-      setCourseError("กรุณาเลือกระดับชั้นเรียน");
+    const selectedLevel = levels.find((level) => level.value === courseLevelValue);
+    if (courseMode === "single" && !selectedLevel) {
+      setCourseError("กรุณาเลือกชั้นเรียนสำหรับคอร์สชั้นเรียนเดียว");
       return;
     }
 
@@ -80,8 +81,8 @@ function TeacherDashboardContent() {
       const { success, error } = await createCourse({
         title: courseTitle,
         description: courseDesc,
-        level: selectedLevel.value,
-        levelLabel: selectedLevel.label,
+        level: courseMode === "multi" ? "all" : selectedLevel!.value,
+        levelLabel: courseMode === "multi" ? "ทุกชั้นเรียน" : selectedLevel!.label,
         gradientClass: courseGradient,
       });
 
@@ -90,6 +91,7 @@ function TeacherDashboardContent() {
         setCourseTitle("");
         setCourseDesc("");
         setCourseGradient("from-indigo-600 to-purple-600");
+        setCourseMode("multi");
         setCourseLevelValue("");
       } else {
         setCourseError(error || "Unknown error occurred");
@@ -219,13 +221,15 @@ function TeacherDashboardContent() {
       {showCourseForm && (
         <CourseCreationModal
           setShowCourseForm={setShowCourseForm}
-          levels={levels}
           courseTitle={courseTitle}
           setCourseTitle={setCourseTitle}
           courseDesc={courseDesc}
           setCourseDesc={setCourseDesc}
+          courseMode={courseMode}
+          setCourseMode={setCourseMode}
           courseLevelValue={courseLevelValue}
           setCourseLevelValue={setCourseLevelValue}
+          levels={levels}
           courseGradient={courseGradient}
           setCourseGradient={setCourseGradient}
           courseSaving={courseSaving}

@@ -10,6 +10,9 @@ export async function POST(request: Request) {
   const { id, title, description, level, levelLabel, gradientClass } = await request.json();
   const provider = getDbProvider();
   const courseId = id || `course-${Date.now()}`;
+  // Kept for legacy catalogue fields; newly created courses are multi-class.
+  const courseLevel = level || "all";
+  const courseLevelLabel = levelLabel || "ทุกชั้นเรียน";
 
   if (provider === "oracle") {
     await query(
@@ -19,8 +22,8 @@ export async function POST(request: Request) {
         id: courseId,
         title,
         description: description || "",
-        courseLevel: level,
-        levelLabel,
+        courseLevel,
+        levelLabel: courseLevelLabel,
         gradientClass,
         instructorId: auth.userId,
         isOpen: toDbBoolean(false),
@@ -31,7 +34,7 @@ export async function POST(request: Request) {
     await query(
       `INSERT INTO courses (id, title, description, level, level_label, gradient_class, instructor_id, is_open, enroll_code)
        VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NULL)`,
-      [courseId, title, description || "", level, levelLabel, gradientClass, auth.userId]
+      [courseId, title, description || "", courseLevel, courseLevelLabel, gradientClass, auth.userId]
     );
   }
 
