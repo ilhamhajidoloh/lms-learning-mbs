@@ -49,13 +49,17 @@ export async function POST(request: Request) {
   const auth = authenticate(request);
   if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { courseId, studentId, enrollCode, groupName } = await request.json();
+  const { courseId, studentId, studentIds, enrollCode, groupName } = await request.json();
   if (!courseId) return Response.json({ error: "Missing course id" }, { status: 400 });
 
   const provider = getDbProvider();
 
-  // If studentId is provided, a teacher/admin is adding a student directly
-  if (studentId) {
+  const requestedStudentIds = Array.isArray(studentIds)
+    ? [...new Set(studentIds.filter((id): id is string => typeof id === "string" && id.trim() !== ""))]
+    : studentId ? [studentId] : [];
+
+  // A teacher/admin can add one student or a selected batch directly.
+  if (requestedStudentIds.length > 0) {
     if (auth.role !== "admin") {
       // Verify requester is instructor
       const courseCheck = await query(
@@ -74,11 +78,15 @@ export async function POST(request: Request) {
     }
 
     try {
-      const eligible = await canEnrollInCourse(provider, courseId, studentId);
+      for (const requestedStudentId of requestedStudentIds) {
+      const eligible = await canEnrollInCourse(provider, courseId, requestedStudentId);
       if (eligible === null) return Response.json({ error: "Course or student not found" }, { status: 404 });
       if (!eligible) return Response.json({ error: "นักเรียนไม่ได้อยู่ในชั้นเรียนของคอร์สนี้" }, { status: 403 });
-      await upsertEnrollment(provider, courseId, studentId, groupName);
-      return Response.json({ success: true });
+      }
+      for (const requestedStudentId of requestedStudentIds) {
+        await upsertEnrollment(provider, courseId, requestedStudentId, groupName);
+      }
+      return Response.json({ success: true, enrolledCount: requestedStudentIds.length });
     } catch (error: unknown) {
       return Response.json({ error: errorMessage(error) }, { status: 500 });
     }

@@ -226,6 +226,7 @@ interface UserContextProps {
   enrollments: Enrollment[];
   enrollInCourse: (courseId: string, enrollCode?: string) => Promise<{ success: boolean; error?: string }>;
   teacherAddStudent: (courseId: string, studentId: string, groupName?: string) => Promise<{ success: boolean; error?: string }>;
+  teacherAddStudents: (courseId: string, studentIds: string[]) => Promise<{ success: boolean; error?: string }>;
   teacherRemoveStudent: (courseId: string, studentId: string) => Promise<{ success: boolean; error?: string }>;
   updateCourseSettings: (courseId: string, isOpen: boolean, enrollCode: string | null, showScores?: boolean, sequentialLessons?: boolean, quizReviewMode?: "full" | "answers_only" | "none") => Promise<{ success: boolean; error?: string }>;
   levels: CourseLevelOption[];
@@ -1163,6 +1164,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const teacherAddStudents = async (courseId: string, studentIds: string[]): Promise<{ success: boolean; error?: string }> => {
+    if (studentIds.length === 0) return { success: false, error: "No students selected" };
+    const loadingToast = toast.loading("กำลังเพิ่มผู้เรียนเข้าคอร์ส...");
+    try {
+      const { error } = await apiFetch("/api/courses/enroll", {
+        method: "POST",
+        body: JSON.stringify({ courseId, studentIds }),
+      });
+      loadingToast.close();
+      if (error) {
+        toast.error("เพิ่มผู้เรียนไม่สำเร็จ: " + error);
+        return { success: false, error };
+      }
+      await fetchAllData();
+      toast.success(`เพิ่มผู้เรียน ${studentIds.length} คนสำเร็จ!`);
+      return { success: true };
+    } catch (err: unknown) {
+      loadingToast.close();
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error("เพิ่มผู้เรียนไม่สำเร็จ: " + message);
+      return { success: false, error: message };
+    }
+  };
+
   const teacherRemoveStudent = async (courseId: string, studentId: string): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังลบผู้เรียนออกจากคอร์ส...");
     try {
@@ -1432,6 +1457,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         enrollments,
         enrollInCourse,
         teacherAddStudent,
+        teacherAddStudents,
         teacherRemoveStudent,
         updateCourseSettings,
         levels,
