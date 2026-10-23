@@ -1,4 +1,4 @@
-import { query, getDbProvider, lowerKeys } from "@/lib/database";
+import { DatabaseError, query, getDbProvider, lowerKeys } from "@/lib/database";
 import { authenticate } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -131,10 +131,42 @@ export async function DELETE(request: Request) {
   }
 
   const provider = getDbProvider();
-  await query(
-    provider === "oracle" ? "DELETE FROM users WHERE id = :id" : "DELETE FROM users WHERE id = $1",
+  const courseResult = await query<{ course_count: number | string }>(
+    provider === "oracle"
+      ? "SELECT COUNT(*) AS course_count FROM courses WHERE instructor_id = :id"
+      : "SELECT COUNT(*) AS course_count FROM courses WHERE instructor_id = $1",
     provider === "oracle" ? { id } : [id]
   );
+  const courseRow = provider === "oracle"
+    ? lowerKeys(courseResult.rows[0] as Record<string, unknown>)
+    : courseResult.rows[0];
+  const courseCount = Number(courseRow?.course_count ?? 0);
+
+  if (courseCount > 0) {
+    return Response.json(
+      {
+        error: `ลบผู้ใช้นี้ไม่ได้ เนื่องจากยังเป็นผู้สอนของ ${courseCount} คอร์ส กรุณาย้ายคอร์สไปยังครูคนอื่นก่อน`,
+      },
+      { status: 409 }
+    );
+  }
+
+  try {
+    await query(
+      provider === "oracle" ? "DELETE FROM users WHERE id = :id" : "DELETE FROM users WHERE id = $1",
+      provider === "oracle" ? { id } : [id]
+    );
+  } catch (error) {
+    // A course could be assigned after the check above. Never expose the raw
+    // database constraint error to the administrator in that race condition.
+    if (error instanceof DatabaseError && error.kind === "foreign_key") {
+      return Response.json(
+        { error: "ลบผู้ใช้นี้ไม่ได้ เนื่องจากยังมีข้อมูลที่อ้างอิงถึงผู้ใช้นี้อยู่" },
+        { status: 409 }
+      );
+    }
+    throw error;
+  }
 
   return Response.json({ success: true });
 }
