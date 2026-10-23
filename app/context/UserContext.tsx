@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
-import { apiFetch, setToken, removeToken, getToken } from "../../lib/api";
+import { apiFetch, removeToken, getToken } from "../../lib/api";
 import { toast } from "../../lib/swal";
 
 export type Role = "teacher" | "student" | "admin";
@@ -1292,10 +1292,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const register = async (data: Credential): Promise<{ success: boolean; error?: string }> => {
     const loadingToast = toast.loading("กำลังสมัครสมาชิก...");
     try {
-      const { data: result, error } = await apiFetch<{
-        token: string;
-        user: { id: string; username: string; displayName: string; role: Role; passwordChanged: boolean };
-      }>("/api/auth/register", {
+      const { data: result, error } = await apiFetch<{ message: string }>("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({
           username: data.username,
@@ -1312,14 +1309,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return { success: false, error: msg };
       }
 
-      setToken(result.token);
-      setRole(result.user.role as Role);
-      setDisplayName(result.user.displayName);
-      setCurrentUsername(result.user.username);
-      setUserId(result.user.id);
-      setPasswordChanged(result.user.passwordChanged);
-      setIsAuthenticated(true);
-      toast.success("สมัครสมาชิกสำเร็จ!");
+      toast.success(result.message);
       return { success: true };
     } catch (err: unknown) {
       loadingToast.close();

@@ -13,6 +13,7 @@ import { CourseLevelsPanel } from "./_components/CourseLevelsPanel";
 import { UserTable } from "./_components/UserTable";
 import { UserFormModal } from "./_components/UserFormModal";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
+import { SignupRequestsPanel, type SignupRequest } from "./_components/SignupRequestsPanel";
 
 const EMPTY_FORM = { username: "", displayName: "", role: "student" as Role, studentLevel: "" };
 
@@ -30,6 +31,8 @@ export default function AdminPage() {
 
   const [dbUsers, setDbUsers] = useState<AppUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [signupRequests, setSignupRequests] = useState<SignupRequest[]>([]);
+  const [loadingSignupRequests, setLoadingSignupRequests] = useState(true);
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -40,10 +43,18 @@ export default function AdminPage() {
     setLoadingUsers(false);
   };
 
+  const fetchSignupRequests = async () => {
+    setLoadingSignupRequests(true);
+    const { data } = await apiFetch<SignupRequest[]>("/api/admin/signup-requests");
+    if (data) setSignupRequests(data);
+    setLoadingSignupRequests(false);
+  };
+
   useEffect(() => {
     if (isAuthenticated && role === "admin") {
       queueMicrotask(() => {
         void fetchUsers();
+        void fetchSignupRequests();
       });
     }
   }, [isAuthenticated, role]);
@@ -169,6 +180,28 @@ export default function AdminPage() {
     }
   };
 
+  const handleReviewSignupRequest = async (request: SignupRequest, action: "approve" | "reject") => {
+    const approved = action === "approve";
+    const confirmed = await swalAlert.confirm(
+      approved ? "อนุมัติคำขอสมัครสมาชิก" : "ปฏิเสธคำขอสมัครสมาชิก",
+      `${approved ? "อนุมัติ" : "ปฏิเสธ"} ${request.displayName} ให้สมัครเป็น${request.requestedRole === "teacher" ? "ครู" : "นักเรียน"}?`,
+      approved ? "อนุมัติ" : "ปฏิเสธ"
+    );
+    if (!confirmed) return;
+
+    const { error } = await apiFetch("/api/admin/signup-requests", {
+      method: "PATCH",
+      body: JSON.stringify({ id: request.id, action }),
+    });
+    if (error) {
+      swalAlert.error("ดำเนินการไม่สำเร็จ", error);
+      return;
+    }
+    toast.success(approved ? "อนุมัติคำขอเรียบร้อยแล้ว" : "ปฏิเสธคำขอเรียบร้อยแล้ว");
+    void fetchSignupRequests();
+    if (approved) void fetchUsers();
+  };
+
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: tx.base, color: tx.primary }}>
 
@@ -185,6 +218,12 @@ export default function AdminPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
         <StatsOverview displayName={displayName} counts={counts} />
+
+        <SignupRequestsPanel
+          requests={signupRequests}
+          loading={loadingSignupRequests}
+          onReview={handleReviewSignupRequest}
+        />
 
         <CourseLevelsPanel courses={courses} levels={levels} addLevel={addLevel} deleteLevel={deleteLevel} refreshData={refreshData} />
 

@@ -441,6 +441,21 @@ export async function migrateDatabase() {
   await pool.query(`ALTER TABLE course_enrollments ADD COLUMN IF NOT EXISTS group_name TEXT`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS student_level TEXT`);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS signup_requests (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      username TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      requested_role TEXT NOT NULL CHECK (requested_role IN ('teacher', 'student')),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      reviewed_at TIMESTAMPTZ,
+      reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_signup_requests_status_created ON signup_requests (status, created_at)`);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS course_class_levels (
       course_id TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
       level_value TEXT NOT NULL,
@@ -489,7 +504,8 @@ export async function migrateDatabase() {
     "private_lesson_requests",
     "student_lesson_completions",
     "live_classes",
-    "live_class_participants"
+    "live_class_participants",
+    "signup_requests"
   ];
 
   console.log("Verifying database tables...");

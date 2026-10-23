@@ -1,5 +1,5 @@
-import { query, getDbProvider, toDbBoolean, fromDbBoolean, lowerKeys } from "@/lib/database";
-import { hashPassword, signToken } from "@/lib/auth";
+import { query, getDbProvider } from "@/lib/database";
+import { hashPassword } from "@/lib/auth";
 import { randomUUID } from "crypto";
 
 export async function POST(request: Request) {
@@ -10,32 +10,30 @@ export async function POST(request: Request) {
   }
 
   const signupEmail = email?.trim() || `${username.trim()}@mathbyseng.local`;
-  const userRole = role === "teacher" || role === "admin" ? role : "student";
+  if (role !== "teacher" && role !== "student") {
+    return Response.json({ error: "กรุณาเลือกสมัครเป็นครูหรือนักเรียน" }, { status: 400 });
+  }
+
+  const requestedRole = role;
   const provider = getDbProvider();
 
-  // Check for existing user
+  // A request must not conflict with an existing account or a pending request.
   const existingResult = await query(
     provider === "oracle"
-      ? "SELECT id FROM users WHERE (email = :email OR username = :username) AND ROWNUM = 1"
-      : "SELECT id FROM users WHERE email = $1 OR username = $2 LIMIT 1",
+      ? `SELECT id FROM (
+           SELECT id FROM users WHERE email = :email OR username = :username
+           UNION ALL
+           SELECT id FROM signup_requests WHERE status = 'pending' AND (email = :email OR username = :username)
+         ) WHERE ROWNUM = 1`
+      : `SELECT id FROM users WHERE email = $1 OR username = $2
+         UNION ALL
+         SELECT id FROM signup_requests WHERE status = 'pending' AND (email = $1 OR username = $2)
+         LIMIT 1`,
     provider === "oracle" ? { email: signupEmail, username: username.trim() } : [signupEmail, username.trim()]
   );
 
   if (existingResult.rows.length > 0) {
-    return Response.json({ error: "Username นี้มีในระบบแล้ว" }, { status: 409 });
-  }
-
-  // Check admin constraint
-  if (userRole === "admin") {
-    const adminResult = await query(
-      provider === "oracle"
-        ? "SELECT id FROM users WHERE role = 'admin' AND ROWNUM = 1"
-        : "SELECT id FROM users WHERE role = 'admin' LIMIT 1",
-      []
-    );
-    if (adminResult.rows.length > 0) {
-      return Response.json({ error: "ระบบมีผู้ดูแลระบบอยู่แล้ว ไม่สามารถสมัครเป็น Admin คนที่สองได้" }, { status: 409 });
-    }
+    return Response.json({ error: "Username หรือ Email นี้มีบัญชีหรือคำขอที่รออนุมัติอยู่แล้ว" }, { status: 409 });
   }
 
   const passwordHash = await hashPassword(password);
@@ -43,56 +41,23 @@ export async function POST(request: Request) {
 
   if (provider === "oracle") {
     await query(
-      "INSERT INTO users (id, email, password_hash, username, display_name, role, password_changed) VALUES (:id, :email, :hash, :username, :displayName, :role, :passwordChanged)",
+      "INSERT INTO signup_requests (id, email, password_hash, username, display_name, requested_role) VALUES (:id, :email, :hash, :username, :displayName, :requestedRole)",
       {
         id: userId,
         email: signupEmail,
         hash: passwordHash,
         username: username.trim(),
         displayName: displayName.trim(),
-        role: userRole,
-        passwordChanged: toDbBoolean(true),
+        requestedRole,
       }
     );
-
-    const userResult = await query(
-      "SELECT id, username, display_name, role, password_changed FROM users WHERE id = :id",
-      { id: userId }
-    );
-
-    const user = lowerKeys(userResult.rows[0] as Record<string, unknown>) as { id: string; username: string; display_name: string; role: string; password_changed: unknown };
-    const token = signToken({ userId: user.id, role: user.role });
-
-    return Response.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.display_name,
-        role: user.role,
-        passwordChanged: fromDbBoolean(user.password_changed),
-      },
-    });
   } else {
-    const result = await query(
-      `INSERT INTO users (email, password_hash, username, display_name, role, password_changed)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, username, display_name, role, password_changed`,
-      [signupEmail, passwordHash, username.trim(), displayName.trim(), userRole, true]
+    await query(
+      `INSERT INTO signup_requests (id, email, password_hash, username, display_name, requested_role)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [userId, signupEmail, passwordHash, username.trim(), displayName.trim(), requestedRole]
     );
-
-    const user = result.rows[0] as { id: string; username: string; display_name: string; role: string; password_changed: boolean };
-    const token = signToken({ userId: user.id, role: user.role });
-
-    return Response.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.display_name,
-        role: user.role,
-        passwordChanged: user.password_changed,
-      },
-    });
   }
+
+  return Response.json({ message: "ส่งคำขอสมัครสมาชิกเรียบร้อยแล้ว กรุณารอผู้ดูแลระบบอนุมัติ" }, { status: 201 });
 }

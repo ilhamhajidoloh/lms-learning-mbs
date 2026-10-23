@@ -21,6 +21,8 @@ export default function SignupPage() {
   const [showCPw,     setShowCPw]     = useState(false);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
+  const [requestedRole, setRequestedRole] = useState<"teacher" | "student">("student");
+  const [submitted, setSubmitted] = useState(false);
 
   const clearError = () => setError(null);
 
@@ -50,7 +52,7 @@ export default function SignupPage() {
       username:    username.trim(),
       email:       email.trim() || undefined,
       password,
-      role: "student",
+      role: requestedRole,
       displayName: displayName.trim(),
     });
 
@@ -60,7 +62,7 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/student");
+    setSubmitted(true);
   };
 
   return (
@@ -74,7 +76,13 @@ export default function SignupPage() {
 
         <AuthLogo />
 
-        <SignupForm
+        {submitted ? (
+          <div className="w-full max-w-md rounded-3xl p-8 sm:p-10 shadow-2xl text-center" style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border-subtle)" }}>
+            <h1 className="text-2xl font-bold mb-3">ส่งคำขอเรียบร้อยแล้ว</h1>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>กรุณารอผู้ดูแลระบบอนุมัติบัญชี เมื่อได้รับอนุมัติแล้ว คุณสามารถเข้าสู่ระบบ และระบบจะพาไปยังหน้าของ{requestedRole === "teacher" ? "ครู" : "นักเรียน"}โดยอัตโนมัติ</p>
+            <button onClick={() => router.push("/login")} className="btn-danger mt-6 px-5 py-3 rounded-xl text-sm font-bold">ไปหน้าเข้าสู่ระบบ</button>
+          </div>
+        ) : <SignupForm
           username={username}
           setUsername={setUsername}
           email={email}
@@ -92,8 +100,10 @@ export default function SignupPage() {
           loading={loading}
           error={error}
           clearError={clearError}
+          requestedRole={requestedRole}
+          setRequestedRole={setRequestedRole}
           handleSubmit={handleSubmit}
-        />
+        />}
 
         <AuthFooter animationDelay="0.2s" />
       </div>

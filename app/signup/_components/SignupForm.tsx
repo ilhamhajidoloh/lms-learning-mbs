@@ -19,6 +19,8 @@ interface SignupFormProps {
   loading: boolean;
   error: string | null;
   clearError: () => void;
+  requestedRole: "teacher" | "student";
+  setRequestedRole: (role: "teacher" | "student") => void;
   handleSubmit: (e: React.FormEvent) => void;
 }
 
@@ -26,7 +28,7 @@ export default function SignupForm({
   username, setUsername, email, setEmail, displayName, setDisplayName,
   password, setPassword, confirmPw, setConfirmPw,
   showPw, setShowPw, showCPw, setShowCPw,
-  loading, error, clearError, handleSubmit,
+  loading, error, clearError, requestedRole, setRequestedRole, handleSubmit,
 }: SignupFormProps) {
   return (
     <div
@@ -150,14 +152,19 @@ export default function SignupForm({
           </div>
         </div>
 
-        {/* Info: Role assignment by admin */}
-        <div className="p-3.5 rounded-2xl border animate-slideInUp stagger-5" style={{ borderColor: "var(--border-subtle)", backgroundColor: "var(--bg-elevated)" }}>
-          <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-            ✓ บัญชีของคุณจะเป็น <strong>นักเรียน</strong> ก่อน
-          </p>
-          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-            แอดมินจะตรวจสอบและเปลี่ยนบทบาทเป็นครูผู้สอนได้ตามความเหมาะสม
-          </p>
+        {/* Requested role */}
+        <div className="space-y-2 animate-slideInUp stagger-5">
+          <label className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>สมัครเป็น</label>
+          <div className="grid grid-cols-2 gap-3">
+            {(["student", "teacher"] as const).map((role) => (
+              <button key={role} type="button" onClick={() => { setRequestedRole(role); clearError(); }}
+                className={`rounded-xl border px-3 py-3 text-sm font-bold transition-colors ${requestedRole === role ? "border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300" : "hover:bg-slate-500/5"}`}
+                style={requestedRole === role ? undefined : { borderColor: "var(--border-base)", color: "var(--text-secondary)" }}>
+                {role === "student" ? "นักเรียน" : "ครู"}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>คำขอจะถูกส่งให้ผู้ดูแลระบบพิจารณาก่อนใช้งาน</p>
         </div>
 
         {/* Error */}
@@ -177,7 +184,7 @@ export default function SignupForm({
           {loading ? (
             <div className="h-5 w-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
           ) : (
-            <>สมัครสมาชิก <ArrowRight className="h-4 w-4" /></>
+            <>ส่งคำขอสมัครสมาชิก <ArrowRight className="h-4 w-4" /></>
           )}
         </button>
       </form>
