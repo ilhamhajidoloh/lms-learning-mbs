@@ -2,6 +2,7 @@
 
 import { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { BarChart3, Clock3, SlidersHorizontal, Users } from "lucide-react";
 import { useUser, type AppUser, type Role } from "../context/UserContext";
 import { apiFetch } from "../../lib/api";
 import { toast, alert as swalAlert } from "../../lib/swal";
@@ -16,6 +17,7 @@ import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
 import { SignupRequestsPanel, type SignupRequest } from "./_components/SignupRequestsPanel";
 
 const EMPTY_FORM = { username: "", displayName: "", role: "student" as Role, studentLevel: "" };
+type AdminTab = "overview" | "requests" | "users" | "levels";
 
 export default function AdminPage() {
   const { role, isAuthenticated, displayName, logout, darkMode, toggleDarkMode, loadingData, courses, refreshData, levels, addLevel, deleteLevel, currentUserId } = useUser();
@@ -33,6 +35,7 @@ export default function AdminPage() {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [signupRequests, setSignupRequests] = useState<SignupRequest[]>([]);
   const [loadingSignupRequests, setLoadingSignupRequests] = useState(true);
+  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -216,30 +219,58 @@ export default function AdminPage() {
 
       {/* ── MAIN ────────────────────────────────────────────── */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <nav className="flex gap-2 overflow-x-auto pb-1" aria-label="เมนูผู้ดูแลระบบ" role="tablist">
+          {[
+            { id: "overview", label: "ภาพรวม", icon: BarChart3 },
+            { id: "requests", label: "คำขอสมัคร", icon: Clock3 },
+            { id: "users", label: "ผู้ใช้งาน", icon: Users },
+            { id: "levels", label: "ระดับชั้น", icon: SlidersHorizontal },
+          ].map(({ id, label, icon: Icon }) => {
+            const selected = activeTab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setActiveTab(id as AdminTab)}
+                className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition-colors flex items-center gap-2 ${selected ? "bg-rose-500 text-white shadow-md" : "hover:bg-slate-500/10"}`}
+                style={selected ? undefined : { color: tx.secondary, border: `1px solid ${tx.borderS}` }}
+              >
+                <Icon className="h-4 w-4" /> {label}
+                {id === "requests" && signupRequests.length > 0 && <span className={`rounded-full min-w-5 px-1.5 py-0.5 text-[10px] ${selected ? "bg-white/20" : "bg-amber-500 text-white"}`}>{signupRequests.length}</span>}
+              </button>
+            );
+          })}
+        </nav>
 
-        <StatsOverview displayName={displayName} counts={counts} />
+        {activeTab === "overview" && <StatsOverview displayName={displayName} counts={counts} />}
 
-        <SignupRequestsPanel
-          requests={signupRequests}
-          loading={loadingSignupRequests}
-          onReview={handleReviewSignupRequest}
-        />
+        {activeTab === "requests" && (
+          <SignupRequestsPanel
+            requests={signupRequests}
+            loading={loadingSignupRequests}
+            onReview={handleReviewSignupRequest}
+          />
+        )}
 
-        <CourseLevelsPanel courses={courses} levels={levels} addLevel={addLevel} deleteLevel={deleteLevel} refreshData={refreshData} />
+        {activeTab === "levels" && <CourseLevelsPanel courses={courses} levels={levels} addLevel={addLevel} deleteLevel={deleteLevel} refreshData={refreshData} />}
 
-        <UserTable
-          dbUsers={dbUsers}
-          filtered={filtered}
-          loadingUsers={loadingUsers}
-          search={search}
-          setSearch={setSearch}
-          roleFilter={roleFilter}
-          setRoleFilter={setRoleFilter}
-          openCreate={openCreate}
-          openEdit={openEdit}
-          setDeleteId={setDeleteId}
-          currentUserId={currentUserId}
-        />
+        {activeTab === "users" && (
+          <UserTable
+            dbUsers={dbUsers}
+            filtered={filtered}
+            loadingUsers={loadingUsers}
+            search={search}
+            setSearch={setSearch}
+            roleFilter={roleFilter}
+            setRoleFilter={setRoleFilter}
+            openCreate={openCreate}
+            openEdit={openEdit}
+            setDeleteId={setDeleteId}
+            currentUserId={currentUserId}
+          />
+        )}
       </main>
 
       <footer className="py-6 mt-4 border-t text-center text-xs" style={{ borderColor: tx.borderS, color: tx.faint }}>
