@@ -95,21 +95,20 @@ export default function AdminPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formData.username.trim() || !formData.displayName.trim()) {
+    if (!formData.displayName.trim() || (!editingUser && !formData.username.trim())) {
       setFormError("กรุณากรอก Username และชื่อแสดงผลให้ครบ");
       return;
     }
-    const duplicate = dbUsers.find(
-      u => u.username === formData.username.trim() && u.id !== editingUser?.id
-    );
-    if (duplicate) { setFormError("Username นี้มีในระบบแล้ว"); return; }
+    if (!editingUser) {
+      const duplicate = dbUsers.find(u => u.username === formData.username.trim());
+      if (duplicate) { setFormError("Username นี้มีในระบบแล้ว"); return; }
+    }
 
     if (editingUser) {
       const { error } = await apiFetch("/api/profiles", {
         method: "PUT",
         body: JSON.stringify({
           id: editingUser.id,
-          username: formData.username.trim(),
           displayName: formData.displayName.trim(),
           role: formData.role,
           studentLevel: formData.studentLevel,

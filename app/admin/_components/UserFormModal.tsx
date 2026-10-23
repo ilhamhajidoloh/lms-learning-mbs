@@ -52,12 +52,21 @@ export function UserFormModal({
           <input
             type="text"
             value={formData.username}
-            onChange={e => { setFormData(p => ({ ...p, username: e.target.value })); setFormError(null); }}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500 bg-transparent text-sm"
+            readOnly={Boolean(editingUser)}
+            onChange={e => {
+              if (!editingUser) {
+                setFormData(p => ({ ...p, username: e.target.value }));
+                setFormError(null);
+              }
+            }}
+            className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm ${editingUser ? "cursor-not-allowed opacity-70" : "bg-transparent"}`}
             style={{ borderColor: tx.border, color: tx.primary }}
             placeholder="เช่น student01"
             required
           />
+          {editingUser && (
+            <p className="text-xs" style={{ color: tx.muted }}>Username ไม่สามารถแก้ไขได้</p>
+          )}
         </div>
 
         {/* Display Name */}

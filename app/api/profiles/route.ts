@@ -40,14 +40,14 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  if (username !== undefined) {
+    return Response.json({ error: "Username ไม่สามารถแก้ไขได้" }, { status: 400 });
+  }
+
   const provider = getDbProvider();
   const updates: string[] = [];
   const binds: Record<string, unknown> = { id: targetId };
 
-  if (username !== undefined) {
-    updates.push("username");
-    binds.username = username.trim();
-  }
   if (displayName !== undefined) {
     updates.push("display_name");
     binds.displayName = displayName.trim();
@@ -93,10 +93,6 @@ export async function PUT(request: Request) {
     const values: unknown[] = [];
     let idx = 1;
 
-    if (username !== undefined) {
-      fields.push(`username = $${idx++}`);
-      values.push(username.trim());
-    }
     if (displayName !== undefined) {
       fields.push(`display_name = $${idx++}`);
       values.push(displayName.trim());
